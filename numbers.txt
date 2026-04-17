@@ -1,0 +1,933 @@
+
+
+   ██  ██  ██  █ █  ██ █  ███  ██ ███
+    █   █   ██ ███  █  ██   █ ███ ███
+   ███  ██ ██    █ ██  ██   █ ███   █
+
+*=========*=========*=========*=========*=========*=========*=========*=========*=========*
+| 1   2   3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|           |         |         |         |         |         |         |         |         |
+| 4   5   6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|           |         |         |         |         |         |         |         |         |
+| 7   8   9 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*---------+---------+---------+---------+---------+---------+---------+---------+---------*
+| 1  2  3 | 1   2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|         |         |         |         |         |         |         |         |         |
+| 4  5  6 | 4   5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|         |         |         |         |         |         |         |         |         |
+| 7  8  9 | 4   5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*---------+---------+---------+---------+---------+---------+---------+---------+---------*
+| 1  2  3 | 1   2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|         |         |         |         |         |         |         |         |         |
+| 4  5  6 | 4   5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|         |         |         |         |         |         |         |         |         |
+| 7  8  9 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*=========*=========*=========*=========*=========*=========*=========*=========*=========*
+| 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|         |         |         |         |         |         |         |         |         |
+| 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|         |         |         |         |         |         |         |         |         |
+| 7  8  9 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*---------+---------+---------+---------+---------+---------+---------+---------+---------*
+| 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|         |         |         |         |         |         |         |         |         |
+| 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|         |         |         |         |         |         |         |         |         |
+| 7  8  9 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*---------+---------+---------+---------+---------+---------+---------+---------+---------*
+| 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|         |         |         |         |         |         |         |         |         |
+| 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|         |         |         |         |         |         |         |         |         |
+| 7  8  9 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*=========*=========*=========*=========*=========*=========*=========*=========*=========*
+| 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|         |         |         |         |         |         |         |         |         |
+| 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|         |         |         |         |         |         |         |         |         |
+| 7  8  9 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*---------+---------+---------+---------+---------+---------+---------+---------+---------*
+| 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|         |         |         |         |         |         |         |         |         |
+| 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|         |         |         |         |         |         |         |         |         |
+| 7  8  9 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*---------+---------+---------+---------+---------+---------+---------+---------+---------*
+| 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 | 1  2  3 |
+|         |         |         |         |         |         |         |         |         |
+| 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+|         |         |         |         |         |         |         |         |         |
+| 7  8  9 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 | 4  5  6 |
+*=========*=========*=========*=========*=========*=========*=========*=========*=========*
+
+
+╔═══════╤═══════╤═══════╤═══════╤═══════╤═══════╤═══════╤═══════╤═══════╗
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟━━━━━━━┿━━━━━━━┿━━━━━━━╋━━━━━━━┿━━━━━━━┿━━━━━━━╋━━━━━━━┿━━━━━━━┿━━━━━━━╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟━━━━━━━┿━━━━━━━┿━━━━━━━╋━━━━━━━┿━━━━━━━┿━━━━━━━╋━━━━━━━┿━━━━━━━┿━━━━━━━╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╚═══════╧═══════╧═══════╧═══════╧═══════╧═══════╧═══════╧═══════╧═══════╝
+╔═══════╤═══════╤═══════╤═══════╤═══════╤═══════╤═══════╤═══════╤═══════╗
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │  ▞▀▚  │ 1 2 3 ┃ 1 2 3 │  ▗▐   │ 1 2 3 ┃ 1 2 3 │  ▌ ▐  │ 1 2 3 ║
+║ 4 5 6 │    ▚  │ 4 5 6 ┃ 4 5 6 │   ▐   │ 4 5 6 ┃ 4 5 6 │  ▀▀▜  │ 4 5 6 ║
+║ 7 8 9 │  ▚▄▞  │ 7 8 9 ┃ 7 8 9 │   ▐   │ 7 8 9 ┃ 7 8 9 │    ▐  │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟━━━━━━━┿━━━━━━━┿━━━━━━━╋━━━━━━━┿━━━━━━━┿━━━━━━━╋━━━━━━━┿━━━━━━━┿━━━━━━━╢
+║ 1 2 3 │ 1 2 3 │  ▞▀▚  ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │   ▞   ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │  ▟▄▄  ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │  ▞▀▚  ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │  ▚▄▞  ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │  ▚▄▞  ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │  ▞▀▚  ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │  ▚▄▞  ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │   ▞   ║
+╟━━━━━━━┿━━━━━━━┿━━━━━━━╋━━━━━━━┿━━━━━━━┿━━━━━━━╋━━━━━━━┿━━━━━━━┿━━━━━━━╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │  ▛▀▀  │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │  ▀▀▚  │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │  ▚▄▞  │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │  ▞▀   │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ║
+║ 4 5 6 │  ▛▀▚  │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ║
+║ 7 8 9 │  ▚▄▞  │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ║
+╟───────┼───────┼───────╂───────┼───────┼───────╂───────┼───────┼───────╢
+║ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │ 1 2 3 │ 1 2 3 ┃ 1 2 3 │  ▀▀▞  │ 1 2 3 ║
+║ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │ 4 5 6 │ 4 5 6 ┃ 4 5 6 │   ▞   │ 4 5 6 ║
+║ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │ 7 8 9 │ 7 8 9 ┃ 7 8 9 │  ▞    │ 7 8 9 ║
+╚═══════╧═══════╧═══════╧═══════╧═══════╧═══════╧═══════╧═══════╧═══════╝
+
+
+▗▐
+ ▐
+ ▐
+
+▞▀▚           
+ ▞  
+▟▄▄           
+
+▞▀▚  ▞▀▚ 
+ ▀▚    ▚ 
+▚▄▞  ▚▄▞ 
+
+▌ ▐
+▀▀▜    
+  ▐
+
+▛▀▀
+▀▀▚
+▚▄▞
+
+▞▀▀  ▞▀   ▞
+▛▀▚  ▛▀▚  ▛▀▚
+▚▄▞  ▚▄▞  ▚▄▞
+
+▀▀▞
+ ▞
+▞
+
+▞▀▚
+▚▄▞
+▚▄▞
+
+▞▀▚  ▞▀▚  ▞▀▚ 
+▚▄▞  ▚▄▞  ▚▄▞
+ ▄▞   ▞   ▄▄▞
+
+
+
+▗▐
+ ▐
+ ▐
+
+▞▀▚           
+ ▞  
+▟▄▄           
+
+▞▀▚ 
+  ▚ 
+▚▄▞ 
+
+▌ ▐
+▀▀▜    
+  ▐
+
+▛▀▀
+▀▀▚
+▚▄▞
+
+▞▀ 
+▛▀▚
+▚▄▞
+
+▀▀▞
+ ▞
+▞
+
+▞▀▚
+▚▄▞
+▚▄▞
+
+▞▀▚ 
+▚▄▞
+ ▞ 
+
+
+
+
+BOX DRAWINGS
+Char	Dec	Hex	Entity	Name
+─	9472	2500	 	BOX DRAWINGS LIGHT HORIZONTAL
+━	9473	2501	 	BOX DRAWINGS HEAVY HORIZONTAL
+│	9474	2502	 	BOX DRAWINGS LIGHT VERTICAL
+┃	9475	2503	 	BOX DRAWINGS HEAVY VERTICAL
+┄	9476	2504	 	BOX DRAWINGS LIGHT TRIPLE DASH HORIZONTAL
+┅	9477	2505	 	BOX DRAWINGS HEAVY TRIPLE DASH HORIZONTAL
+┆	9478	2506	 	BOX DRAWINGS LIGHT TRIPLE DASH VERTICAL
+┇	9479	2507	 	BOX DRAWINGS HEAVY TRIPLE DASH VERTICAL
+┈	9480	2508	 	BOX DRAWINGS LIGHT QUADRUPLE DASH HORIZONTAL
+┉	9481	2509	 	BOX DRAWINGS HEAVY QUADRUPLE DASH HORIZONTAL
+┊	9482	250A	 	BOX DRAWINGS LIGHT QUADRUPLE DASH VERTICAL
+┋	9483	250B	 	BOX DRAWINGS HEAVY QUADRUPLE DASH VERTICAL
+┌	9484	250C	 	BOX DRAWINGS LIGHT DOWN AND RIGHT
+┍	9485	250D	 	BOX DRAWINGS DOWN LIGHT AND RIGHT HEAVY
+┎	9486	250E	 	BOX DRAWINGS DOWN HEAVY AND RIGHT LIGHT
+┏	9487	250F	 	BOX DRAWINGS HEAVY DOWN AND RIGHT
+┐	9488	2510	 	BOX DRAWINGS LIGHT DOWN AND LEFT
+┑	9489	2511	 	BOX DRAWINGS DOWN LIGHT AND LEFT HEAVY
+┒	9490	2512	 	BOX DRAWINGS DOWN HEAVY AND LEFT LIGHT
+┓	9491	2513	 	BOX DRAWINGS HEAVY DOWN AND LEFT
+└	9492	2514	 	BOX DRAWINGS LIGHT UP AND RIGHT
+┕	9493	2515	 	BOX DRAWINGS UP LIGHT AND RIGHT HEAVY
+┖	9494	2516	 	BOX DRAWINGS UP HEAVY AND RIGHT LIGHT
+┗	9495	2517	 	BOX DRAWINGS HEAVY UP AND RIGHT
+┘	9496	2518	 	BOX DRAWINGS LIGHT UP AND LEFT
+┙	9497	2519	 	BOX DRAWINGS UP LIGHT AND LEFT HEAVY
+┚	9498	251A	 	BOX DRAWINGS UP HEAVY AND LEFT LIGHT
+┛	9499	251B	 	BOX DRAWINGS HEAVY UP AND LEFT
+├	9500	251C	 	BOX DRAWINGS LIGHT VERTICAL AND RIGHT
+┝	9501	251D	 	BOX DRAWINGS VERTICAL LIGHT AND RIGHT HEAVY
+┞	9502	251E	 	BOX DRAWINGS UP HEAVY AND RIGHT DOWN LIGHT
+┟	9503	251F	 	BOX DRAWINGS DOWN HEAVY AND RIGHT UP LIGHT
+┠	9504	2520	 	BOX DRAWINGS VERTICAL HEAVY AND RIGHT LIGHT
+┡	9505	2521	 	BOX DRAWINGS DOWN LIGHT AND RIGHT UP HEAVY
+┢	9506	2522	 	BOX DRAWINGS UP LIGHT AND RIGHT DOWN HEAVY
+┣	9507	2523	 	BOX DRAWINGS HEAVY VERTICAL AND RIGHT
+┤	9508	2524	 	BOX DRAWINGS LIGHT VERTICAL AND LEFT
+┥	9509	2525	 	BOX DRAWINGS VERTICAL LIGHT AND LEFT HEAVY
+┦	9510	2526	 	BOX DRAWINGS UP HEAVY AND LEFT DOWN LIGHT
+┧	9511	2527	 	BOX DRAWINGS DOWN HEAVY AND LEFT UP LIGHT
+┨	9512	2528	 	BOX DRAWINGS VERTICAL HEAVY AND LEFT LIGHT
+┩	9513	2529	 	BOX DRAWINGS DOWN LIGHT AND LEFT UP HEAVY
+┪	9514	252A	 	BOX DRAWINGS UP LIGHT AND LEFT DOWN HEAVY
+┫	9515	252B	 	BOX DRAWINGS HEAVY VERTICAL AND LEFT
+┬	9516	252C	 	BOX DRAWINGS LIGHT DOWN AND HORIZONTAL
+┭	9517	252D	 	BOX DRAWINGS LEFT HEAVY AND RIGHT DOWN LIGHT
+┮	9518	252E	 	BOX DRAWINGS RIGHT HEAVY AND LEFT DOWN LIGHT
+┯	9519	252F	 	BOX DRAWINGS DOWN LIGHT AND HORIZONTAL HEAVY
+┰	9520	2530	 	BOX DRAWINGS DOWN HEAVY AND HORIZONTAL LIGHT
+┱	9521	2531	 	BOX DRAWINGS RIGHT LIGHT AND LEFT DOWN HEAVY
+┲	9522	2532	 	BOX DRAWINGS LEFT LIGHT AND RIGHT DOWN HEAVY
+┳	9523	2533	 	BOX DRAWINGS HEAVY DOWN AND HORIZONTAL
+┴	9524	2534	 	BOX DRAWINGS LIGHT UP AND HORIZONTAL
+┵	9525	2535	 	BOX DRAWINGS LEFT HEAVY AND RIGHT UP LIGHT
+┶	9526	2536	 	BOX DRAWINGS RIGHT HEAVY AND LEFT UP LIGHT
+┷	9527	2537	 	BOX DRAWINGS UP LIGHT AND HORIZONTAL HEAVY
+┸	9528	2538	 	BOX DRAWINGS UP HEAVY AND HORIZONTAL LIGHT
+┹	9529	2539	 	BOX DRAWINGS RIGHT LIGHT AND LEFT UP HEAVY
+┺	9530	253A	 	BOX DRAWINGS LEFT LIGHT AND RIGHT UP HEAVY
+┻	9531	253B	 	BOX DRAWINGS HEAVY UP AND HORIZONTAL
+┼	9532	253C	 	BOX DRAWINGS LIGHT VERTICAL AND HORIZONTAL
+┽	9533	253D	 	BOX DRAWINGS LEFT HEAVY AND RIGHT VERTICAL LIGHT
+┾	9534	253E	 	BOX DRAWINGS RIGHT HEAVY AND LEFT VERTICAL LIGHT
+┿	9535	253F	 	BOX DRAWINGS VERTICAL LIGHT AND HORIZONTAL HEAVY
+╀	9536	2540	 	BOX DRAWINGS UP HEAVY AND DOWN HORIZONTAL LIGHT
+╁	9537	2541	 	BOX DRAWINGS DOWN HEAVY AND UP HORIZONTAL LIGHT
+╂	9538	2542	 	BOX DRAWINGS VERTICAL HEAVY AND HORIZONTAL LIGHT
+╃	9539	2543	 	BOX DRAWINGS LEFT UP HEAVY AND RIGHT DOWN LIGHT
+╄	9540	2544	 	BOX DRAWINGS RIGHT UP HEAVY AND LEFT DOWN LIGHT
+╅	9541	2545	 	BOX DRAWINGS LEFT DOWN HEAVY AND RIGHT UP LIGHT
+╆	9542	2546	 	BOX DRAWINGS RIGHT DOWN HEAVY AND LEFT UP LIGHT
+╇	9543	2547	 	BOX DRAWINGS DOWN LIGHT AND UP HORIZONTAL HEAVY
+╈	9544	2548	 	BOX DRAWINGS UP LIGHT AND DOWN HORIZONTAL HEAVY
+╉	9545	2549	 	BOX DRAWINGS RIGHT LIGHT AND LEFT VERTICAL HEAVY
+╊	9546	254A	 	BOX DRAWINGS LEFT LIGHT AND RIGHT VERTICAL HEAVY
+╋	9547	254B	 	BOX DRAWINGS HEAVY VERTICAL AND HORIZONTAL
+╌	9548	254C	 	BOX DRAWINGS LIGHT DOUBLE DASH HORIZONTAL
+╍	9549	254D	 	BOX DRAWINGS HEAVY DOUBLE DASH HORIZONTAL
+╎	9550	254E	 	BOX DRAWINGS LIGHT DOUBLE DASH VERTICAL
+╏	9551	254F	 	BOX DRAWINGS HEAVY DOUBLE DASH VERTICAL
+═	9552	2550	 	BOX DRAWINGS DOUBLE HORIZONTAL
+║	9553	2551	 	BOX DRAWINGS DOUBLE VERTICAL
+╒	9554	2552	 	BOX DRAWINGS DOWN SINGLE AND RIGHT DOUBLE
+╓	9555	2553	 	BOX DRAWINGS DOWN DOUBLE AND RIGHT SINGLE
+╔	9556	2554	 	BOX DRAWINGS DOUBLE DOWN AND RIGHT
+╕	9557	2555	 	BOX DRAWINGS DOWN SINGLE AND LEFT DOUBLE
+╖	9558	2556	 	BOX DRAWINGS DOWN DOUBLE AND LEFT SINGLE
+╗	9559	2557	 	BOX DRAWINGS DOUBLE DOWN AND LEFT
+╘	9560	2558	 	BOX DRAWINGS UP SINGLE AND RIGHT DOUBLE
+╙	9561	2559	 	BOX DRAWINGS UP DOUBLE AND RIGHT SINGLE
+╚	9562	255A	 	BOX DRAWINGS DOUBLE UP AND RIGHT
+╛	9563	255B	 	BOX DRAWINGS UP SINGLE AND LEFT DOUBLE
+╜	9564	255C	 	BOX DRAWINGS UP DOUBLE AND LEFT SINGLE
+╝	9565	255D	 	BOX DRAWINGS DOUBLE UP AND LEFT
+╞	9566	255E	 	BOX DRAWINGS VERTICAL SINGLE AND RIGHT DOUBLE
+╟	9567	255F	 	BOX DRAWINGS VERTICAL DOUBLE AND RIGHT SINGLE
+╠	9568	2560	 	BOX DRAWINGS DOUBLE VERTICAL AND RIGHT
+╡	9569	2561	 	BOX DRAWINGS VERTICAL SINGLE AND LEFT DOUBLE
+╢	9570	2562	 	BOX DRAWINGS VERTICAL DOUBLE AND LEFT SINGLE
+╣	9571	2563	 	BOX DRAWINGS DOUBLE VERTICAL AND LEFT
+╤	9572	2564	 	BOX DRAWINGS DOWN SINGLE AND HORIZONTAL DOUBLE
+╥	9573	2565	 	BOX DRAWINGS DOWN DOUBLE AND HORIZONTAL SINGLE
+╦	9574	2566	 	BOX DRAWINGS DOUBLE DOWN AND HORIZONTAL
+╧	9575	2567	 	BOX DRAWINGS UP SINGLE AND HORIZONTAL DOUBLE
+╨	9576	2568	 	BOX DRAWINGS UP DOUBLE AND HORIZONTAL SINGLE
+╩	9577	2569	 	BOX DRAWINGS DOUBLE UP AND HORIZONTAL
+╪	9578	256A	 	BOX DRAWINGS VERTICAL SINGLE AND HORIZONTAL DOUBLE
+╫	9579	256B	 	BOX DRAWINGS VERTICAL DOUBLE AND HORIZONTAL SINGLE
+╬	9580	256C	 	BOX DRAWINGS DOUBLE VERTICAL AND HORIZONTAL
+╭	9581	256D	 	BOX DRAWINGS LIGHT ARC DOWN AND RIGHT
+╮	9582	256E	 	BOX DRAWINGS LIGHT ARC DOWN AND LEFT
+╯	9583	256F	 	BOX DRAWINGS LIGHT ARC UP AND LEFT
+╰	9584	2570	 	BOX DRAWINGS LIGHT ARC UP AND RIGHT
+╱	9585	2571	 	BOX DRAWINGS LIGHT DIAGONAL UPPER RIGHT TO LOWER LEFT
+╲	9586	2572	 	BOX DRAWINGS LIGHT DIAGONAL UPPER LEFT TO LOWER RIGHT
+╳	9587	2573	 	BOX DRAWINGS LIGHT DIAGONAL CROSS
+╴	9588	2574	 	BOX DRAWINGS LIGHT LEFT
+╵	9589	2575	 	BOX DRAWINGS LIGHT UP
+╶	9590	2576	 	BOX DRAWINGS LIGHT RIGHT
+╷	9591	2577	 	BOX DRAWINGS LIGHT DOWN
+╸	9592	2578	 	BOX DRAWINGS HEAVY LEFT
+╹	9593	2579	 	BOX DRAWINGS HEAVY UP
+╺	9594	257A	 	BOX DRAWINGS HEAVY RIGHT
+╻	9595	257B	 	BOX DRAWINGS HEAVY DOWN
+╼	9596	257C	 	BOX DRAWINGS LIGHT LEFT AND HEAVY RIGHT
+╽	9597	257D	 	BOX DRAWINGS LIGHT UP AND HEAVY DOWN
+╾	9598	257E	 	BOX DRAWINGS HEAVY LEFT AND LIGHT RIGHT
+╿	9599	257F	 	BOX DRAWINGS HEAVY UP AND LIGHT DOWN
+
+
+BLOCK ELEMENTS
+▀	9600	2580	 	UPPER HALF BLOCK
+▁	9601	2581	 	LOWER ONE EIGHTH BLOCK
+▂	9602	2582	 	LOWER ONE QUARTER BLOCK
+▃	9603	2583	 	LOWER THREE EIGHTHS BLOCK
+▄	9604	2584	 	LOWER HALF BLOCK
+▅	9605	2585	 	LOWER FIVE EIGHTHS BLOCK
+▆	9606	2586	 	LOWER THREE QUARTERS BLOCK
+▇	9607	2587	 	LOWER SEVEN EIGHTHS BLOCK
+█	9608	2588	 	FULL BLOCK
+▉	9609	2589	 	LEFT SEVEN EIGHTHS BLOCK
+▊	9610	258A	 	LEFT THREE QUARTERS BLOCK
+▋	9611	258B	 	LEFT FIVE EIGHTHS BLOCK
+▌	9612	258C	 	LEFT HALF BLOCK
+▍	9613	258D	 	LEFT THREE EIGHTHS BLOCK
+▎	9614	258E	 	LEFT ONE QUARTER BLOCK
+▏	9615	258F	 	LEFT ONE EIGHTH BLOCK
+▐	9616	2590	 	RIGHT HALF BLOCK
+░	9617	2591	 	LIGHT SHADE
+▒	9618	2592	 	MEDIUM SHADE
+▓	9619	2593	 	DARK SHADE
+▔	9620	2594	 	UPPER ONE EIGHTH BLOCK
+▕	9621	2595	 	RIGHT ONE EIGHTH BLOCK
+▖	9622	2596	 	QUADRANT LOWER LEFT
+▗	9623	2597	 	QUADRANT LOWER RIGHT
+▘	9624	2598	 	QUADRANT UPPER LEFT
+▙	9625	2599	 	QUADRANT UPPER LEFT AND LOWER LEFT AND LOWER RIGHT
+▚	9626	259A	 	QUADRANT UPPER LEFT AND LOWER RIGHT
+▛	9627	259B	 	QUADRANT UPPER LEFT AND UPPER RIGHT AND LOWER LEFT
+▜	9628	259C	 	QUADRANT UPPER LEFT AND UPPER RIGHT AND LOWER RIGHT
+▝	9629	259D	 	QUADRANT UPPER RIGHT
+▞	9630	259E	 	QUADRANT UPPER RIGHT AND LOWER LEFT
+▟	9631	259F	 	QUADRANT UPPER RIGHT AND LOWER LEFT AND LOWER RIGHT
+
+
+GEOMETRIC SHAPES
+■	9632	25A0	 	BLACK SQUARE
+□	9633	25A1	 	WHITE SQUARE
+▢	9634	25A2	 	WHITE SQUARE WITH ROUNDED CORNERS
+▣	9635	25A3	 	WHITE SQUARE CONTAINING BLACK SMALL SQUARE
+▤	9636	25A4	 	SQUARE WITH HORIZONTAL FILL
+▥	9637	25A5	 	SQUARE WITH VERTICAL FILL
+▦	9638	25A6	 	SQUARE WITH ORTHOGONAL CROSSHATCH FILL
+▧	9639	25A7	 	SQUARE WITH UPPER LEFT TO LOWER RIGHT FILL
+▨	9640	25A8	 	SQUARE WITH UPPER RIGHT TO LOWER LEFT FILL
+▩	9641	25A9	 	SQUARE WITH DIAGONAL CROSSHATCH FILL
+▪	9642	25AA	 	BLACK SMALL SQUARE
+▫	9643	25AB	 	WHITE SMALL SQUARE
+▬	9644	25AC	 	BLACK RECTANGLE
+▭	9645	25AD	 	WHITE RECTANGLE
+▮	9646	25AE	 	BLACK VERTICAL RECTANGLE
+▯	9647	25AF	 	WHITE VERTICAL RECTANGLE
+▰	9648	25B0	 	BLACK PARALLELOGRAM
+▱	9649	25B1	 	WHITE PARALLELOGRAM
+▲	9650	25B2	 	BLACK UP-POINTING TRIANGLE
+△	9651	25B3	 	WHITE UP-POINTING TRIANGLE
+▴	9652	25B4	 	BLACK UP-POINTING SMALL TRIANGLE
+▵	9653	25B5	 	WHITE UP-POINTING SMALL TRIANGLE
+▶	9654	25B6	 	BLACK RIGHT-POINTING TRIANGLE
+▷	9655	25B7	 	WHITE RIGHT-POINTING TRIANGLE
+▸	9656	25B8	 	BLACK RIGHT-POINTING SMALL TRIANGLE
+▹	9657	25B9	 	WHITE RIGHT-POINTING SMALL TRIANGLE
+►	9658	25BA	 	BLACK RIGHT-POINTING POINTER
+▻	9659	25BB	 	WHITE RIGHT-POINTING POINTER
+▼	9660	25BC	 	BLACK DOWN-POINTING TRIANGLE
+▽	9661	25BD	 	WHITE DOWN-POINTING TRIANGLE
+▾	9662	25BE	 	BLACK DOWN-POINTING SMALL TRIANGLE
+▿	9663	25BF	 	WHITE DOWN-POINTING SMALL TRIANGLE
+◀	9664	25C0	 	BLACK LEFT-POINTING TRIANGLE
+◁	9665	25C1	 	WHITE LEFT-POINTING TRIANGLE
+◂	9666	25C2	 	BLACK LEFT-POINTING SMALL TRIANGLE
+◃	9667	25C3	 	WHITE LEFT-POINTING SMALL TRIANGLE
+◄	9668	25C4	 	BLACK LEFT-POINTING POINTER
+◅	9669	25C5	 	WHITE LEFT-POINTING POINTER
+◆	9670	25C6	 	BLACK DIAMOND
+◇	9671	25C7	 	WHITE DIAMOND
+◈	9672	25C8	 	WHITE DIAMOND CONTAINING BLACK SMALL DIAMOND
+◉	9673	25C9	 	FISHEYE
+◊	9674	25CA	&loz;	LOZENGE
+○	9675	25CB	 	WHITE CIRCLE
+◌	9676	25CC	 	DOTTED CIRCLE
+◍	9677	25CD	 	CIRCLE WITH VERTICAL FILL
+◎	9678	25CE	 	BULLSEYE
+●	9679	25CF	 	BLACK CIRCLE
+◐	9680	25D0	 	CIRCLE WITH LEFT HALF BLACK
+◑	9681	25D1	 	CIRCLE WITH RIGHT HALF BLACK
+◒	9682	25D2	 	CIRCLE WITH LOWER HALF BLACK
+◓	9683	25D3	 	CIRCLE WITH UPPER HALF BLACK
+◔	9684	25D4	 	CIRCLE WITH UPPER RIGHT QUADRANT BLACK
+◕	9685	25D5	 	CIRCLE WITH ALL BUT UPPER LEFT QUADRANT BLACK
+◖	9686	25D6	 	LEFT HALF BLACK CIRCLE
+◗	9687	25D7	 	RIGHT HALF BLACK CIRCLE
+◘	9688	25D8	 	INVERSE BULLET
+◙	9689	25D9	 	INVERSE WHITE CIRCLE
+◚	9690	25DA	 	UPPER HALF INVERSE WHITE CIRCLE
+◛	9691	25DB	 	LOWER HALF INVERSE WHITE CIRCLE
+◜	9692	25DC	 	UPPER LEFT QUADRANT CIRCULAR ARC
+◝	9693	25DD	 	UPPER RIGHT QUADRANT CIRCULAR ARC
+◞	9694	25DE	 	LOWER RIGHT QUADRANT CIRCULAR ARC
+◟	9695	25DF	 	LOWER LEFT QUADRANT CIRCULAR ARC
+◠	9696	25E0	 	UPPER HALF CIRCLE
+◡	9697	25E1	 	LOWER HALF CIRCLE
+◢	9698	25E2	 	BLACK LOWER RIGHT TRIANGLE
+◣	9699	25E3	 	BLACK LOWER LEFT TRIANGLE
+◤	9700	25E4	 	BLACK UPPER LEFT TRIANGLE
+◥	9701	25E5	 	BLACK UPPER RIGHT TRIANGLE
+◦	9702	25E6	 	WHITE BULLET
+◧	9703	25E7	 	SQUARE WITH LEFT HALF BLACK
+◨	9704	25E8	 	SQUARE WITH RIGHT HALF BLACK
+◩	9705	25E9	 	SQUARE WITH UPPER LEFT DIAGONAL HALF BLACK
+◪	9706	25EA	 	SQUARE WITH LOWER RIGHT DIAGONAL HALF BLACK
+◫	9707	25EB	 	WHITE SQUARE WITH VERTICAL BISECTING LINE
+◬	9708	25EC	 	WHITE UP-POINTING TRIANGLE WITH DOT
+◭	9709	25ED	 	UP-POINTING TRIANGLE WITH LEFT HALF BLACK
+◮	9710	25EE	 	UP-POINTING TRIANGLE WITH RIGHT HALF BLACK
+◯	9711	25EF	 	LARGE CIRCLE
+◰	9712	25F0	 	WHITE SQUARE WITH UPPER LEFT QUADRANT
+◱	9713	25F1	 	WHITE SQUARE WITH LOWER LEFT QUADRANT
+◲	9714	25F2	 	WHITE SQUARE WITH LOWER RIGHT QUADRANT
+◳	9715	25F3	 	WHITE SQUARE WITH UPPER RIGHT QUADRANT
+◴	9716	25F4	 	WHITE CIRCLE WITH UPPER LEFT QUADRANT
+◵	9717	25F5	 	WHITE CIRCLE WITH LOWER LEFT QUADRANT
+◶	9718	25F6	 	WHITE CIRCLE WITH LOWER RIGHT QUADRANT
+◷	9719	25F7	 	WHITE CIRCLE WITH UPPER RIGHT QUADRANT
+◸	9720	25F8	 	UPPER LEFT TRIANGLE
+◹	9721	25F9	 	UPPER RIGHT TRIANGLE
+◺	9722	25FA	 	LOWER LEFT TRIANGLE
+◻	9723	25FB	 	WHITE MEDIUM SQUARE
+◼	9724	25FC	 	BLACK MEDIUM SQUARE
+◽	9725	25FD	 	WHITE MEDIUM SMALL SQUARE
+◾	9726	25FE	 	BLACK MEDIUM SMALL SQUARE
+◿	9727	25FF	 	LOWER RIGHT TRIANGLE
+
+
+MISC SYMBOLS
+☀	9728	2600	 	BLACK SUN WITH RAYS
+☁	9729	2601	 	CLOUD
+☂	9730	2602	 	UMBRELLA
+☃	9731	2603	 	SNOWMAN
+☄	9732	2604	 	COMET
+★	9733	2605	 	BLACK STAR
+☆	9734	2606	 	WHITE STAR
+☇	9735	2607	 	LIGHTNING
+☈	9736	2608	 	THUNDERSTORM
+☉	9737	2609	 	SUN
+☊	9738	260A	 	ASCENDING NODE
+☋	9739	260B	 	DESCENDING NODE
+☌	9740	260C	 	CONJUNCTION
+☍	9741	260D	 	OPPOSITION
+☎	9742	260E	 	BLACK TELEPHONE
+☏	9743	260F	 	WHITE TELEPHONE
+☐	9744	2610	 	BALLOT BOX
+☑	9745	2611	 	BALLOT BOX WITH CHECK
+☒	9746	2612	 	BALLOT BOX WITH X
+☓	9747	2613	 	SALTIRE
+☔	9748	2614	 	UMBRELLA WITH RAIN DROPS
+☕	9749	2615	 	HOT BEVERAGE
+☖	9750	2616	 	WHITE SHOGI PIECE
+☗	9751	2617	 	BLACK SHOGI PIECE
+☘	9752	2618	 	SHAMROCK
+☙	9753	2619	 	REVERSED ROTATED FLORAL HEART BULLET
+☚	9754	261A	 	BLACK LEFT POINTING INDEX
+☛	9755	261B	 	BLACK RIGHT POINTING INDEX
+☜	9756	261C	 	WHITE LEFT POINTING INDEX
+☝	9757	261D	 	WHITE UP POINTING INDEX
+☞	9758	261E	 	WHITE RIGHT POINTING INDEX
+☟	9759	261F	 	WHITE DOWN POINTING INDEX
+☠	9760	2620	 	SKULL AND CROSSBONES
+☡	9761	2621	 	CAUTION SIGN
+☢	9762	2622	 	RADIOACTIVE SIGN
+☣	9763	2623	 	BIOHAZARD SIGN
+☤	9764	2624	 	CADUCEUS
+☥	9765	2625	 	ANKH
+☦	9766	2626	 	ORTHODOX CROSS
+☧	9767	2627	 	CHI RHO
+☨	9768	2628	 	CROSS OF LORRAINE
+☩	9769	2629	 	CROSS OF JERUSALEM
+☪	9770	262A	 	STAR AND CRESCENT
+☫	9771	262B	 	FARSI SYMBOL
+☬	9772	262C	 	KHANDA
+☭	9773	262D	 	HAMMER AND SICKLE
+☮	9774	262E	 	PEACE SYMBOL
+☯	9775	262F	 	YIN YANG
+☰	9776	2630	 	TRIGRAM FOR HEAVEN
+☱	9777	2631	 	TRIGRAM FOR LAKE
+☲	9778	2632	 	TRIGRAM FOR FIRE
+☳	9779	2633	 	TRIGRAM FOR THUNDER
+☴	9780	2634	 	TRIGRAM FOR WIND
+☵	9781	2635	 	TRIGRAM FOR WATER
+☶	9782	2636	 	TRIGRAM FOR MOUNTAIN
+☷	9783	2637	 	TRIGRAM FOR EARTH
+☸	9784	2638	 	WHEEL OF DHARMA
+☹	9785	2639	 	WHITE FROWNING FACE
+☺	9786	263A	 	WHITE SMILING FACE
+☻	9787	263B	 	BLACK SMILING FACE
+☼	9788	263C	 	WHITE SUN WITH RAYS
+☽	9789	263D	 	FIRST QUARTER MOON
+☾	9790	263E	 	LAST QUARTER MOON
+☿	9791	263F	 	MERCURY
+♀	9792	2640	 	FEMALE SIGN
+♁	9793	2641	 	EARTH
+♂	9794	2642	 	MALE SIGN
+♃	9795	2643	 	JUPITER
+♄	9796	2644	 	SATURN
+♅	9797	2645	 	URANUS
+♆	9798	2646	 	NEPTUNE
+♇	9799	2647	 	PLUTO
+♈	9800	2648	 	ARIES
+♉	9801	2649	 	TAURUS
+♊	9802	264A	 	GEMINI
+♋	9803	264B	 	CANCER
+♌	9804	264C	 	LEO
+♍	9805	264D	 	VIRGO
+♎	9806	264E	 	LIBRA
+♏	9807	264F	 	SCORPIUS
+♐	9808	2650	 	SAGITTARIUS
+♑	9809	2651	 	CAPRICORN
+♒	9810	2652	 	AQUARIUS
+♓	9811	2653	 	PISCES
+♔	9812	2654	 	WHITE CHESS KING
+♕	9813	2655	 	WHITE CHESS QUEEN
+♖	9814	2656	 	WHITE CHESS ROOK
+♗	9815	2657	 	WHITE CHESS BISHOP
+♘	9816	2658	 	WHITE CHESS KNIGHT
+♙	9817	2659	 	WHITE CHESS PAWN
+♚	9818	265A	 	BLACK CHESS KING
+♛	9819	265B	 	BLACK CHESS QUEEN
+♜	9820	265C	 	BLACK CHESS ROOK
+♝	9821	265D	 	BLACK CHESS BISHOP
+♞	9822	265E	 	BLACK CHESS KNIGHT
+♟	9823	265F	 	BLACK CHESS PAWN
+♠	9824	2660	&spades;	BLACK SPADE SUIT
+♡	9825	2661	 	WHITE HEART SUIT
+♢	9826	2662	 	WHITE DIAMOND SUIT
+♣	9827	2663	&clubs;	BLACK CLUB SUIT
+♤	9828	2664	 	WHITE SPADE SUIT
+♥	9829	2665	&hearts;	BLACK HEART SUIT
+♦	9830	2666	&diams;	BLACK DIAMOND SUIT
+♧	9831	2667	 	WHITE CLUB SUIT
+♨	9832	2668	 	HOT SPRINGS
+♩	9833	2669	 	QUARTER NOTE
+♪	9834	266A	 	EIGHTH NOTE
+♫	9835	266B	 	BEAMED EIGHTH NOTES
+♬	9836	266C	 	BEAMED SIXTEENTH NOTES
+♭	9837	266D	 	MUSIC FLAT SIGN
+♮	9838	266E	 	MUSIC NATURAL SIGN
+♯	9839	266F	 	MUSIC SHARP SIGN
+♰	9840	2670	 	WEST SYRIAC CROSS
+♱	9841	2671	 	EAST SYRIAC CROSS
+♲	9842	2672	 	UNIVERSAL RECYCLING SYMBOL
+♳	9843	2673	 	RECYCLING SYMBOL FOR TYPE-1 PLASTICS
+♴	9844	2674	 	RECYCLING SYMBOL FOR TYPE-2 PLASTICS
+♵	9845	2675	 	RECYCLING SYMBOL FOR TYPE-3 PLASTICS
+♶	9846	2676	 	RECYCLING SYMBOL FOR TYPE-4 PLASTICS
+♷	9847	2677	 	RECYCLING SYMBOL FOR TYPE-5 PLASTICS
+♸	9848	2678	 	RECYCLING SYMBOL FOR TYPE-6 PLASTICS
+♹	9849	2679	 	RECYCLING SYMBOL FOR TYPE-7 PLASTICS
+♺	9850	267A	 	RECYCLING SYMBOL FOR GENERIC MATERIALS
+♻	9851	267B	 	BLACK UNIVERSAL RECYCLING SYMBOL
+♼	9852	267C	 	RECYCLED PAPER SYMBOL
+♽	9853	267D	 	PARTIALLY-RECYCLED PAPER SYMBOL
+♾	9854	267E	 	PERMANENT PAPER SIGN
+♿	9855	267F	 	WHEELCHAIR SYMBOL
+⚀	9856	2680	 	DIE FACE-1
+⚁	9857	2681	 	DIE FACE-2
+⚂	9858	2682	 	DIE FACE-3
+⚃	9859	2683	 	DIE FACE-4
+⚄	9860	2684	 	DIE FACE-5
+⚅	9861	2685	 	DIE FACE-6
+⚆	9862	2686	 	WHITE CIRCLE WITH DOT RIGHT
+⚇	9863	2687	 	WHITE CIRCLE WITH TWO DOTS
+⚈	9864	2688	 	BLACK CIRCLE WITH WHITE DOT RIGHT
+⚉	9865	2689	 	BLACK CIRCLE WITH TWO WHITE DOTS
+⚊	9866	268A	 	MONOGRAM FOR YANG
+⚋	9867	268B	 	MONOGRAM FOR YIN
+⚌	9868	268C	 	DIGRAM FOR GREATER YANG
+⚍	9869	268D	 	DIGRAM FOR LESSER YIN
+⚎	9870	268E	 	DIGRAM FOR LESSER YANG
+⚏	9871	268F	 	DIGRAM FOR GREATER YIN
+⚐	9872	2690	 	WHITE FLAG
+⚑	9873	2691	 	BLACK FLAG
+⚒	9874	2692	 	HAMMER AND PICK
+⚓	9875	2693	 	ANCHOR
+⚔	9876	2694	 	CROSSED SWORDS
+⚕	9877	2695	 	STAFF OF AESCULAPIUS
+⚖	9878	2696	 	SCALES
+⚗	9879	2697	 	ALEMBIC
+⚘	9880	2698	 	FLOWER
+⚙	9881	2699	 	GEAR
+⚚	9882	269A	 	STAFF OF HERMES
+⚛	9883	269B	 	ATOM SYMBOL
+⚜	9884	269C	 	FLEUR-DE-LIS
+⚝	9885	269D	 	OUTLINED WHITE STAR
+⚞	9886	269E	 	THREE LINES CONVERGING RIGHT
+⚟	9887	269F	 	THREE LINES CONVERGING LEFT
+⚠	9888	26A0	 	WARNING SIGN
+⚡	9889	26A1	 	HIGH VOLTAGE SIGN
+⚢	9890	26A2	 	DOUBLED FEMALE SIGN
+⚣	9891	26A3	 	DOUBLED MALE SIGN
+⚤	9892	26A4	 	INTERLOCKED FEMALE AND MALE SIGN
+⚥	9893	26A5	 	MALE AND FEMALE SIGN
+⚦	9894	26A6	 	MALE WITH STROKE SIGN
+⚧	9895	26A7	 	MALE WITH STROKE AND MALE AND FEMALE SIGN
+⚨	9896	26A8	 	VERTICAL MALE WITH STROKE SIGN
+⚩	9897	26A9	 	HORIZONTAL MALE WITH STROKE SIGN
+⚪	9898	26AA	 	MEDIUM WHITE CIRCLE
+⚫	9899	26AB	 	MEDIUM BLACK CIRCLE
+⚬	9900	26AC	 	MEDIUM SMALL WHITE CIRCLE
+⚭	9901	26AD	 	MARRIAGE SYMBOL
+⚮	9902	26AE	 	DIVORCE SYMBOL
+⚯	9903	26AF	 	UNMARRIED PARTNERSHIP SYMBOL
+⚰	9904	26B0	 	COFFIN
+⚱	9905	26B1	 	FUNERAL URN
+⚲	9906	26B2	 	NEUTER
+⚳	9907	26B3	 	CERES
+⚴	9908	26B4	 	PALLAS
+⚵	9909	26B5	 	JUNO
+⚶	9910	26B6	 	VESTA
+⚷	9911	26B7	 	CHIRON
+⚸	9912	26B8	 	BLACK MOON LILITH
+⚹	9913	26B9	 	SEXTILE
+⚺	9914	26BA	 	SEMISEXTILE
+⚻	9915	26BB	 	QUINCUNX
+⚼	9916	26BC	 	SESQUIQUADRATE
+⚽	9917	26BD	 	SOCCER BALL
+⚾	9918	26BE	 	BASEBALL
+⚿	9919	26BF	 	SQUARED KEY
+⛀	9920	26C0	 	WHITE DRAUGHTS MAN
+⛁	9921	26C1	 	WHITE DRAUGHTS KING
+⛂	9922	26C2	 	BLACK DRAUGHTS MAN
+⛃	9923	26C3	 	BLACK DRAUGHTS KING
+⛄	9924	26C4	 	SNOWMAN WITHOUT SNOW
+⛅	9925	26C5	 	SUN BEHIND CLOUD
+⛆	9926	26C6	 	RAIN
+⛇	9927	26C7	 	BLACK SNOWMAN
+⛈	9928	26C8	 	THUNDER CLOUD AND RAIN
+⛉	9929	26C9	 	TURNED WHITE SHOGI PIECE
+⛊	9930	26CA	 	TURNED BLACK SHOGI PIECE
+⛋	9931	26CB	 	WHITE DIAMOND IN SQUARE
+⛌	9932	26CC	 	CROSSING LANES
+⛍	9933	26CD	 	DISABLED CAR
+⛎	9934	26CE	 	OPHIUCHUS
+⛏	9935	26CF	 	PICK
+⛐	9936	26D0	 	CAR SLIDING
+⛑	9937	26D1	 	HELMET WITH WHITE CROSS
+⛒	9938	26D2	 	CIRCLED CROSSING LANES
+⛓	9939	26D3	 	CHAINS
+⛔	9940	26D4	 	NO ENTRY
+⛕	9941	26D5	 	ALTERNATE ONE-WAY LEFT WAY TRAFFIC
+⛖	9942	26D6	 	BLACK TWO-WAY LEFT WAY TRAFFIC
+⛗	9943	26D7	 	WHITE TWO-WAY LEFT WAY TRAFFIC
+⛘	9944	26D8	 	BLACK LEFT LANE MERGE
+⛙	9945	26D9	 	WHITE LEFT LANE MERGE
+⛚	9946	26DA	 	DRIVE SLOW SIGN
+⛛	9947	26DB	 	HEAVY WHITE DOWN-POINTING TRIANGLE
+⛜	9948	26DC	 	LEFT CLOSED ENTRY
+⛝	9949	26DD	 	SQUARED SALTIRE
+⛞	9950	26DE	 	FALLING DIAGONAL IN WHITE CIRCLE IN BLACK SQUARE
+⛟	9951	26DF	 	BLACK TRUCK
+⛠	9952	26E0	 	RESTRICTED LEFT ENTRY-1
+⛡	9953	26E1	 	RESTRICTED LEFT ENTRY-2
+⛢	9954	26E2	 	ASTRONOMICAL SYMBOL FOR URANUS
+⛣	9955	26E3	 	HEAVY CIRCLE WITH STROKE AND TWO DOTS ABOVE
+⛤	9956	26E4	 	PENTAGRAM
+⛥	9957	26E5	 	RIGHT-HANDED INTERLACED PENTAGRAM
+⛦	9958	26E6	 	LEFT-HANDED INTERLACED PENTAGRAM
+⛧	9959	26E7	 	INVERTED PENTAGRAM
+⛨	9960	26E8	 	BLACK CROSS ON SHIELD
+⛩	9961	26E9	 	SHINTO SHRINE
+⛪	9962	26EA	 	CHURCH
+⛫	9963	26EB	 	CASTLE
+⛬	9964	26EC	 	HISTORIC SITE
+⛭	9965	26ED	 	GEAR WITHOUT HUB
+⛮	9966	26EE	 	GEAR WITH HANDLES
+⛯	9967	26EF	 	MAP SYMBOL FOR LIGHTHOUSE
+⛰	9968	26F0	 	MOUNTAIN
+⛱	9969	26F1	 	UMBRELLA ON GROUND
+⛲	9970	26F2	 	FOUNTAIN
+⛳	9971	26F3	 	FLAG IN HOLE
+⛴	9972	26F4	 	FERRY
+⛵	9973	26F5	 	SAILBOAT
+⛶	9974	26F6	 	SQUARE FOUR CORNERS
+⛷	9975	26F7	 	SKIER
+⛸	9976	26F8	 	ICE SKATE
+⛹	9977	26F9	 	PERSON WITH BALL
+⛺	9978	26FA	 	TENT
+⛻	9979	26FB	 	JAPANESE BANK SYMBOL
+⛼	9980	26FC	 	HEADSTONE GRAVEYARD SYMBOL
+⛽	9981	26FD	 	FUEL PUMP
+⛾	9982	26FE	 	CUP ON BLACK SQUARE
+⛿	9983	26FF	 	WHITE FLAG WITH HORIZONTAL MIDDLE BLACK STRIPE
+
+
+DINGBATS
+✁	9985	2701	 	UPPER BLADE SCISSORS
+✂	9986	2702	 	BLACK SCISSORS
+✃	9987	2703	 	LOWER BLADE SCISSORS
+✄	9988	2704	 	WHITE SCISSORS
+✅	9989	2705	 	WHITE HEAVY CHECK MARK
+✆	9990	2706	 	TELEPHONE LOCATION SIGN
+✇	9991	2707	 	TAPE DRIVE
+✈	9992	2708	 	AIRPLANE
+✉	9993	2709	 	ENVELOPE
+✊	9994	270A	 	RAISED FIST
+✋	9995	270B	 	RAISED HAND
+✌	9996	270C	 	VICTORY HAND
+✍	9997	270D	 	WRITING HAND
+✎	9998	270E	 	LOWER RIGHT PENCIL
+✏	9999	270F	 	PENCIL
+✐	10000	2710	 	UPPER RIGHT PENCIL
+✑	10001	2711	 	WHITE NIB
+✒	10002	2712	 	BLACK NIB
+✓	10003	2713	 	CHECK MARK
+✔	10004	2714	 	HEAVY CHECK MARK
+✕	10005	2715	 	MULTIPLICATION X
+✖	10006	2716	 	HEAVY MULTIPLICATION X
+✗	10007	2717	 	BALLOT X
+✘	10008	2718	 	HEAVY BALLOT X
+✙	10009	2719	 	OUTLINED GREEK CROSS
+✚	10010	271A	 	HEAVY GREEK CROSS
+✛	10011	271B	 	OPEN CENTRE CROSS
+✜	10012	271C	 	HEAVY OPEN CENTRE CROSS
+✝	10013	271D	 	LATIN CROSS
+✞	10014	271E	 	SHADOWED WHITE LATIN CROSS
+✟	10015	271F	 	OUTLINED LATIN CROSS
+✠	10016	2720	 	MALTESE CROSS
+✡	10017	2721	 	STAR OF DAVID
+✢	10018	2722	 	FOUR TEARDROP-SPOKED ASTERISK
+✣	10019	2723	 	FOUR BALLOON-SPOKED ASTERISK
+✤	10020	2724	 	HEAVY FOUR BALLOON-SPOKED ASTERISK
+✥	10021	2725	 	FOUR CLUB-SPOKED ASTERISK
+✦	10022	2726	 	BLACK FOUR POINTED STAR
+✧	10023	2727	 	WHITE FOUR POINTED STAR
+✨	10024	2728	 	SPARKLES
+✩	10025	2729	 	STRESS OUTLINED WHITE STAR
+✪	10026	272A	 	CIRCLED WHITE STAR
+✫	10027	272B	 	OPEN CENTRE BLACK STAR
+✬	10028	272C	 	BLACK CENTRE WHITE STAR
+✭	10029	272D	 	OUTLINED BLACK STAR
+✮	10030	272E	 	HEAVY OUTLINED BLACK STAR
+✯	10031	272F	 	PINWHEEL STAR
+✰	10032	2730	 	SHADOWED WHITE STAR
+✱	10033	2731	 	HEAVY ASTERISK
+✲	10034	2732	 	OPEN CENTRE ASTERISK
+✳	10035	2733	 	EIGHT SPOKED ASTERISK
+✴	10036	2734	 	EIGHT POINTED BLACK STAR
+✵	10037	2735	 	EIGHT POINTED PINWHEEL STAR
+✶	10038	2736	 	SIX POINTED BLACK STAR
+✷	10039	2737	 	EIGHT POINTED RECTILINEAR BLACK STAR
+✸	10040	2738	 	HEAVY EIGHT POINTED RECTILINEAR BLACK STAR
+✹	10041	2739	 	TWELVE POINTED BLACK STAR
+✺	10042	273A	 	SIXTEEN POINTED ASTERISK
+✻	10043	273B	 	TEARDROP-SPOKED ASTERISK
+✼	10044	273C	 	OPEN CENTRE TEARDROP-SPOKED ASTERISK
+✽	10045	273D	 	HEAVY TEARDROP-SPOKED ASTERISK
+✾	10046	273E	 	SIX PETALLED BLACK AND WHITE FLORETTE
+✿	10047	273F	 	BLACK FLORETTE
+❀	10048	2740	 	WHITE FLORETTE
+❁	10049	2741	 	EIGHT PETALLED OUTLINED BLACK FLORETTE
+❂	10050	2742	 	CIRCLED OPEN CENTRE EIGHT POINTED STAR
+❃	10051	2743	 	HEAVY TEARDROP-SPOKED PINWHEEL ASTERISK
+❄	10052	2744	 	SNOWFLAKE
+❅	10053	2745	 	TIGHT TRIFOLIATE SNOWFLAKE
+❆	10054	2746	 	HEAVY CHEVRON SNOWFLAKE
+❇	10055	2747	 	SPARKLE
+❈	10056	2748	 	HEAVY SPARKLE
+❉	10057	2749	 	BALLOON-SPOKED ASTERISK
+❊	10058	274A	 	EIGHT TEARDROP-SPOKED PROPELLER ASTERISK
+❋	10059	274B	 	HEAVY EIGHT TEARDROP-SPOKED PROPELLER ASTERISK
+❌	10060	274C	 	CROSS MARK
+❍	10061	274D	 	SHADOWED WHITE CIRCLE
+❎	10062	274E	 	NEGATIVE SQUARED CROSS MARK
+❏	10063	274F	 	LOWER RIGHT DROP-SHADOWED WHITE SQUARE
+❐	10064	2750	 	UPPER RIGHT DROP-SHADOWED WHITE SQUARE
+❑	10065	2751	 	LOWER RIGHT SHADOWED WHITE SQUARE
+❒	10066	2752	 	UPPER RIGHT SHADOWED WHITE SQUARE
+❓	10067	2753	 	BLACK QUESTION MARK ORNAMENT
+❔	10068	2754	 	WHITE QUESTION MARK ORNAMENT
+❕	10069	2755	 	WHITE EXCLAMATION MARK ORNAMENT
+❖	10070	2756	 	BLACK DIAMOND MINUS WHITE X
+❗	10071	2757	 	HEAVY EXCLAMATION MARK SYMBOL
+❘	10072	2758	 	LIGHT VERTICAL BAR
+❙	10073	2759	 	MEDIUM VERTICAL BAR
+❚	10074	275A	 	HEAVY VERTICAL BAR
+❛	10075	275B	 	HEAVY SINGLE TURNED COMMA QUOTATION MARK ORNAMENT
+❜	10076	275C	 	HEAVY SINGLE COMMA QUOTATION MARK ORNAMENT
+❝	10077	275D	 	HEAVY DOUBLE TURNED COMMA QUOTATION MARK ORNAMENT
+❞	10078	275E	 	HEAVY DOUBLE COMMA QUOTATION MARK ORNAMENT
+❟	10079	275F	 	HEAVY LOW SINGLE COMMA QUOTATION MARK ORNAMENT
+❠	10080	2760	 	HEAVY LOW DOUBLE COMMA QUOTATION MARK ORNAMENT
+❡	10081	2761	 	CURVED STEM PARAGRAPH SIGN ORNAMENT
+❢	10082	2762	 	HEAVY EXCLAMATION MARK ORNAMENT
+❣	10083	2763	 	HEAVY HEART EXCLAMATION MARK ORNAMENT
+❤	10084	2764	 	HEAVY BLACK HEART
+❥	10085	2765	 	ROTATED HEAVY BLACK HEART BULLET
+❦	10086	2766	 	FLORAL HEART
+❧	10087	2767	 	ROTATED FLORAL HEART BULLET
+❨	10088	2768	 	MEDIUM LEFT PARENTHESIS ORNAMENT
+❩	10089	2769	 	MEDIUM RIGHT PARENTHESIS ORNAMENT
+❪	10090	276A	 	MEDIUM FLATTENED LEFT PARENTHESIS ORNAMENT
+❫	10091	276B	 	MEDIUM FLATTENED RIGHT PARENTHESIS ORNAMENT
+❬	10092	276C	 	MEDIUM LEFT-POINTING ANGLE BRACKET ORNAMENT
+❭	10093	276D	 	MEDIUM RIGHT-POINTING ANGLE BRACKET ORNAMENT
+❮	10094	276E	 	HEAVY LEFT-POINTING ANGLE QUOTATION MARK ORNAMENT
+❯	10095	276F	 	HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT
+❰	10096	2770	 	HEAVY LEFT-POINTING ANGLE BRACKET ORNAMENT
+❱	10097	2771	 	HEAVY RIGHT-POINTING ANGLE BRACKET ORNAMENT
+❲	10098	2772	 	LIGHT LEFT TORTOISE SHELL BRACKET ORNAMENT
+❳	10099	2773	 	LIGHT RIGHT TORTOISE SHELL BRACKET ORNAMENT
+❴	10100	2774	 	MEDIUM LEFT CURLY BRACKET ORNAMENT
+❵	10101	2775	 	MEDIUM RIGHT CURLY BRACKET ORNAMENT
+❶	10102	2776	 	DINGBAT NEGATIVE CIRCLED DIGIT ONE
+❷	10103	2777	 	DINGBAT NEGATIVE CIRCLED DIGIT TWO
+❸	10104	2778	 	DINGBAT NEGATIVE CIRCLED DIGIT THREE
+❹	10105	2779	 	DINGBAT NEGATIVE CIRCLED DIGIT FOUR
+❺	10106	277A	 	DINGBAT NEGATIVE CIRCLED DIGIT FIVE
+❻	10107	277B	 	DINGBAT NEGATIVE CIRCLED DIGIT SIX
+❼	10108	277C	 	DINGBAT NEGATIVE CIRCLED DIGIT SEVEN
+❽	10109	277D	 	DINGBAT NEGATIVE CIRCLED DIGIT EIGHT
+❾	10110	277E	 	DINGBAT NEGATIVE CIRCLED DIGIT NINE
+❿	10111	277F	 	DINGBAT NEGATIVE CIRCLED NUMBER TEN
+➀	10112	2780	 	DINGBAT CIRCLED SANS-SERIF DIGIT ONE
+➁	10113	2781	 	DINGBAT CIRCLED SANS-SERIF DIGIT TWO
+➂	10114	2782	 	DINGBAT CIRCLED SANS-SERIF DIGIT THREE
+➃	10115	2783	 	DINGBAT CIRCLED SANS-SERIF DIGIT FOUR
+➄	10116	2784	 	DINGBAT CIRCLED SANS-SERIF DIGIT FIVE
+➅	10117	2785	 	DINGBAT CIRCLED SANS-SERIF DIGIT SIX
+➆	10118	2786	 	DINGBAT CIRCLED SANS-SERIF DIGIT SEVEN
+➇	10119	2787	 	DINGBAT CIRCLED SANS-SERIF DIGIT EIGHT
+➈	10120	2788	 	DINGBAT CIRCLED SANS-SERIF DIGIT NINE
+➉	10121	2789	 	DINGBAT CIRCLED SANS-SERIF NUMBER TEN
+➊	10122	278A	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT ONE
+➋	10123	278B	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT TWO
+➌	10124	278C	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT THREE
+➍	10125	278D	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT FOUR
+➎	10126	278E	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT FIVE
+➏	10127	278F	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT SIX
+➐	10128	2790	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT SEVEN
+➑	10129	2791	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT EIGHT
+➒	10130	2792	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF DIGIT NINE
+➓	10131	2793	 	DINGBAT NEGATIVE CIRCLED SANS-SERIF NUMBER TEN
+➔	10132	2794	 	HEAVY WIDE-HEADED RIGHTWARDS ARROW
+➕	10133	2795	 	HEAVY PLUS SIGN
+➖	10134	2796	 	HEAVY MINUS SIGN
+➗	10135	2797	 	HEAVY DIVISION SIGN
+➘	10136	2798	 	HEAVY SOUTH EAST ARROW
+➙	10137	2799	 	HEAVY RIGHTWARDS ARROW
+➚	10138	279A	 	HEAVY NORTH EAST ARROW
+➛	10139	279B	 	DRAFTING POINT RIGHTWARDS ARROW
+➜	10140	279C	 	HEAVY ROUND-TIPPED RIGHTWARDS ARROW
+➝	10141	279D	 	TRIANGLE-HEADED RIGHTWARDS ARROW
+➞	10142	279E	 	HEAVY TRIANGLE-HEADED RIGHTWARDS ARROW
+➟	10143	279F	 	DASHED TRIANGLE-HEADED RIGHTWARDS ARROW
+➠	10144	27A0	 	HEAVY DASHED TRIANGLE-HEADED RIGHTWARDS ARROW
+➡	10145	27A1	 	BLACK RIGHTWARDS ARROW
+➢	10146	27A2	 	THREE-D TOP-LIGHTED RIGHTWARDS ARROWHEAD
+➣	10147	27A3	 	THREE-D BOTTOM-LIGHTED RIGHTWARDS ARROWHEAD
+➤	10148	27A4	 	BLACK RIGHTWARDS ARROWHEAD
+➥	10149	27A5	 	HEAVY BLACK CURVED DOWNWARDS AND RIGHTWARDS ARROW
+➦	10150	27A6	 	HEAVY BLACK CURVED UPWARDS AND RIGHTWARDS ARROW
+➧	10151	27A7	 	SQUAT BLACK RIGHTWARDS ARROW
+➨	10152	27A8	 	HEAVY CONCAVE-POINTED BLACK RIGHTWARDS ARROW
+➩	10153	27A9	 	RIGHT-SHADED WHITE RIGHTWARDS ARROW
+➪	10154	27AA	 	LEFT-SHADED WHITE RIGHTWARDS ARROW
+➫	10155	27AB	 	BACK-TILTED SHADOWED WHITE RIGHTWARDS ARROW
+➬	10156	27AC	 	FRONT-TILTED SHADOWED WHITE RIGHTWARDS ARROW
+➭	10157	27AD	 	HEAVY LOWER RIGHT-SHADOWED WHITE RIGHTWARDS ARROW
+➮	10158	27AE	 	HEAVY UPPER RIGHT-SHADOWED WHITE RIGHTWARDS ARROW
+➯	10159	27AF	 	NOTCHED LOWER RIGHT-SHADOWED WHITE RIGHTWARDS ARROW
+➰	10160	27B0	 	CURLY LOOP
+➱	10161	27B1	 	NOTCHED UPPER RIGHT-SHADOWED WHITE RIGHTWARDS ARROW
+➲	10162	27B2	 	CIRCLED HEAVY WHITE RIGHTWARDS ARROW
+➳	10163	27B3	 	WHITE-FEATHERED RIGHTWARDS ARROW
+➴	10164	27B4	 	BLACK-FEATHERED SOUTH EAST ARROW
+➵	10165	27B5	 	BLACK-FEATHERED RIGHTWARDS ARROW
+➶	10166	27B6	 	BLACK-FEATHERED NORTH EAST ARROW
+➷	10167	27B7	 	HEAVY BLACK-FEATHERED SOUTH EAST ARROW
+➸	10168	27B8	 	HEAVY BLACK-FEATHERED RIGHTWARDS ARROW
+➹	10169	27B9	 	HEAVY BLACK-FEATHERED NORTH EAST ARROW
+➺	10170	27BA	 	TEARDROP-BARBED RIGHTWARDS ARROW
+➻	10171	27BB	 	HEAVY TEARDROP-SHANKED RIGHTWARDS ARROW
+➼	10172	27BC	 	WEDGE-TAILED RIGHTWARDS ARROW
+➽	10173	27BD	 	HEAVY WEDGE-TAILED RIGHTWARDS ARROW
+➾	10174	27BE	 	OPEN-OUTLINED RIGHTWARDS ARROW
+➿	10175	27BF	 	DOUBLE CURLY LOOP
