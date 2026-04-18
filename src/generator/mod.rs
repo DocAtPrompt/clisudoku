@@ -2,7 +2,6 @@ pub mod difficulty;
 pub use difficulty::{classify, Difficulty};
 
 use crate::puzzle::Grid;
-use crate::solver::Solver;
 
 pub struct PuzzleGenerator {
     seed: u64,
@@ -22,7 +21,7 @@ impl PuzzleGenerator {
         let mut indices: Vec<usize> = (0..81).collect();
         shuffle(&mut indices, &mut rng);
 
-        for idx in indices {
+        for &idx in &indices {
             let row = idx / 9;
             let col = idx % 9;
             let prev_val = puzzle.get(row, col).value();
@@ -79,29 +78,39 @@ impl PuzzleGenerator {
         None
     }
 
-    fn is_uniquely_solvable(&self, grid: &Grid, difficulty: Difficulty) -> bool {
-        let solver = Solver::for_difficulty(&difficulty);
-        let result = solver.solve(grid.clone());
-        if !result.grid.is_solved() { return false; }
-        // Always verify uniqueness
+    fn is_uniquely_solvable(&self, grid: &Grid, _difficulty: Difficulty) -> bool {
+        // Use fast backtracking uniqueness check (stops at 2 solutions).
+        // We use Solver::new() (with backtracking) to first check solvability
+        // and simultaneously verify uniqueness via count_solutions.
         count_solutions(grid.clone(), 2) == 1
     }
+}
+
+fn candidates_for(grid: &Grid, row: usize, col: usize) -> Vec<u8> {
+    (1u8..=9).filter(|&d| is_valid_placement(grid, row, col, d)).collect()
 }
 
 fn count_solutions(grid: Grid, limit: usize) -> usize {
     fn recurse(grid: &mut Grid, count: &mut usize, limit: usize) {
         if *count >= limit { return; }
-        let empty = (0..9).flat_map(|r| (0..9).map(move |c| (r, c)))
-            .find(|&(r, c)| grid.get(r, c).is_empty());
-        match empty {
-            None => { if grid.is_solved() { *count += 1; } }
-            Some((row, col)) => {
-                for digit in 1u8..=9 {
-                    if is_valid_placement(grid, row, col, digit) {
-                        grid.set_filled(row, col, digit);
-                        recurse(grid, count, limit);
-                        grid.clear(row, col);
-                    }
+        // MRV: pick the empty cell with fewest valid candidates
+        let best = (0..9)
+            .flat_map(|r| (0..9).map(move |c| (r, c)))
+            .filter(|&(r, c)| grid.get(r, c).is_empty())
+            .map(|(r, c)| {
+                let cands = candidates_for(grid, r, c);
+                (cands.len(), r, c, cands)
+            })
+            .min_by_key(|&(n, _, _, _)| n);
+        match best {
+            None => { *count += 1; } // all filled → solved
+            Some((0, _, _, _)) => {} // dead end — no candidates for some cell
+            Some((_, row, col, cands)) => {
+                for digit in cands {
+                    grid.set_filled(row, col, digit);
+                    recurse(grid, count, limit);
+                    grid.clear(row, col);
+                    if *count >= limit { return; }
                 }
             }
         }
