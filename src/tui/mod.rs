@@ -252,16 +252,12 @@ impl App {
 
     /// Main event loop. Renders, reads input, dispatches until quit.
     pub fn run(&mut self) -> io::Result<()> {
-        let mut terminal = Terminal::setup()?;
+        let _terminal = Terminal::setup()?;
         let mut out = BufWriter::new(std::io::stdout());
 
         loop {
             self.render_current(&mut out)?;
             out.flush()?;
-
-            if self.should_quit {
-                break;
-            }
 
             match event::read()? {
                 Event::Key(key) => {
@@ -277,7 +273,6 @@ impl App {
             }
         }
 
-        drop(terminal);
         Ok(())
     }
 
