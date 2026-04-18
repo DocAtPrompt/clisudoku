@@ -1,0 +1,49 @@
+// tests/tui_smoke.rs
+use clisudoku::puzzle::{Grid, GameState};
+use clisudoku::tui::colors::ColorScheme;
+use clisudoku::tui::digit_style::RetroStyle;
+use clisudoku::tui::render::{render_frame, Screen};
+
+/// Verifies that render_frame produces non-empty output without panicking.
+/// Writes to Vec<u8> to avoid requiring a real terminal.
+#[test]
+fn render_game_screen_does_not_panic() {
+    let grid = Grid::from_str(
+        "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+    ).unwrap();
+    let state = GameState::new(grid);
+    let mut buf = Vec::new();
+
+    render_frame(
+        &mut buf,
+        &Screen::Game {
+            state: &state,
+            cursor: (4, 4),
+            note_mode: false,
+            elapsed_ms: 125_000,
+            paused: false,
+        },
+        &ColorScheme::default(),
+        &RetroStyle,
+    ).unwrap();
+
+    assert!(!buf.is_empty());
+    let s = String::from_utf8_lossy(&buf);
+    // Must contain border characters
+    assert!(s.contains('╔'));
+    assert!(s.contains('╝'));
+    // Must contain the timer
+    assert!(s.contains("02:05"));
+}
+
+#[test]
+fn render_start_screen_does_not_panic() {
+    let mut buf = Vec::new();
+    render_frame(
+        &mut buf,
+        &clisudoku::tui::render::Screen::Start { selected: 0 },
+        &ColorScheme::default(),
+        &RetroStyle,
+    ).unwrap();
+    assert!(!buf.is_empty());
+}
