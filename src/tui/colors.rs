@@ -37,26 +37,26 @@ pub struct ColorScheme {
 impl Default for ColorScheme {
     fn default() -> Self {
         Self {
-            ui_background:        Color::Reset,
-            grid_border:          Color::DarkGrey,
-            grid_box:             Color::Grey,
+            ui_background:        Color::Black,
+            grid_border:          Color::Grey,
+            grid_box:             Color::White,
             grid_cell:            Color::DarkGrey,
 
-            cell_normal_bg:       Color::Reset,
+            cell_normal_bg:       Color::Black,
             cell_active_bg:       Color::DarkBlue,
-            cell_active_box_bg:   Color::Rgb { r: 30, g: 30, b: 60 },
-            cell_active_cross_bg: Color::Rgb { r: 20, g: 20, b: 40 },
+            cell_active_box_bg:   Color::Rgb { r: 20, g: 20, b: 60 },
+            cell_active_cross_bg: Color::Rgb { r: 10, g: 10, b: 35 },
 
             digit_given:          Color::White,
             digit_user:           Color::Cyan,
             digit_error:          Color::Red,
             digit_highlight:      Color::Yellow,
 
-            note_normal:          Color::DarkGrey,
+            note_normal:          Color::Grey,
             note_highlight:       Color::Yellow,
 
             ui_text:              Color::White,
-            ui_text_dim:          Color::DarkGrey,
+            ui_text_dim:          Color::Grey,
             ui_cursor_bg:         Color::DarkBlue,
         }
     }
