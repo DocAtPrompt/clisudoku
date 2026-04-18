@@ -97,15 +97,18 @@ pub fn render_grid(
                     CellKind::Given(_) => colors.digit_given,
                     CellKind::Filled(_) => colors.digit_user,
                     CellKind::Empty if notes_mask != 0 => colors.note_normal,
-                    _ => colors.cell_normal_bg,
+                    _ => colors.grid_cell,
                 };
                 let bg = cell_bg(row, col, cursor, colors);
 
+                let sep_fg = if col == 8 { colors.grid_border }
+                             else if col == 2 || col == 5 { colors.grid_box }
+                             else { colors.grid_cell };
                 queue!(out,
                     SetForegroundColor(fg),
                     SetBackgroundColor(bg),
                     Print(content),
-                    SetForegroundColor(colors.grid_border),
+                    SetForegroundColor(sep_fg),
                     SetBackgroundColor(colors.ui_background),
                     Print(v_sep(col))
                 )?;
@@ -116,6 +119,7 @@ pub fn render_grid(
         if row < 8 {
             let heavy = is_box_row(row);
             let fill = if heavy { BOX_H } else { THIN_H };
+            let border_fg = if heavy { colors.grid_box } else { colors.grid_cell };
             let term_row = row_off + 1 + (row * 4 + 3) as u16;
             queue!(out,
                 MoveTo(col_off, term_row),
@@ -124,12 +128,24 @@ pub fn render_grid(
                 Print(L_SEP)
             )?;
             for col in 0..9usize {
+                queue!(out,
+                    SetForegroundColor(border_fg),
+                    SetBackgroundColor(colors.ui_background)
+                )?;
                 for _ in 0..7 { queue!(out, Print(fill))?; }
                 if col < 8 {
-                    queue!(out, Print(h_cross(heavy, col)))?;
+                    queue!(out,
+                        SetForegroundColor(border_fg),
+                        SetBackgroundColor(colors.ui_background),
+                        Print(h_cross(heavy, col))
+                    )?;
                 }
             }
-            queue!(out, Print(R_SEP))?;
+            queue!(out,
+                SetForegroundColor(colors.grid_border),
+                SetBackgroundColor(colors.ui_background),
+                Print(R_SEP)
+            )?;
         }
     }
 
