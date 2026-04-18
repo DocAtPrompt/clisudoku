@@ -70,9 +70,13 @@ impl Solver {
         let mut used: HashSet<Strategy> = HashSet::new();
         let mut steps: Vec<SolveStep> = vec![];
 
-        'outer: loop {
-            let mut cands = CandidateGrid::from_grid(&grid);
+        // cands lives outside the loop so elimination strategies can accumulate
+        // removals across iterations without rebuilding from an unchanged grid.
+        // It is only valid for grid — whenever grid changes (a digit is placed),
+        // eliminate_from_peers keeps cands in sync so no full rebuild is needed.
+        let mut cands = CandidateGrid::from_grid(&grid);
 
+        'outer: loop {
             // Apply ONE naked single then restart
             if self.allowed(Strategy::NakedSingle) {
                 if let Some(step) = naked_single::find_naked_singles(&grid, &cands).into_iter().next() {
@@ -95,7 +99,9 @@ impl Solver {
                 }
             }
 
-            // Elimination strategies: apply all eliminations, then restart
+            // Elimination strategies: apply removals directly to cands (no grid
+            // change), then restart so singles can fire on the tightened candidates.
+            // cands is NOT rebuilt — the accumulated removals are preserved.
             macro_rules! apply_elims {
                 ($find_fn:expr, $strat:expr) => {
                     if self.allowed($strat) {
@@ -143,12 +149,24 @@ mod tests {
     const EASY: &str = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
     const EASY_SOL: &str = "534678912672195348198342567859761423426853791713924856961537284287419635345286179";
 
+    const MEDIUM: &str = "000000000904607000076804100309701080008000300050308702007502610000403208000000000";
+    const MEDIUM_SOL: &str = "583219467914637825276854139349721586728965341651348792497582613165493278832176954";
+
     #[test]
     fn solves_easy_with_logic_only() {
         let grid = Grid::from_str(EASY).unwrap();
         let result = Solver::new().solve(grid);
         assert!(result.grid.is_solved());
         assert_eq!(result.grid.to_str(), EASY_SOL);
+        assert!(!result.used_strategies.contains(&Strategy::Backtracking));
+    }
+
+    #[test]
+    fn solves_medium_with_elimination_strategies() {
+        let grid = Grid::from_str(MEDIUM).unwrap();
+        let result = Solver::new().solve(grid);
+        assert!(result.grid.is_solved());
+        assert_eq!(result.grid.to_str(), MEDIUM_SOL);
         assert!(!result.used_strategies.contains(&Strategy::Backtracking));
     }
 

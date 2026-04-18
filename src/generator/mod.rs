@@ -78,47 +78,14 @@ impl PuzzleGenerator {
         None
     }
 
-    fn is_uniquely_solvable(&self, grid: &Grid, _difficulty: Difficulty) -> bool {
-        // Use fast backtracking uniqueness check (stops at 2 solutions).
-        // We use Solver::new() (with backtracking) to first check solvability
-        // and simultaneously verify uniqueness via count_solutions.
-        count_solutions(grid.clone(), 2) == 1
+    fn is_uniquely_solvable(&self, grid: &Grid, difficulty: Difficulty) -> bool {
+        // Check that the puzzle is fully solvable within the difficulty's strategy
+        // budget. The logical solver can only place digits that are forced (i.e.
+        // common to all solutions), so a fully-solved result implicitly guarantees
+        // uniqueness without a separate count_solutions call.
+        let solver = crate::solver::Solver::for_difficulty(&difficulty);
+        solver.solve(grid.clone()).grid.is_solved()
     }
-}
-
-fn candidates_for(grid: &Grid, row: usize, col: usize) -> Vec<u8> {
-    (1u8..=9).filter(|&d| is_valid_placement(grid, row, col, d)).collect()
-}
-
-fn count_solutions(grid: Grid, limit: usize) -> usize {
-    fn recurse(grid: &mut Grid, count: &mut usize, limit: usize) {
-        if *count >= limit { return; }
-        // MRV: pick the empty cell with fewest valid candidates
-        let best = (0..9)
-            .flat_map(|r| (0..9).map(move |c| (r, c)))
-            .filter(|&(r, c)| grid.get(r, c).is_empty())
-            .map(|(r, c)| {
-                let cands = candidates_for(grid, r, c);
-                (cands.len(), r, c, cands)
-            })
-            .min_by_key(|&(n, _, _, _)| n);
-        match best {
-            None => { *count += 1; } // all filled → solved
-            Some((0, _, _, _)) => {} // dead end — no candidates for some cell
-            Some((_, row, col, cands)) => {
-                for digit in cands {
-                    grid.set_filled(row, col, digit);
-                    recurse(grid, count, limit);
-                    grid.clear(row, col);
-                    if *count >= limit { return; }
-                }
-            }
-        }
-    }
-    let mut g = grid;
-    let mut count = 0;
-    recurse(&mut g, &mut count, limit);
-    count
 }
 
 fn is_valid_placement(grid: &Grid, row: usize, col: usize, digit: u8) -> bool {
