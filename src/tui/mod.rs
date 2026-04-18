@@ -3,3 +3,442 @@ pub mod digit_style;
 pub mod input;
 pub mod render;
 pub mod terminal;
+
+use crate::generator::{Difficulty, PuzzleGenerator};
+use crate::puzzle::GameState;
+use crate::timer::Clock;
+use crate::tui::colors::ColorScheme;
+use crate::tui::digit_style::{DigitStyle, RetroStyle};
+use crate::tui::input::{map_key_to_action, AppAction, NavMode, NavState};
+use crate::tui::render::{render_frame, Screen};
+use crate::tui::terminal::Terminal;
+use crossterm::event::{self, Event};
+use std::io::{self, BufWriter, Write};
+
+#[derive(Debug, PartialEq)]
+pub enum AppScreen {
+    Start { selected: usize },
+    DifficultySelect { selected: usize },
+    Game,
+}
+
+/// Pending confirmation action.
+#[derive(Debug, Clone)]
+pub enum ConfirmAction {
+    ClearCell { row: usize, col: usize },
+}
+
+pub struct App {
+    pub screen: AppScreen,
+    pub game_state: Option<GameState>,
+    pub cursor: (usize, usize),
+    pub nav_state: NavState,
+    pub note_mode: bool,
+    pub paused: bool,
+    pub confirm_pending: Option<ConfirmAction>,
+    pub should_quit: bool,
+    clock: Box<dyn Clock>,
+    game_start_ms: u64,
+    colors: ColorScheme,
+    style: Box<dyn DigitStyle>,
+}
+
+impl App {
+    pub fn new(clock: Box<dyn Clock>) -> Self {
+        Self {
+            screen: AppScreen::Start { selected: 0 },
+            game_state: None,
+            cursor: (0, 0),
+            nav_state: NavState::default(),
+            note_mode: false,
+            paused: false,
+            confirm_pending: None,
+            should_quit: false,
+            game_start_ms: 0,
+            colors: ColorScheme::default(),
+            style: Box::new(RetroStyle),
+            clock,
+        }
+    }
+
+    /// Start a new game at the given difficulty.
+    fn start_game(&mut self, difficulty: Difficulty) {
+        let seed = self.clock.now_ms();
+        let puzzle = PuzzleGenerator::new(seed).generate(difficulty);
+        self.game_state = Some(GameState::new(puzzle));
+        self.cursor = (0, 0);
+        self.nav_state = NavState::default();
+        self.note_mode = false;
+        self.paused = false;
+        self.game_start_ms = self.clock.now_ms();
+        self.screen = AppScreen::Game;
+    }
+
+    /// Elapsed game time in milliseconds (paused time excluded in future milestones).
+    fn elapsed_ms(&self) -> u64 {
+        if self.paused || self.game_start_ms == 0 {
+            self.game_state.as_ref().map(|s| s.elapsed_ms).unwrap_or(0)
+        } else {
+            self.clock.now_ms().saturating_sub(self.game_start_ms)
+        }
+    }
+
+    /// Handle a single `AppAction`, updating all state.
+    pub fn handle_action(&mut self, action: AppAction) {
+        // Confirm dialog takes priority
+        if self.confirm_pending.is_some() {
+            match action {
+                AppAction::ConfirmYes => {
+                    if let Some(ConfirmAction::ClearCell { row, col }) = self.confirm_pending.take() {
+                        if let Some(state) = &mut self.game_state {
+                            use crate::puzzle::GameEvent;
+                            state.apply(GameEvent::ClearCell { row, col });
+                        }
+                    }
+                }
+                AppAction::ConfirmNo | AppAction::Back => {
+                    self.confirm_pending = None;
+                }
+                _ => {}
+            }
+            return;
+        }
+
+        match &self.screen {
+            AppScreen::Start { selected } => self.handle_start_action(action, *selected),
+            AppScreen::DifficultySelect { selected } => self.handle_difficulty_action(action, *selected),
+            AppScreen::Game => self.handle_game_action(action),
+        }
+    }
+
+    fn handle_start_action(&mut self, action: AppAction, selected: usize) {
+        use render::start_screen::START_ITEMS;
+        match action {
+            AppAction::MoveUp => {
+                self.screen = AppScreen::Start {
+                    selected: selected.saturating_sub(1),
+                };
+            }
+            AppAction::MoveDown => {
+                self.screen = AppScreen::Start {
+                    selected: (selected + 1).min(START_ITEMS.len() - 1),
+                };
+            }
+            AppAction::Enter => match selected {
+                0 => self.screen = AppScreen::DifficultySelect { selected: 0 },
+                _ => self.should_quit = true,
+            },
+            AppAction::Back => self.should_quit = true,
+            _ => {}
+        }
+    }
+
+    fn handle_difficulty_action(&mut self, action: AppAction, selected: usize) {
+        use render::start_screen::DIFFICULTY_ITEMS;
+        match action {
+            AppAction::MoveUp => {
+                self.screen = AppScreen::DifficultySelect {
+                    selected: selected.saturating_sub(1),
+                };
+            }
+            AppAction::MoveDown => {
+                self.screen = AppScreen::DifficultySelect {
+                    selected: (selected + 1).min(DIFFICULTY_ITEMS.len() - 1),
+                };
+            }
+            AppAction::Enter => {
+                let difficulty = match selected {
+                    0 => Difficulty::Easy,
+                    1 => Difficulty::Medium,
+                    _ => Difficulty::Hard,
+                };
+                self.start_game(difficulty);
+            }
+            AppAction::Back => {
+                self.screen = AppScreen::Start { selected: 0 };
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_game_action(&mut self, action: AppAction) {
+        if self.paused {
+            match action {
+                AppAction::Pause => {
+                    self.paused = false;
+                }
+                AppAction::Back => {
+                    self.screen = AppScreen::Start { selected: 0 };
+                }
+                _ => {}
+            }
+            return;
+        }
+
+        match action {
+            AppAction::Back => {
+                self.screen = AppScreen::Start { selected: 0 };
+            }
+            AppAction::Pause => {
+                self.paused = true;
+            }
+            AppAction::MoveUp => self.move_cursor(-1, 0),
+            AppAction::MoveDown => self.move_cursor(1, 0),
+            AppAction::MoveLeft => self.move_cursor(0, -1),
+            AppAction::MoveRight => self.move_cursor(0, 1),
+            AppAction::NumpadBox(idx) => {
+                self.nav_state.box_idx = Some(idx);
+                self.nav_state.mode = NavMode::Navigation;
+            }
+            AppAction::NumpadCell(cell_idx) => {
+                if let Some(box_idx) = self.nav_state.box_idx.take() {
+                    let (row, col) = numpad_to_cell(box_idx, cell_idx);
+                    self.cursor = (row, col);
+                    self.nav_state.mode = NavMode::Input;
+                }
+            }
+            AppAction::Enter => {
+                self.nav_state.mode = match self.nav_state.mode {
+                    NavMode::Input => NavMode::Navigation,
+                    NavMode::Navigation => {
+                        self.nav_state.box_idx = None;
+                        NavMode::Navigation
+                    }
+                };
+            }
+            AppAction::ToggleMode => {
+                self.note_mode = !self.note_mode;
+            }
+            AppAction::Digit(d) => {
+                if let Some(state) = &mut self.game_state {
+                    let (row, col) = self.cursor;
+                    use crate::puzzle::GameEvent;
+                    let event = if self.note_mode {
+                        GameEvent::ToggleNote { row, col, digit: d }
+                    } else {
+                        GameEvent::SetDigit { row, col, digit: d }
+                    };
+                    state.apply(event);
+                }
+            }
+            AppAction::ClearCell => {
+                self.confirm_pending = Some(ConfirmAction::ClearCell {
+                    row: self.cursor.0,
+                    col: self.cursor.1,
+                });
+            }
+            AppAction::Undo => {
+                if let Some(state) = &mut self.game_state {
+                    state.undo();
+                }
+            }
+            AppAction::Redo => {
+                if let Some(state) = &mut self.game_state {
+                    state.redo();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn move_cursor(&mut self, dr: i8, dc: i8) {
+        let (r, c) = self.cursor;
+        let new_r = ((r as i8 + dr).rem_euclid(9)) as usize;
+        let new_c = ((c as i8 + dc).rem_euclid(9)) as usize;
+        self.cursor = (new_r, new_c);
+        self.nav_state.mode = NavMode::Input;
+        self.nav_state.box_idx = None;
+    }
+
+    /// Main event loop. Renders, reads input, dispatches until quit.
+    pub fn run(&mut self) -> io::Result<()> {
+        let mut terminal = Terminal::setup()?;
+        let mut out = BufWriter::new(std::io::stdout());
+
+        loop {
+            self.render_current(&mut out)?;
+            out.flush()?;
+
+            if self.should_quit {
+                break;
+            }
+
+            match event::read()? {
+                Event::Key(key) => {
+                    let action = map_key_to_action(key, &self.nav_state);
+                    self.handle_action(action);
+                }
+                Event::Resize(_, _) => { /* re-render on next loop */ }
+                _ => {}
+            }
+
+            if self.should_quit {
+                break;
+            }
+        }
+
+        drop(terminal);
+        Ok(())
+    }
+
+    fn render_current(&self, out: &mut impl Write) -> io::Result<()> {
+        match &self.screen {
+            AppScreen::Start { selected } => {
+                render_frame(out, &Screen::Start { selected: *selected }, &self.colors, self.style.as_ref())
+            }
+            AppScreen::DifficultySelect { selected } => {
+                render_frame(
+                    out,
+                    &Screen::DifficultySelect { selected: *selected },
+                    &self.colors,
+                    self.style.as_ref(),
+                )
+            }
+            AppScreen::Game => {
+                if let Some(state) = &self.game_state {
+                    let screen = if let Some(ConfirmAction::ClearCell { .. }) = &self.confirm_pending {
+                        Screen::Confirm {
+                            underneath: Box::new(Screen::Game {
+                                state,
+                                cursor: self.cursor,
+                                note_mode: self.note_mode,
+                                elapsed_ms: self.elapsed_ms(),
+                                paused: self.paused,
+                            }),
+                            message: "Clear this cell? [Y]es / [N]o".into(),
+                        }
+                    } else {
+                        Screen::Game {
+                            state,
+                            cursor: self.cursor,
+                            note_mode: self.note_mode,
+                            elapsed_ms: self.elapsed_ms(),
+                            paused: self.paused,
+                        }
+                    };
+                    render_frame(out, &screen, &self.colors, self.style.as_ref())
+                } else {
+                    Ok(())
+                }
+            }
+        }
+    }
+}
+
+/// Convert numpad box index and within-box cell index to grid (row, col).
+///
+/// Numpad layout (0-indexed from key '1'=0 to '9'=8):
+///   6 7 8    (keys 7 8 9 — top row)
+///   3 4 5    (keys 4 5 6 — middle row)
+///   0 1 2    (keys 1 2 3 — bottom row)
+fn numpad_to_cell(box_idx: usize, cell_idx: usize) -> (usize, usize) {
+    // Box: row of boxes = 2 - box_idx/3, col of boxes = box_idx%3
+    let box_row = 2 - box_idx / 3;
+    let box_col = box_idx % 3;
+    // Cell within box: same layout
+    let cell_row = 2 - cell_idx / 3;
+    let cell_col = cell_idx % 3;
+    (box_row * 3 + cell_row, box_col * 3 + cell_col)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::timer::FakeClock;
+
+    fn make_app() -> App {
+        App::new(Box::new(FakeClock { ms: 1000 }))
+    }
+
+    #[test]
+    fn initial_screen_is_start() {
+        let app = make_app();
+        assert!(matches!(app.screen, AppScreen::Start { .. }));
+    }
+
+    #[test]
+    fn selecting_new_game_goes_to_difficulty() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        assert!(matches!(app.screen, AppScreen::DifficultySelect { .. }));
+    }
+
+    #[test]
+    fn selecting_difficulty_starts_game() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        assert!(matches!(app.screen, AppScreen::Game));
+        assert!(app.game_state.is_some());
+    }
+
+    #[test]
+    fn escape_from_game_goes_to_start() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        assert!(matches!(app.screen, AppScreen::Game));
+        app.handle_action(AppAction::Back);
+        assert!(matches!(app.screen, AppScreen::Start { .. }));
+    }
+
+    #[test]
+    fn arrow_keys_move_cursor_with_wrap() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::MoveRight);
+        assert_eq!(app.cursor, (0, 1));
+        app.handle_action(AppAction::MoveLeft);
+        assert_eq!(app.cursor, (0, 0));
+        // Wrap: left from col 0 -> col 8
+        app.handle_action(AppAction::MoveLeft);
+        assert_eq!(app.cursor, (0, 8));
+    }
+
+    #[test]
+    fn pause_toggles_paused_state() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        assert!(!app.paused);
+        app.handle_action(AppAction::Pause);
+        assert!(app.paused);
+        app.handle_action(AppAction::Pause);
+        assert!(!app.paused);
+    }
+
+    #[test]
+    fn clear_cell_on_game_shows_confirm() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::ClearCell);
+        assert!(matches!(app.confirm_pending, Some(_)));
+    }
+
+    #[test]
+    fn confirm_no_dismisses_dialog() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::ClearCell);
+        app.handle_action(AppAction::ConfirmNo);
+        assert!(app.confirm_pending.is_none());
+        assert!(matches!(app.screen, AppScreen::Game));
+    }
+
+    #[test]
+    fn numpad_navigation_selects_cell() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        // Numpad '1' -> box_idx 0 (bottom-left box)
+        app.handle_action(AppAction::NumpadBox(0));
+        assert_eq!(app.nav_state.box_idx, Some(0));
+        // Numpad '9' -> cell_idx 8 (top-right cell in box)
+        app.handle_action(AppAction::NumpadCell(8));
+        let (r, c) = app.cursor;
+        assert!(r < 9 && c < 9, "cursor out of bounds: ({}, {})", r, c);
+    }
+}
