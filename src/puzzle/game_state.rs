@@ -31,6 +31,12 @@ impl GameState {
 
     pub fn grid(&self) -> &Grid { &self.grid }
 
+    /// Returns the 16-bit note bitmask for the cell at `(row, col)`.
+    /// Bit `d` (1-indexed) is set when digit `d` is marked as a candidate.
+    pub fn notes_mask(&self, row: usize, col: usize) -> u16 {
+        self.notes[Self::idx(row, col)]
+    }
+
     fn idx(row: usize, col: usize) -> usize { row * 9 + col }
 
     pub fn has_note(&self, row: usize, col: usize, digit: u8) -> bool {
