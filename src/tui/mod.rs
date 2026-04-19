@@ -38,6 +38,8 @@ pub struct App {
     pub paused: bool,
     pub confirm_pending: Option<ConfirmAction>,
     pub should_quit: bool,
+    /// Set whenever the screen variant changes so the next render clears first.
+    pub needs_clear: bool,
     clock: Box<dyn Clock>,
     game_start_ms: u64,
     colors: ColorScheme,
@@ -55,6 +57,7 @@ impl App {
             paused: false,
             confirm_pending: None,
             should_quit: false,
+            needs_clear: false,
             game_start_ms: 0,
             colors: ColorScheme::default(),
             style: Box::new(RetroStyle),
@@ -96,9 +99,11 @@ impl App {
                             state.apply(GameEvent::ClearCell { row, col });
                         }
                     }
+                    self.needs_clear = true;
                 }
                 AppAction::ConfirmNo | AppAction::Back => {
                     self.confirm_pending = None;
+                    self.needs_clear = true;
                 }
                 _ => {}
             }
@@ -126,7 +131,10 @@ impl App {
                 };
             }
             AppAction::Enter => match selected {
-                0 => self.screen = AppScreen::DifficultySelect { selected: 0 },
+                0 => {
+                    self.screen = AppScreen::DifficultySelect { selected: 0 };
+                    self.needs_clear = true;
+                }
                 _ => self.should_quit = true,
             },
             AppAction::Back => self.should_quit = true,
@@ -154,9 +162,11 @@ impl App {
                     _ => Difficulty::Hard,
                 };
                 self.start_game(difficulty);
+                self.needs_clear = true;
             }
             AppAction::Back => {
                 self.screen = AppScreen::Start { selected: 0 };
+                self.needs_clear = true;
             }
             _ => {}
         }
@@ -170,6 +180,7 @@ impl App {
                 }
                 AppAction::Back => {
                     self.screen = AppScreen::Start { selected: 0 };
+                    self.needs_clear = true;
                 }
                 _ => {}
             }
@@ -179,6 +190,7 @@ impl App {
         match action {
             AppAction::Back => {
                 self.screen = AppScreen::Start { selected: 0 };
+                self.needs_clear = true;
             }
             AppAction::Pause => {
                 self.paused = true;
@@ -227,6 +239,7 @@ impl App {
                     row: self.cursor.0,
                     col: self.cursor.1,
                 });
+                self.needs_clear = true;
             }
             AppAction::Undo => {
                 if let Some(state) = &mut self.game_state {
@@ -283,7 +296,11 @@ impl App {
         Ok(())
     }
 
-    fn render_current(&self, out: &mut impl Write) -> io::Result<()> {
+    fn render_current(&mut self, out: &mut impl Write) -> io::Result<()> {
+        if self.needs_clear {
+            queue!(out, SetBackgroundColor(self.colors.ui_background), Clear(ClearType::All))?;
+            self.needs_clear = false;
+        }
         match &self.screen {
             AppScreen::Start { selected } => {
                 render_frame(out, &Screen::Start { selected: *selected }, &self.colors, self.style.as_ref())
