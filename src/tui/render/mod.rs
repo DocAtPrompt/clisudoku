@@ -12,7 +12,6 @@ use crossterm::{
     cursor::MoveTo,
     queue,
     style::{Print, ResetColor, SetBackgroundColor},
-    terminal::{Clear, ClearType},
 };
 use std::io::{self, Write};
 
@@ -41,11 +40,9 @@ pub fn render_frame(
     colors: &ColorScheme,
     style: &dyn DigitStyle,
 ) -> io::Result<()> {
-    queue!(out,
-        SetBackgroundColor(colors.ui_background),
-        Clear(ClearType::All),
-        MoveTo(0, 0)
-    )?;
+    // No full Clear — we overwrite every position explicitly via MoveTo.
+    // Clearing causes a blank frame between renders, which creates visible flicker.
+    queue!(out, MoveTo(0, 0))?;
 
     match screen {
         Screen::Start { selected } => {
