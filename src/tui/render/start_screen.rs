@@ -7,7 +7,11 @@ use crossterm::{
 };
 use std::io::{self, Write};
 
-const TITLE: &str = "   ___ _ _  ___ _   _    _         _  \n  / __| (_)/ __| | _| |__| |___  _| |___\n | (__| | |\\__ \\ || |/ _  / _ \\/ _  / _ \\\n  \\___|_|_||___/\\_,_|\\__,_\\___/\\__,_\\___/";
+const TITLE: &str = r#"   ____ _     ___ ____            _       _
+  / ___| |   |_ _/ ___| _   _  __| | ___ | | ___   _
+ | |   | |    | |\___ \| | | |/ _` |/ _ \| |/ / | | |
+ | |___| |___ | | ___) | |_| | (_| | (_) |   <| |_| |
+  \____|_____|___|____/ \__,_|\__,_|\___/|_|\_\\__,_|"#;
 
 pub const START_ITEMS: &[&str] = &["New Game", "Quit"];
 pub const DIFFICULTY_ITEMS: &[&str] = &["Easy", "Medium", "Hard"];
@@ -28,7 +32,7 @@ pub fn render_start(
         )?;
     }
 
-    let menu_row = row_off + 6;
+    let menu_row = row_off + 7; // 5 title lines + 2 blank rows
     for (i, item) in START_ITEMS.iter().enumerate() {
         let (fg, bg) = if i == selected {
             (colors.ui_background, colors.ui_cursor_bg)
