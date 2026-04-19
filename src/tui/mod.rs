@@ -15,6 +15,7 @@ use crate::tui::terminal::Terminal;
 use crossterm::event::{self, Event};
 use crossterm::{queue, style::SetBackgroundColor, terminal::{Clear, ClearType}};
 use std::io::{self, BufWriter, Write};
+use std::time::Duration;
 
 #[derive(Debug, PartialEq)]
 pub enum AppScreen {
@@ -279,13 +280,17 @@ impl App {
             self.render_current(&mut out)?;
             out.flush()?;
 
-            match event::read()? {
-                Event::Key(key) => {
-                    let action = map_key_to_action(key, &self.nav_state);
-                    self.handle_action(action);
+            // Poll with a 500 ms timeout so the timer re-renders every half-second
+            // even when no key is pressed.
+            if event::poll(Duration::from_millis(500))? {
+                match event::read()? {
+                    Event::Key(key) => {
+                        let action = map_key_to_action(key, &self.nav_state);
+                        self.handle_action(action);
+                    }
+                    Event::Resize(_, _) => { /* re-render on next loop */ }
+                    _ => {}
                 }
-                Event::Resize(_, _) => { /* re-render on next loop */ }
-                _ => {}
             }
 
             if self.should_quit {
