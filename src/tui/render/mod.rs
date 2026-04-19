@@ -53,7 +53,8 @@ pub fn render_frame(
         }
         Screen::Game { state, cursor, note_mode, elapsed_ms, paused } => {
             grid::render_grid(out, (1, 2), state, *cursor, *note_mode, colors, style)?;
-            status_bar::render_status(out, (39, 2), *elapsed_ms, *note_mode, colors)?;
+            // Panel to the right of the grid: col 2 + 73 (grid) + 2 (gap) = 77
+            status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, colors)?;
             if *paused {
                 queue!(out,
                     MoveTo(20, 18),

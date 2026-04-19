@@ -3,7 +3,7 @@ use crate::tui::colors::ColorScheme;
 use crossterm::{
     cursor::MoveTo,
     queue,
-    style::{Print, ResetColor, SetBackgroundColor, SetForegroundColor},
+    style::{Color, Print, SetBackgroundColor, SetForegroundColor},
 };
 use std::io::{self, Write};
 
@@ -15,8 +15,21 @@ pub fn format_elapsed_ms(ms: u64) -> String {
     format!("{:02}:{:02}", mins, secs)
 }
 
-/// Render a one-line status bar showing the timer and current input mode.
-pub fn render_status(
+/// Render a 22-wide × 37-tall info panel to the right of the grid.
+///
+/// Layout:
+///   ╔════════════════════╗
+///   ║  Time:  MM:SS      ║
+///   ║  Mode:  Solution   ║
+///   ╠════════════════════╣
+///   ║  Controls          ║
+///   ║  ↑↓←→   move       ║
+///   ║  …                 ║
+///   ╚════════════════════╝
+///
+/// Total width: 22 chars (║ + 20 inner + ║).
+/// Total height: 37 rows (matches grid height).
+pub fn render_panel(
     out: &mut impl Write,
     (row_off, col_off): (u16, u16),
     elapsed_ms: u64,
@@ -24,17 +37,73 @@ pub fn render_status(
     colors: &ColorScheme,
 ) -> io::Result<()> {
     let time_str = format_elapsed_ms(elapsed_ms);
-    let mode_str = if note_mode { "Note" } else { "Solution" };
-    let text = format!(" {} │ Mode: {} │ [u]ndo  [r]edo  [-]clear  [0]toggle  [Esc]quit ",
-        time_str, mode_str);
+    let mode_label = if note_mode { "Notes" } else { "Solution" };
 
+    let b  = colors.grid_border;
+    let t  = colors.ui_text;
+    let d  = colors.ui_text_dim;
+    let bg = colors.ui_background;
+
+    // ── Top border ────────────────────────────────────────────────────────────
     queue!(out,
         MoveTo(col_off, row_off),
-        SetForegroundColor(colors.ui_text),
-        SetBackgroundColor(colors.ui_background),
-        Print(&text),
-        ResetColor
-    )
+        SetForegroundColor(b), SetBackgroundColor(bg),
+        Print(format!("╔{}╗", "═".repeat(20)))
+    )?;
+
+    // ── Content rows (35 rows, indices 0..35) ─────────────────────────────────
+    // Each entry: (text, fg, is_divider)
+    let mut rows: Vec<(String, Color, bool)> = vec![
+        (format!("  Time:  {}", time_str),   t, false),
+        (String::new(),                       t, false),
+        (format!("  Mode:  {}", mode_label),  t, false),
+        (String::new(),                       t, false),
+        // divider
+        (String::new(),                       b, true),
+        ("  Controls".into(),                 t, false),
+        (String::new(),                       d, false),
+        ("  \u{2191}\u{2193}\u{2190}\u{2192}   move".into(),  d, false),
+        ("  1-9    digit".into(),             d, false),
+        ("  0      toggle".into(),            d, false),
+        ("  u/^Z   undo".into(),              d, false),
+        ("  r/^Y   redo".into(),              d, false),
+        ("  -      clear".into(),             d, false),
+        ("  Spc    pause".into(),             d, false),
+        ("  Esc    quit".into(),              d, false),
+    ];
+
+    // Fill remaining rows with blanks (reserved for M4 mouse buttons)
+    while rows.len() < 35 {
+        rows.push((String::new(), d, false));
+    }
+
+    for (i, (text, fg, is_divider)) in rows.iter().enumerate() {
+        let term_row = row_off + 1 + i as u16;
+        if *is_divider {
+            queue!(out,
+                MoveTo(col_off, term_row),
+                SetForegroundColor(b), SetBackgroundColor(bg),
+                Print(format!("╠{}╣", "═".repeat(20)))
+            )?;
+        } else {
+            queue!(out,
+                MoveTo(col_off, term_row),
+                SetForegroundColor(b),  SetBackgroundColor(bg), Print('║'),
+                SetForegroundColor(*fg), SetBackgroundColor(bg),
+                Print(format!(" {:<18} ", text)),
+                SetForegroundColor(b),  SetBackgroundColor(bg), Print('║')
+            )?;
+        }
+    }
+
+    // ── Bottom border ─────────────────────────────────────────────────────────
+    queue!(out,
+        MoveTo(col_off, row_off + 36),
+        SetForegroundColor(b), SetBackgroundColor(bg),
+        Print(format!("╚{}╝", "═".repeat(20)))
+    )?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -58,19 +127,29 @@ mod tests {
     }
 
     #[test]
-    fn status_bar_contains_time_and_mode() {
+    fn panel_contains_time_and_mode() {
         let mut buf = Vec::new();
-        render_status(&mut buf, (0, 0), 65_000, false, &ColorScheme::default()).unwrap();
+        render_panel(&mut buf, (0, 0), 65_000, false, &ColorScheme::default()).unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("01:05"));
         assert!(s.contains("Solution"));
     }
 
     #[test]
-    fn status_bar_shows_note_mode() {
+    fn panel_shows_note_mode() {
         let mut buf = Vec::new();
-        render_status(&mut buf, (0, 0), 0, true, &ColorScheme::default()).unwrap();
+        render_panel(&mut buf, (0, 0), 0, true, &ColorScheme::default()).unwrap();
         let s = String::from_utf8_lossy(&buf);
-        assert!(s.contains("Note"));
+        assert!(s.contains("Notes"));
+    }
+
+    #[test]
+    fn panel_has_border_chars() {
+        let mut buf = Vec::new();
+        render_panel(&mut buf, (0, 0), 0, false, &ColorScheme::default()).unwrap();
+        let s = String::from_utf8_lossy(&buf);
+        assert!(s.contains('╔'));
+        assert!(s.contains('╚'));
+        assert!(s.contains('╠'));
     }
 }
