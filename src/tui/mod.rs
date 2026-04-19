@@ -44,6 +44,8 @@ pub struct App {
     pub needs_clear: bool,
     clock: Box<dyn Clock>,
     game_start_ms: u64,
+    /// Elapsed ms frozen at the moment the game was paused.
+    paused_elapsed_ms: u64,
     colors: ColorScheme,
     style: Box<dyn DigitStyle>,
 }
@@ -61,6 +63,7 @@ impl App {
             should_quit: false,
             needs_clear: false,
             game_start_ms: 0,
+            paused_elapsed_ms: 0,
             colors: ColorScheme::default(),
             style: Box::new(RetroStyle),
             clock,
@@ -80,10 +83,10 @@ impl App {
         self.screen = AppScreen::Game;
     }
 
-    /// Elapsed game time in milliseconds (paused time excluded in future milestones).
+    /// Elapsed game time in milliseconds, frozen while paused.
     fn elapsed_ms(&self) -> u64 {
         if self.paused || self.game_start_ms == 0 {
-            self.game_state.as_ref().map(|s| s.elapsed_ms).unwrap_or(0)
+            self.paused_elapsed_ms
         } else {
             self.clock.now_ms().saturating_sub(self.game_start_ms)
         }
@@ -184,6 +187,8 @@ impl App {
         if self.paused {
             match action {
                 AppAction::Pause => {
+                    // Resume: shift game_start_ms forward so elapsed continues from frozen value
+                    self.game_start_ms = self.clock.now_ms().saturating_sub(self.paused_elapsed_ms);
                     self.paused = false;
                 }
                 AppAction::Back => {
@@ -202,6 +207,7 @@ impl App {
                 self.needs_clear = true;
             }
             AppAction::Pause => {
+                self.paused_elapsed_ms = self.elapsed_ms();
                 self.paused = true;
             }
             AppAction::MoveUp => self.move_cursor(-1, 0),

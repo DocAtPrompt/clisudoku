@@ -11,7 +11,7 @@ use crate::tui::digit_style::DigitStyle;
 use crossterm::{
     cursor::MoveTo,
     queue,
-    style::{Print, ResetColor, SetBackgroundColor},
+    style::{Print, ResetColor, SetBackgroundColor, SetForegroundColor},
 };
 use std::io::{self, Write};
 
@@ -52,14 +52,18 @@ pub fn render_frame(
             start_screen::render_difficulty(out, (2, 4), *selected, colors)?;
         }
         Screen::Game { state, cursor, note_mode, elapsed_ms, paused } => {
-            grid::render_grid(out, (1, 2), state, *cursor, *note_mode, colors, style)?;
+            grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, colors, style)?;
             // Panel to the right of the grid: col 2 + 73 (grid) + 2 (gap) = 77
             status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, colors)?;
             if *paused {
+                // Centered in the 73-wide grid (col_off=2): col 2 + (73-29)/2 = 24
+                let msg = "  ■  PAUSED  —  [Space] fortsetzen  ";
+                let col = 2 + (73u16 - msg.chars().count() as u16) / 2;
                 queue!(out,
-                    MoveTo(20, 18),
+                    MoveTo(col, 19),
+                    SetForegroundColor(colors.ui_text),
                     SetBackgroundColor(colors.cell_active_bg),
-                    Print("  PAUSED — press Space to continue  "),
+                    Print(msg),
                     ResetColor
                 )?;
             }
