@@ -28,6 +28,7 @@ pub enum AppScreen {
 #[derive(Debug, Clone)]
 pub enum ConfirmAction {
     ClearCell { row: usize, col: usize },
+    QuitGame,
 }
 
 pub struct App {
@@ -94,11 +95,17 @@ impl App {
         if self.confirm_pending.is_some() {
             match action {
                 AppAction::ConfirmYes => {
-                    if let Some(ConfirmAction::ClearCell { row, col }) = self.confirm_pending.take() {
-                        if let Some(state) = &mut self.game_state {
-                            use crate::puzzle::GameEvent;
-                            state.apply(GameEvent::ClearCell { row, col });
+                    match self.confirm_pending.take() {
+                        Some(ConfirmAction::ClearCell { row, col }) => {
+                            if let Some(state) = &mut self.game_state {
+                                use crate::puzzle::GameEvent;
+                                state.apply(GameEvent::ClearCell { row, col });
+                            }
                         }
+                        Some(ConfirmAction::QuitGame) => {
+                            self.screen = AppScreen::Start { selected: 0 };
+                        }
+                        None => {}
                     }
                     self.needs_clear = true;
                 }
@@ -180,7 +187,8 @@ impl App {
                     self.paused = false;
                 }
                 AppAction::Back => {
-                    self.screen = AppScreen::Start { selected: 0 };
+                    self.paused = false;
+                    self.confirm_pending = Some(ConfirmAction::QuitGame);
                     self.needs_clear = true;
                 }
                 _ => {}
@@ -190,7 +198,7 @@ impl App {
 
         match action {
             AppAction::Back => {
-                self.screen = AppScreen::Start { selected: 0 };
+                self.confirm_pending = Some(ConfirmAction::QuitGame);
                 self.needs_clear = true;
             }
             AppAction::Pause => {
@@ -320,25 +328,23 @@ impl App {
             }
             AppScreen::Game => {
                 if let Some(state) = &self.game_state {
-                    let screen = if let Some(ConfirmAction::ClearCell { .. }) = &self.confirm_pending {
-                        Screen::Confirm {
-                            underneath: Box::new(Screen::Game {
-                                state,
-                                cursor: self.cursor,
-                                note_mode: self.note_mode,
-                                elapsed_ms: self.elapsed_ms(),
-                                paused: self.paused,
-                            }),
+                    let game_screen = || Screen::Game {
+                        state,
+                        cursor: self.cursor,
+                        note_mode: self.note_mode,
+                        elapsed_ms: self.elapsed_ms(),
+                        paused: self.paused,
+                    };
+                    let screen = match &self.confirm_pending {
+                        Some(ConfirmAction::ClearCell { .. }) => Screen::Confirm {
+                            underneath: Box::new(game_screen()),
                             message: "Clear this cell? [Y]es / [N]o".into(),
-                        }
-                    } else {
-                        Screen::Game {
-                            state,
-                            cursor: self.cursor,
-                            note_mode: self.note_mode,
-                            elapsed_ms: self.elapsed_ms(),
-                            paused: self.paused,
-                        }
+                        },
+                        Some(ConfirmAction::QuitGame) => Screen::Confirm {
+                            underneath: Box::new(game_screen()),
+                            message: "Quit to menu? [Y]es / [N]o  —  [Esc] stay".into(),
+                        },
+                        None => game_screen(),
                     };
                     render_frame(out, &screen, &self.colors, self.style.as_ref())
                 } else {
@@ -397,13 +403,37 @@ mod tests {
     }
 
     #[test]
-    fn escape_from_game_goes_to_start() {
+    fn escape_from_game_shows_quit_confirm() {
         let mut app = make_app();
         app.handle_action(AppAction::Enter);
         app.handle_action(AppAction::Enter);
         assert!(matches!(app.screen, AppScreen::Game));
+        // Esc opens confirm dialog, does not immediately leave
         app.handle_action(AppAction::Back);
+        assert!(matches!(app.screen, AppScreen::Game));
+        assert!(matches!(app.confirm_pending, Some(ConfirmAction::QuitGame)));
+    }
+
+    #[test]
+    fn confirm_yes_quits_to_start() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Back);       // open confirm
+        app.handle_action(AppAction::ConfirmYes); // confirm → Start
         assert!(matches!(app.screen, AppScreen::Start { .. }));
+        assert!(app.confirm_pending.is_none());
+    }
+
+    #[test]
+    fn confirm_no_returns_to_game() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Back);       // open confirm
+        app.handle_action(AppAction::ConfirmNo);  // dismiss → stay in game
+        assert!(matches!(app.screen, AppScreen::Game));
+        assert!(app.confirm_pending.is_none());
     }
 
     #[test]
