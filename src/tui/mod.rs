@@ -13,6 +13,7 @@ use crate::tui::input::{map_key_to_action, AppAction, NavMode, NavState};
 use crate::tui::render::{render_frame, Screen};
 use crate::tui::terminal::Terminal;
 use crossterm::event::{self, Event};
+use crossterm::{queue, style::SetBackgroundColor, terminal::{Clear, ClearType}};
 use std::io::{self, BufWriter, Write};
 
 #[derive(Debug, PartialEq)]
@@ -254,6 +255,12 @@ impl App {
     pub fn run(&mut self) -> io::Result<()> {
         let _terminal = Terminal::setup()?;
         let mut out = BufWriter::new(std::io::stdout());
+
+        // Fill the entire screen with the background colour once at startup.
+        // Subsequent frames overwrite content in place (no Clear per frame)
+        // so there is no flicker, but unused terminal space stays black.
+        queue!(out, SetBackgroundColor(self.colors.ui_background), Clear(ClearType::All))?;
+        out.flush()?;
 
         loop {
             self.render_current(&mut out)?;
