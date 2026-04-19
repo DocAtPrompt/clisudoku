@@ -44,8 +44,6 @@ fn cell_bg(row: usize, col: usize, cursor: (usize, usize), colors: &ColorScheme)
     let (cr, cc) = cursor;
     if row == cr && col == cc {
         colors.cell_active_bg
-    } else if row / 3 == cr / 3 && col / 3 == cc / 3 {
-        colors.cell_active_box_bg
     } else {
         colors.cell_normal_bg
     }
@@ -104,12 +102,15 @@ pub fn render_grid(
                 let sep_fg = if col == 8 { colors.grid_border }
                              else if col == 2 || col == 5 { colors.grid_box }
                              else { colors.grid_cell };
+                // Separator background matches the left cell so the grid line
+                // doesn't appear to "change color" when the cursor moves next to it.
+                let sep_bg = if col == 8 { colors.ui_background } else { bg };
                 queue!(out,
                     SetForegroundColor(fg),
                     SetBackgroundColor(bg),
                     Print(content),
                     SetForegroundColor(sep_fg),
-                    SetBackgroundColor(colors.ui_background),
+                    SetBackgroundColor(sep_bg),
                     Print(v_sep(col))
                 )?;
             }
