@@ -41,9 +41,19 @@ fn h_cross(heavy: bool, col: usize) -> char {
     }
 }
 
-/// Which 3×3 box (0-8) does this cell belong to?
+/// Which 3×3 box (0-8, reading order: 0=top-left … 8=bottom-right) does this cell belong to?
 fn box_of(row: usize, col: usize) -> usize {
     (row / 3) * 3 + col / 3
+}
+
+/// Convert a numpad box index (as stored in NavState::box_idx) to a reading-order box index.
+///
+/// Numpad layout: '1'→idx 0 = bottom-left, '9'→idx 8 = top-right.
+/// Reading order: 0 = top-left, 8 = bottom-right.
+///
+/// Mapping: reading_box = (2 - numpad_idx/3) * 3 + numpad_idx%3
+fn numpad_to_reading_box(numpad_idx: usize) -> usize {
+    (2 - numpad_idx / 3) * 3 + numpad_idx % 3
 }
 
 /// Cell background for normal (non-paused) rendering.
@@ -64,9 +74,10 @@ fn cell_bg(
             // Stage 1: whole grid is the "selection pending" hint
             colors.cell_active_bg
         }
-        (NavMode::Navigation, Some(selected_box)) => {
-            // Stage 2: only the chosen box is highlighted
-            if box_of(row, col) == selected_box {
+        (NavMode::Navigation, Some(numpad_box)) => {
+            // Stage 2: only the chosen box is highlighted.
+            // nav.box_idx is a numpad index; convert to reading-order before comparing.
+            if box_of(row, col) == numpad_to_reading_box(numpad_box) {
                 colors.cell_active_bg
             } else {
                 colors.cell_normal_bg
@@ -278,17 +289,26 @@ mod tests {
 
     #[test]
     fn nav_box_stage_only_selected_box_active() {
-        // Stage 2: box 4 (center) = rows 3-5, cols 3-5
-        let state = empty_state();
-        let _ = state;
         let colors = ColorScheme::default();
+
+        // Numpad '5' (idx 4) = center box → reading-order box 4 → rows 3-5, cols 3-5
         let nav = nav_box(4);
-        // Inside box 4
         assert_eq!(cell_bg(3, 3, (0, 0), &nav, &colors), colors.cell_active_bg);
         assert_eq!(cell_bg(5, 5, (0, 0), &nav, &colors), colors.cell_active_bg);
-        // Outside box 4
         assert_eq!(cell_bg(0, 0, (0, 0), &nav, &colors), colors.cell_normal_bg);
         assert_eq!(cell_bg(8, 8, (0, 0), &nav, &colors), colors.cell_normal_bg);
+
+        // Numpad '9' (idx 8) → reading-order box 2 → top-right → rows 0-2, cols 6-8
+        let nav9 = nav_box(8);
+        assert_eq!(cell_bg(0, 6, (0, 0), &nav9, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(2, 8, (0, 0), &nav9, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(6, 6, (0, 0), &nav9, &colors), colors.cell_normal_bg); // bottom-right, not highlighted
+
+        // Numpad '1' (idx 0) → reading-order box 6 → bottom-left → rows 6-8, cols 0-2
+        let nav1 = nav_box(0);
+        assert_eq!(cell_bg(6, 0, (0, 0), &nav1, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(8, 2, (0, 0), &nav1, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(0, 0, (0, 0), &nav1, &colors), colors.cell_normal_bg); // top-left, not highlighted
     }
 
     #[test]

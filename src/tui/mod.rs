@@ -226,12 +226,10 @@ impl App {
                 }
             }
             AppAction::Enter => {
+                // Toggle between modes; clear any partial box selection on exit.
                 self.nav_state.mode = match self.nav_state.mode {
-                    NavMode::Input => NavMode::Navigation,
-                    NavMode::Navigation => {
-                        self.nav_state.box_idx = None;
-                        NavMode::Navigation
-                    }
+                    NavMode::Input      => NavMode::Navigation,
+                    NavMode::Navigation => { self.nav_state.box_idx = None; NavMode::Input }
                 };
             }
             AppAction::ToggleMode => {

@@ -10,9 +10,9 @@ pub struct NavState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum NavMode {
+    Navigation,  // navigating, numpad 2-step selection; grid lights up
     #[default]
-    Navigation,  // navigating, not in input mode
-    Input,       // cell is active, digit keys write to cell
+    Input,       // normal editing; digit keys write to the active cell
 }
 
 /// All actions the app can respond to, independent of key bindings.
