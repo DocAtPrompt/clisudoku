@@ -8,6 +8,7 @@ pub mod status_bar;
 use crate::puzzle::GameState;
 use crate::tui::colors::ColorScheme;
 use crate::tui::digit_style::DigitStyle;
+use crate::tui::input::NavState;
 use crossterm::{
     cursor::MoveTo,
     queue,
@@ -25,6 +26,7 @@ pub enum Screen<'a> {
         note_mode: bool,
         elapsed_ms: u64,
         paused: bool,
+        nav: &'a NavState,
     },
     Confirm {
         /// Screen rendered underneath the overlay.
@@ -51,8 +53,8 @@ pub fn render_frame(
         Screen::DifficultySelect { selected } => {
             start_screen::render_difficulty(out, (2, 4), *selected, colors)?;
         }
-        Screen::Game { state, cursor, note_mode, elapsed_ms, paused } => {
-            grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, colors, style)?;
+        Screen::Game { state, cursor, note_mode, elapsed_ms, paused, nav } => {
+            grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, colors, style)?;
             // Panel to the right of the grid: col 2 + 73 (grid) + 2 (gap) = 77
             status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, colors)?;
             if *paused {

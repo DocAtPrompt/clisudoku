@@ -340,6 +340,7 @@ impl App {
                         note_mode: self.note_mode,
                         elapsed_ms: self.elapsed_ms(),
                         paused: self.paused,
+                        nav: &self.nav_state,
                     };
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::ClearCell { .. }) => Screen::Confirm {

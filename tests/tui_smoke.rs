@@ -2,6 +2,7 @@
 use clisudoku::puzzle::{Grid, GameState};
 use clisudoku::tui::colors::ColorScheme;
 use clisudoku::tui::digit_style::RetroStyle;
+use clisudoku::tui::input::NavState;
 use clisudoku::tui::render::{render_frame, Screen};
 
 /// Verifies that render_frame produces non-empty output without panicking.
@@ -22,6 +23,7 @@ fn render_game_screen_does_not_panic() {
             note_mode: false,
             elapsed_ms: 125_000,
             paused: false,
+            nav: &NavState::default(),
         },
         &ColorScheme::default(),
         &RetroStyle,

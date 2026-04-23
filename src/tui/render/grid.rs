@@ -2,6 +2,7 @@
 use crate::puzzle::{CellKind, GameState};
 use crate::tui::colors::ColorScheme;
 use crate::tui::digit_style::DigitStyle;
+use crate::tui::input::{NavMode, NavState};
 use crate::tui::render::cell::cell_display_lines;
 use crossterm::{
     cursor::MoveTo,
@@ -40,12 +41,46 @@ fn h_cross(heavy: bool, col: usize) -> char {
     }
 }
 
-fn cell_bg(row: usize, col: usize, cursor: (usize, usize), colors: &ColorScheme) -> Color {
-    let (cr, cc) = cursor;
-    if row == cr && col == cc {
-        colors.cell_active_bg
-    } else {
-        colors.cell_normal_bg
+/// Which 3×3 box (0-8) does this cell belong to?
+fn box_of(row: usize, col: usize) -> usize {
+    (row / 3) * 3 + col / 3
+}
+
+/// Cell background for normal (non-paused) rendering.
+///
+/// Stage rules:
+///   NavMode::Navigation, no box → entire grid highlighted (pending first digit)
+///   NavMode::Navigation, box b  → only the selected box highlighted (pending second digit)
+///   NavMode::Input              → only cursor cell highlighted (normal editing)
+fn cell_bg(
+    row: usize,
+    col: usize,
+    cursor: (usize, usize),
+    nav: &NavState,
+    colors: &ColorScheme,
+) -> Color {
+    match (&nav.mode, nav.box_idx) {
+        (NavMode::Navigation, None) => {
+            // Stage 1: whole grid is the "selection pending" hint
+            colors.cell_active_bg
+        }
+        (NavMode::Navigation, Some(selected_box)) => {
+            // Stage 2: only the chosen box is highlighted
+            if box_of(row, col) == selected_box {
+                colors.cell_active_bg
+            } else {
+                colors.cell_normal_bg
+            }
+        }
+        (NavMode::Input, _) => {
+            // Normal editing: only cursor cell
+            let (cr, cc) = cursor;
+            if row == cr && col == cc {
+                colors.cell_active_bg
+            } else {
+                colors.cell_normal_bg
+            }
+        }
     }
 }
 
@@ -57,6 +92,7 @@ pub fn render_grid(
     cursor: (usize, usize),
     note_mode: bool,
     paused: bool,
+    nav: &NavState,
     colors: &ColorScheme,
     style: &dyn DigitStyle,
 ) -> io::Result<()> {
@@ -100,7 +136,7 @@ pub fn render_grid(
                         CellKind::Empty if notes_mask != 0 => colors.note_normal,
                         _ => colors.grid_cell,
                     };
-                    (fg, cell_bg(row, col, cursor, colors), content_lines[line_idx].clone())
+                    (fg, cell_bg(row, col, cursor, nav, colors), content_lines[line_idx].clone())
                 };
 
                 let sep_fg = if paused { overlay_bg }
@@ -181,6 +217,7 @@ mod tests {
     use crate::puzzle::{Grid, GameState};
     use crate::tui::colors::ColorScheme;
     use crate::tui::digit_style::RetroStyle;
+    use crate::tui::input::{NavMode, NavState};
 
     fn empty_state() -> GameState {
         GameState::new(Grid::from_str(
@@ -188,11 +225,15 @@ mod tests {
         ).unwrap())
     }
 
+    fn nav_input() -> NavState { NavState { mode: NavMode::Input, box_idx: None } }
+    fn nav_grid()  -> NavState { NavState { mode: NavMode::Navigation, box_idx: None } }
+    fn nav_box(b: usize) -> NavState { NavState { mode: NavMode::Navigation, box_idx: Some(b) } }
+
     #[test]
     fn grid_render_contains_outer_border_chars() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &ColorScheme::default(), &RetroStyle)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('╔'));
@@ -205,7 +246,7 @@ mod tests {
     fn grid_render_contains_box_separators() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &ColorScheme::default(), &RetroStyle)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('┃'));
@@ -220,8 +261,41 @@ mod tests {
         ).unwrap();
         let state = GameState::new(grid);
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &ColorScheme::default(), &RetroStyle)
             .unwrap();
         assert!(!buf.is_empty());
+    }
+
+    #[test]
+    fn nav_grid_stage_all_cells_active_bg() {
+        // Stage 1: NavMode::Navigation with no box — entire grid should use active_bg
+        let state = empty_state();
+        let colors = ColorScheme::default();
+        assert_eq!(cell_bg(0, 0, (4, 4), &nav_grid(), &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(8, 8, (4, 4), &nav_grid(), &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(4, 4, (4, 4), &nav_grid(), &colors), colors.cell_active_bg);
+    }
+
+    #[test]
+    fn nav_box_stage_only_selected_box_active() {
+        // Stage 2: box 4 (center) = rows 3-5, cols 3-5
+        let state = empty_state();
+        let _ = state;
+        let colors = ColorScheme::default();
+        let nav = nav_box(4);
+        // Inside box 4
+        assert_eq!(cell_bg(3, 3, (0, 0), &nav, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(5, 5, (0, 0), &nav, &colors), colors.cell_active_bg);
+        // Outside box 4
+        assert_eq!(cell_bg(0, 0, (0, 0), &nav, &colors), colors.cell_normal_bg);
+        assert_eq!(cell_bg(8, 8, (0, 0), &nav, &colors), colors.cell_normal_bg);
+    }
+
+    #[test]
+    fn nav_input_stage_only_cursor_active() {
+        let colors = ColorScheme::default();
+        let nav = nav_input();
+        assert_eq!(cell_bg(4, 4, (4, 4), &nav, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(0, 0, (4, 4), &nav, &colors), colors.cell_normal_bg);
     }
 }
