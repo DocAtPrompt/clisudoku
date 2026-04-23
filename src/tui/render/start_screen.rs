@@ -35,7 +35,7 @@ pub fn render_start(
     let menu_row = row_off + 7; // 5 title lines + 2 blank rows
     for (i, item) in START_ITEMS.iter().enumerate() {
         let (fg, bg) = if i == selected {
-            (colors.ui_background, colors.ui_cursor_bg)
+            (colors.ui_text, colors.ui_cursor_bg)
         } else {
             (colors.ui_text, colors.ui_background)
         };
@@ -64,7 +64,7 @@ pub fn render_difficulty(
     )?;
     for (i, item) in DIFFICULTY_ITEMS.iter().enumerate() {
         let (fg, bg) = if i == selected {
-            (colors.ui_background, colors.ui_cursor_bg)
+            (colors.ui_text, colors.ui_cursor_bg)
         } else {
             (colors.ui_text, colors.ui_background)
         };
