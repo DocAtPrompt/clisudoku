@@ -65,7 +65,7 @@ pub fn render_panel(
         ("  \u{2191}\u{2193}\u{2190}\u{2192}   move".into(),  d, false),
         ("  Enter  goto".into(),              d, false),
         ("  1-9    digit".into(),             d, false),
-        ("  0      toggle".into(),            d, false),
+        ("  0      note/sol".into(),           d, false),
         ("  u/^Z   undo".into(),              d, false),
         ("  r/^Y   redo".into(),              d, false),
         ("  -      clear".into(),             d, false),
