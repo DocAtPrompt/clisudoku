@@ -343,11 +343,13 @@ impl App {
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::ClearCell { .. }) => Screen::Confirm {
                             underneath: Box::new(game_screen()),
-                            message: "Clear this cell? [Y]es / [N]o".into(),
+                            title:   "Clear this cell?".into(),
+                            options: "[Y]es  [N]o".into(),
                         },
                         Some(ConfirmAction::QuitGame) => Screen::Confirm {
                             underneath: Box::new(game_screen()),
-                            message: "Quit to menu? [Y]es / [N]o  —  [Esc] stay".into(),
+                            title:   "Quit game?".into(),
+                            options: "[Y]es  [N]o  [S]ave & quit".into(),
                         },
                         None => game_screen(),
                     };

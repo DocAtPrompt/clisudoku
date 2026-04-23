@@ -31,7 +31,10 @@ pub enum Screen<'a> {
     Confirm {
         /// Screen rendered underneath the overlay.
         underneath: Box<Screen<'a>>,
-        message: String,
+        /// First line: short description of what is being confirmed.
+        title: String,
+        /// Second line: the available key options.
+        options: String,
     },
 }
 
@@ -70,9 +73,9 @@ pub fn render_frame(
                 )?;
             }
         }
-        Screen::Confirm { underneath, message } => {
+        Screen::Confirm { underneath, title, options } => {
             render_frame(out, underneath, colors, style)?;
-            confirm::render_confirm(out, (17, 20), message, colors)?;
+            confirm::render_confirm(out, (17, 20), title, options, colors)?;
         }
     }
 
