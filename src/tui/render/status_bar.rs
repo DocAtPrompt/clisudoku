@@ -63,6 +63,7 @@ pub fn render_panel(
         ("  Controls".into(),                 t, false),
         (String::new(),                       d, false),
         ("  \u{2191}\u{2193}\u{2190}\u{2192}   move".into(),  d, false),
+        ("  Enter  goto".into(),              d, false),
         ("  1-9    digit".into(),             d, false),
         ("  0      toggle".into(),            d, false),
         ("  u/^Z   undo".into(),              d, false),
