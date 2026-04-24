@@ -61,8 +61,8 @@ pub struct App {
     seq: SeqDetector,
     /// Active animations (sweep + firework).
     pub anim: AnimState,
-    /// One-line info overlay text (easter egg messages); dismissed by any key.
-    pub info_overlay: Option<String>,
+    /// Easter-egg info overlay: message + time it was shown (auto-dismiss after 3 s).
+    pub info_overlay: Option<(String, std::time::Instant)>,
 }
 
 impl App {
@@ -328,17 +328,17 @@ impl App {
         match egg {
             EasterEgg::GodMode => self.easter_god_mode(),
             EasterEgg::FillNotes => self.easter_fill_notes(),
-            EasterEgg::Xyzzy    => self.info_overlay = Some("Nothing happens.".into()),
-            EasterEgg::Sudo     => self.info_overlay = Some(
-                "user is not in the sudoers file. This incident will be reported.".into()
+            EasterEgg::Xyzzy    => self.set_overlay("Nothing happens."),
+            EasterEgg::Sudo     => self.set_overlay(
+                "user is not in the sudoers file. This incident will be reported."
             ),
-            EasterEgg::Help     => self.info_overlay = Some(
-                "This is not a text adventure.".into()
-            ),
-            EasterEgg::FortyTwo => self.info_overlay = Some(
-                "42 — Life, the Universe, and Everything.".into()
-            ),
+            EasterEgg::Help     => self.set_overlay("This is not a text adventure."),
+            EasterEgg::FortyTwo => self.set_overlay("42 — Life, the Universe, and Everything."),
         }
+    }
+
+    fn set_overlay(&mut self, msg: &str) {
+        self.info_overlay = Some((msg.into(), std::time::Instant::now()));
     }
 
     /// `iddqd` — fill every non-given cell with the correct solution value.
@@ -447,7 +447,7 @@ impl App {
             if event::poll(Duration::from_millis(poll_ms))? {
                 match event::read()? {
                     Event::Key(key) => {
-                        // Info-overlay: any key dismisses it.
+                        // Info-overlay: any key dismisses it early.
                         if self.info_overlay.is_some() {
                             self.info_overlay = None;
                         } else {
@@ -468,6 +468,13 @@ impl App {
 
             // Advance animations every poll cycle (≈80 ms when active).
             self.anim.advance();
+
+            // Auto-dismiss info overlay after 3 seconds.
+            if let Some((_, shown_at)) = &self.info_overlay {
+                if shown_at.elapsed() >= Duration::from_secs(3) {
+                    self.info_overlay = None;
+                }
+            }
 
             if self.should_quit {
                 break;
@@ -525,7 +532,7 @@ impl App {
                         None => game_screen(),
                     };
                     render_frame(out, &screen, &self.colors, self.style.as_ref())?;
-                    if let Some(msg) = &self.info_overlay {
+                    if let Some((msg, _)) = &self.info_overlay {
                         let msg = msg.clone();
                         render_info_overlay(out, (15, 10), &msg, &self.colors)?;
                     }

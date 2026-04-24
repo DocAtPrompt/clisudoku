@@ -6,7 +6,7 @@
 
 use std::collections::VecDeque;
 
-const BUF_SIZE: usize = 10;
+const BUF_SIZE: usize = 20; // longest sequence: "zweiundvierzig" (14 chars)
 
 /// Easter egg triggered by a typed sequence.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,13 +53,14 @@ impl SeqDetector {
     }
 
     fn check(&mut self) -> Option<EasterEgg> {
-        let egg = if      self.tail_matches("iddqd") { Some(EasterEgg::GodMode)  }
-                  else if self.tail_matches("idkfa") { Some(EasterEgg::FillNotes) }
-                  else if self.tail_matches("xyzzy") { Some(EasterEgg::Xyzzy)    }
-                  else if self.tail_matches("sudo")  { Some(EasterEgg::Sudo)      }
-                  else if self.tail_matches("help")  { Some(EasterEgg::Help)      }
-                  else if self.tail_matches("42")    { Some(EasterEgg::FortyTwo)  }
-                  else                               { None                       };
+        let egg = if      self.tail_matches("iddqd")          { Some(EasterEgg::GodMode)  }
+                  else if self.tail_matches("idkfa")          { Some(EasterEgg::FillNotes) }
+                  else if self.tail_matches("xyzzy")          { Some(EasterEgg::Xyzzy)    }
+                  else if self.tail_matches("sudo")           { Some(EasterEgg::Sudo)      }
+                  else if self.tail_matches("help")           { Some(EasterEgg::Help)      }
+                  else if self.tail_matches("fortytwo")       { Some(EasterEgg::FortyTwo)  }
+                  else if self.tail_matches("zweiundvierzig") { Some(EasterEgg::FortyTwo)  }
+                  else                                        { None                       };
         if egg.is_some() { self.buf.clear(); }
         egg
     }
@@ -81,7 +82,8 @@ mod tests {
     #[test] fn xyzzy()   { assert_eq!(detect("xyzzy"), Some(EasterEgg::Xyzzy));     }
     #[test] fn sudo()    { assert_eq!(detect("sudo"),  Some(EasterEgg::Sudo));       }
     #[test] fn help()    { assert_eq!(detect("help"),  Some(EasterEgg::Help));       }
-    #[test] fn fortytwo(){ assert_eq!(detect("42"),    Some(EasterEgg::FortyTwo));   }
+    #[test] fn fortytwo_en() { assert_eq!(detect("fortytwo"),       Some(EasterEgg::FortyTwo)); }
+    #[test] fn fortytwo_de() { assert_eq!(detect("zweiundvierzig"), Some(EasterEgg::FortyTwo)); }
 
     #[test]
     fn no_false_positive() {
