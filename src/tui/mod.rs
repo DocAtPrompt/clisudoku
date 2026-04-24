@@ -450,6 +450,7 @@ impl App {
                         // Info-overlay: any key dismisses it early.
                         if self.info_overlay.is_some() {
                             self.info_overlay = None;
+                            self.needs_clear = true;
                         } else {
                             // Feed raw char to sequence detector (easter eggs).
                             if let crossterm::event::KeyCode::Char(c) = key.code {
@@ -473,6 +474,7 @@ impl App {
             if let Some((_, shown_at)) = &self.info_overlay {
                 if shown_at.elapsed() >= Duration::from_secs(3) {
                     self.info_overlay = None;
+                    self.needs_clear = true;
                 }
             }
 
