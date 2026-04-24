@@ -1,5 +1,6 @@
 // src/tui/render/grid.rs
 use crate::puzzle::{CellKind, GameState};
+use crate::tui::anim::AnimState;
 use crate::tui::colors::ColorScheme;
 use crate::tui::digit_style::DigitStyle;
 use crate::tui::input::{NavMode, NavState};
@@ -104,6 +105,7 @@ pub fn render_grid(
     note_mode: bool,
     paused: bool,
     nav: &NavState,
+    anim: &AnimState,
     colors: &ColorScheme,
     style: &dyn DigitStyle,
 ) -> io::Result<()> {
@@ -147,7 +149,10 @@ pub fn render_grid(
                         CellKind::Empty if notes_mask != 0 => colors.note_normal,
                         _ => colors.grid_cell,
                     };
-                    (fg, cell_bg(row, col, cursor, nav, colors), content_lines[line_idx].clone())
+                    // Sweep animation overrides normal cell background.
+                    let bg = anim.sweep_bg(row, col)
+                        .unwrap_or_else(|| cell_bg(row, col, cursor, nav, colors));
+                    (fg, bg, content_lines[line_idx].clone())
                 };
 
                 let sep_fg = if paused { overlay_bg }
@@ -226,6 +231,7 @@ pub fn render_grid(
 mod tests {
     use super::*;
     use crate::puzzle::{Grid, GameState};
+    use crate::tui::anim::AnimState;
     use crate::tui::colors::ColorScheme;
     use crate::tui::digit_style::RetroStyle;
     use crate::tui::input::{NavMode, NavState};
@@ -244,7 +250,7 @@ mod tests {
     fn grid_render_contains_outer_border_chars() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), &ColorScheme::default(), &RetroStyle)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('╔'));
@@ -257,7 +263,7 @@ mod tests {
     fn grid_render_contains_box_separators() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), &ColorScheme::default(), &RetroStyle)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('┃'));
@@ -272,7 +278,7 @@ mod tests {
         ).unwrap();
         let state = GameState::new(grid);
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), &ColorScheme::default(), &RetroStyle)
             .unwrap();
         assert!(!buf.is_empty());
     }

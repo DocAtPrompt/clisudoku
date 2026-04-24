@@ -1,16 +1,23 @@
+pub mod anim;
 pub mod colors;
 pub mod digit_style;
 pub mod input;
 pub mod render;
+pub mod seq_detect;
 pub mod terminal;
 
 use crate::generator::{Difficulty, PuzzleGenerator};
-use crate::puzzle::GameState;
+use crate::puzzle::{CellKind, GameState};
+use crate::solver::backtracking::solve_backtracking;
+use crate::solver::candidates::CandidateGrid;
 use crate::timer::Clock;
+use crate::tui::anim::{AnimState, FireworkAnim, SweepAnim};
 use crate::tui::colors::ColorScheme;
 use crate::tui::digit_style::{DigitStyle, RetroStyle};
 use crate::tui::input::{map_key_to_action, AppAction, NavMode, NavState};
-use crate::tui::render::{render_frame, Screen};
+use crate::tui::render::{render_frame, render_info_overlay, Screen};
+use crate::tui::render::{box_cells, col_cells, row_cells};
+use crate::tui::seq_detect::{EasterEgg, SeqDetector};
 use crate::tui::terminal::Terminal;
 use crossterm::event::{self, Event};
 use crossterm::{queue, style::SetBackgroundColor, terminal::{Clear, ClearType}};
@@ -50,6 +57,12 @@ pub struct App {
     paused_elapsed_ms: u64,
     colors: ColorScheme,
     style: Box<dyn DigitStyle>,
+    /// Typed sequence detector for easter eggs.
+    seq: SeqDetector,
+    /// Active animations (sweep + firework).
+    pub anim: AnimState,
+    /// One-line info overlay text (easter egg messages); dismissed by any key.
+    pub info_overlay: Option<String>,
 }
 
 impl App {
@@ -70,6 +83,9 @@ impl App {
             colors: ColorScheme::default(),
             style: Box::new(RetroStyle),
             clock,
+            seq: SeqDetector::default(),
+            anim: AnimState::default(),
+            info_overlay: None,
         }
     }
 
@@ -262,8 +278,8 @@ impl App {
                 self.note_mode = !self.note_mode;
             }
             AppAction::Digit(d) => {
+                let (row, col) = self.cursor;
                 if let Some(state) = &mut self.game_state {
-                    let (row, col) = self.cursor;
                     use crate::puzzle::GameEvent;
                     let event = if self.note_mode {
                         GameEvent::ToggleNote { row, col, digit: d }
@@ -271,6 +287,9 @@ impl App {
                         GameEvent::SetDigit { row, col, digit: d }
                     };
                     state.apply(event);
+                }
+                if !self.note_mode {
+                    self.check_completion(row, col);
                 }
             }
             AppAction::ClearCell => {
@@ -303,6 +322,110 @@ impl App {
         self.nav_state.box_idx = None;
     }
 
+    // ── Easter eggs ───────────────────────────────────────────────────────────
+
+    fn handle_easter_egg(&mut self, egg: EasterEgg) {
+        match egg {
+            EasterEgg::GodMode => self.easter_god_mode(),
+            EasterEgg::FillNotes => self.easter_fill_notes(),
+            EasterEgg::Xyzzy    => self.info_overlay = Some("Nothing happens.".into()),
+            EasterEgg::Sudo     => self.info_overlay = Some(
+                "user is not in the sudoers file. This incident will be reported.".into()
+            ),
+            EasterEgg::Help     => self.info_overlay = Some(
+                "This is not a text adventure.".into()
+            ),
+            EasterEgg::FortyTwo => self.info_overlay = Some(
+                "42 — Life, the Universe, and Everything.".into()
+            ),
+        }
+    }
+
+    /// `iddqd` — fill every non-given cell with the correct solution value.
+    fn easter_god_mode(&mut self) {
+        let state = match &mut self.game_state { Some(s) => s, None => return };
+        // Build a givens-only grid and solve it.
+        use crate::puzzle::Grid;
+        let mut given_grid = Grid::empty();
+        for r in 0..9 { for c in 0..9 {
+            if let CellKind::Given(v) = state.grid().get(r, c) {
+                given_grid.set_given(r, c, v);
+            }
+        }}
+        if let Some(solution) = solve_backtracking(given_grid) {
+            use crate::puzzle::GameEvent;
+            for r in 0..9 { for c in 0..9 {
+                if !matches!(state.grid().get(r, c), CellKind::Given(_)) {
+                    if let Some(v) = solution.get(r, c).value() {
+                        state.apply(GameEvent::SetDigit { row: r, col: c, digit: v });
+                    }
+                }
+            }}
+        }
+    }
+
+    /// `idkfa` — set a single correct note in every empty cell.
+    fn easter_fill_notes(&mut self) {
+        let state = match &mut self.game_state { Some(s) => s, None => return };
+        // Solve to get the correct values, then set one note per empty cell.
+        use crate::puzzle::Grid;
+        let mut given_grid = Grid::empty();
+        for r in 0..9 { for c in 0..9 {
+            if let CellKind::Given(v) = state.grid().get(r, c) {
+                given_grid.set_given(r, c, v);
+            }
+        }}
+        if let Some(solution) = solve_backtracking(given_grid) {
+            use crate::puzzle::GameEvent;
+            for r in 0..9 { for c in 0..9 {
+                if matches!(state.grid().get(r, c), CellKind::Empty) {
+                    if let Some(v) = solution.get(r, c).value() {
+                        state.apply(GameEvent::ToggleNote { row: r, col: c, digit: v });
+                    }
+                }
+            }}
+        }
+    }
+
+    // ── Completion detection ──────────────────────────────────────────────────
+
+    /// Call after every SetDigit to detect newly completed groups and trigger sweeps.
+    fn check_completion(&mut self, changed_row: usize, changed_col: usize) {
+        let state = match &self.game_state { Some(s) => s, None => return };
+        let grid = state.grid();
+
+        let group_complete = |cells: &Vec<(usize, usize)>| -> bool {
+            let mut seen = [false; 10];
+            for &(r, c) in cells {
+                match grid.get(r, c).value() {
+                    Some(v) if v >= 1 && v <= 9 => {
+                        if seen[v as usize] { return false; }
+                        seen[v as usize] = true;
+                    }
+                    _ => return false,
+                }
+            }
+            seen[1..=9].iter().all(|&b| b)
+        };
+
+        let box_idx = (changed_row / 3) * 3 + changed_col / 3;
+        let groups: &[(Vec<(usize, usize)>, bool)] = &[
+            (row_cells(changed_row), true),
+            (col_cells(changed_col), true),
+            (box_cells(box_idx),     true),
+        ];
+        for (cells, _) in groups {
+            if group_complete(cells) {
+                self.anim.sweeps.push(SweepAnim::new(cells.clone()));
+            }
+        }
+
+        // Full puzzle solved → firework
+        if grid.is_solved() {
+            self.anim.firework = Some(FireworkAnim::new());
+        }
+    }
+
     /// Main event loop. Renders, reads input, dispatches until quit.
     pub fn run(&mut self) -> io::Result<()> {
         let _terminal = Terminal::setup()?;
@@ -318,18 +441,33 @@ impl App {
             self.render_current(&mut out)?;
             out.flush()?;
 
-            // Poll with a 500 ms timeout so the timer re-renders every half-second
-            // even when no key is pressed.
-            if event::poll(Duration::from_millis(500))? {
+            // Shorten poll timeout when an animation is running so frames advance.
+            let poll_ms = if self.anim.is_active() { 80 } else { 500 };
+
+            if event::poll(Duration::from_millis(poll_ms))? {
                 match event::read()? {
                     Event::Key(key) => {
-                        let action = map_key_to_action(key, &self.nav_state);
-                        self.handle_action(action);
+                        // Info-overlay: any key dismisses it.
+                        if self.info_overlay.is_some() {
+                            self.info_overlay = None;
+                        } else {
+                            // Feed raw char to sequence detector (easter eggs).
+                            if let crossterm::event::KeyCode::Char(c) = key.code {
+                                if let Some(egg) = self.seq.push(c) {
+                                    self.handle_easter_egg(egg);
+                                }
+                            }
+                            let action = map_key_to_action(key, &self.nav_state);
+                            self.handle_action(action);
+                        }
                     }
-                    Event::Resize(_, _) => { /* re-render on next loop */ }
+                    Event::Resize(_, _) => {}
                     _ => {}
                 }
             }
+
+            // Advance animations every poll cycle (≈80 ms when active).
+            self.anim.advance();
 
             if self.should_quit {
                 break;
@@ -371,6 +509,7 @@ impl App {
                         elapsed_ms: self.elapsed_ms(),
                         paused: self.paused,
                         nav: &self.nav_state,
+                        anim: &self.anim,
                     };
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::ClearCell { .. }) => Screen::Confirm {
@@ -385,7 +524,12 @@ impl App {
                         },
                         None => game_screen(),
                     };
-                    render_frame(out, &screen, &self.colors, self.style.as_ref())
+                    render_frame(out, &screen, &self.colors, self.style.as_ref())?;
+                    if let Some(msg) = &self.info_overlay {
+                        let msg = msg.clone();
+                        render_info_overlay(out, (15, 10), &msg, &self.colors)?;
+                    }
+                    Ok(())
                 } else {
                     Ok(())
                 }

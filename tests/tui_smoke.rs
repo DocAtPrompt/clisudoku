@@ -1,5 +1,6 @@
 // tests/tui_smoke.rs
 use clisudoku::puzzle::{Grid, GameState};
+use clisudoku::tui::anim::AnimState;
 use clisudoku::tui::colors::ColorScheme;
 use clisudoku::tui::digit_style::RetroStyle;
 use clisudoku::tui::input::NavState;
@@ -24,6 +25,7 @@ fn render_game_screen_does_not_panic() {
             elapsed_ms: 125_000,
             paused: false,
             nav: &NavState::default(),
+            anim: &AnimState::default(),
         },
         &ColorScheme::default(),
         &RetroStyle,
