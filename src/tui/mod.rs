@@ -38,13 +38,15 @@ pub struct App {
     pub nav_state: NavState,
     pub note_mode: bool,
     pub paused: bool,
+    /// Boss Key active — game hidden behind a fake terminal.
+    pub boss_mode: bool,
     pub confirm_pending: Option<ConfirmAction>,
     pub should_quit: bool,
     /// Set whenever the screen variant changes so the next render clears first.
     pub needs_clear: bool,
     clock: Box<dyn Clock>,
     game_start_ms: u64,
-    /// Elapsed ms frozen at the moment the game was paused.
+    /// Elapsed ms frozen at the moment the game was paused or boss key was pressed.
     paused_elapsed_ms: u64,
     colors: ColorScheme,
     style: Box<dyn DigitStyle>,
@@ -59,6 +61,7 @@ impl App {
             nav_state: NavState::default(),
             note_mode: false,
             paused: false,
+            boss_mode: false,
             confirm_pending: None,
             should_quit: false,
             needs_clear: false,
@@ -83,9 +86,9 @@ impl App {
         self.screen = AppScreen::Game;
     }
 
-    /// Elapsed game time in milliseconds, frozen while paused.
+    /// Elapsed game time in milliseconds, frozen while paused or in boss mode.
     fn elapsed_ms(&self) -> u64 {
-        if self.paused || self.game_start_ms == 0 {
+        if self.paused || self.boss_mode || self.game_start_ms == 0 {
             self.paused_elapsed_ms
         } else {
             self.clock.now_ms().saturating_sub(self.game_start_ms)
@@ -184,6 +187,24 @@ impl App {
     }
 
     fn handle_game_action(&mut self, action: AppAction) {
+        // ── Boss mode: only BossKey (toggle back) and Esc (quit) are accepted ──
+        if self.boss_mode {
+            match action {
+                AppAction::BossKey => {
+                    // Resume: shift game_start_ms so timer continues from frozen value
+                    self.game_start_ms = self.clock.now_ms().saturating_sub(self.paused_elapsed_ms);
+                    self.boss_mode = false;
+                    self.needs_clear = true;
+                }
+                AppAction::Back => {
+                    // Esc in boss mode: silent immediate quit (later: save first)
+                    self.should_quit = true;
+                }
+                _ => {}
+            }
+            return;
+        }
+
         if self.paused {
             match action {
                 AppAction::Pause => {
@@ -209,6 +230,11 @@ impl App {
             AppAction::Pause => {
                 self.paused_elapsed_ms = self.elapsed_ms();
                 self.paused = true;
+            }
+            AppAction::BossKey => {
+                self.paused_elapsed_ms = self.elapsed_ms();
+                self.boss_mode = true;
+                self.needs_clear = true;
             }
             AppAction::MoveUp => self.move_cursor(-1, 0),
             AppAction::MoveDown => self.move_cursor(1, 0),
@@ -318,6 +344,12 @@ impl App {
             queue!(out, SetBackgroundColor(self.colors.ui_background), Clear(ClearType::All))?;
             self.needs_clear = false;
         }
+
+        // Boss Key: replace entire screen with fake terminal, skip normal rendering.
+        if self.boss_mode {
+            return crate::tui::render::boss::render_boss(out);
+        }
+
         match &self.screen {
             AppScreen::Start { selected } => {
                 render_frame(out, &Screen::Start { selected: *selected }, &self.colors, self.style.as_ref())

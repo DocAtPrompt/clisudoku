@@ -37,6 +37,8 @@ pub enum AppAction {
     /// Enter key — semantics depend on nav state.
     Enter,
     Pause,
+    /// Boss Key — toggle disguise mode (hide game as terminal).
+    BossKey,
     Back,
     ConfirmYes,
     ConfirmNo,
@@ -60,6 +62,7 @@ pub fn map_key_to_action(key: KeyEvent, nav: &NavState) -> AppAction {
         KeyCode::Esc   => AppAction::Back,
 
         KeyCode::Char(' ') => AppAction::Pause,
+        KeyCode::Char('b') | KeyCode::Char('B') if !ctrl => AppAction::BossKey,
         KeyCode::Char('-') => AppAction::ClearCell,
         KeyCode::Char('0') => AppAction::ToggleMode,
 

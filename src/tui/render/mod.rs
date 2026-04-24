@@ -1,4 +1,5 @@
 // src/tui/render/mod.rs
+pub mod boss;
 pub mod cell;
 pub mod confirm;
 pub mod grid;

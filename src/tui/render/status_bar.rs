@@ -70,6 +70,7 @@ pub fn render_panel(
         ("  r/^Y   redo".into(),              d, false),
         ("  -      clear".into(),             d, false),
         ("  Spc    pause".into(),             d, false),
+        ("  b      boss key".into(),          d, false),
         ("  Esc    quit".into(),              d, false),
     ];
 
