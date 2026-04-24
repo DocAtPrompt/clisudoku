@@ -113,8 +113,10 @@ pub fn render_info_overlay(
         SetForegroundColor(Color::Cyan),  SetBackgroundColor(Color::DarkGrey), Print('│'),
 
         MoveTo(col_off, row_off + 2),
+        SetForegroundColor(Color::Cyan),    SetBackgroundColor(Color::DarkGrey), Print('│'),
         SetForegroundColor(Color::DarkGrey), SetBackgroundColor(Color::DarkGrey),
-        Print(format!("│  {:<inner$}  │", "— any key to dismiss —", inner = inner)),
+        Print(format!("  {:<inner$}  ", "— any key to dismiss —", inner = inner)),
+        SetForegroundColor(Color::Cyan),    SetBackgroundColor(Color::DarkGrey), Print('│'),
 
         MoveTo(col_off, row_off + 3),
         SetForegroundColor(Color::Cyan), SetBackgroundColor(Color::DarkGrey),
