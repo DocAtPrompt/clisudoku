@@ -143,7 +143,7 @@ Ordered list — first match wins when `h` is pressed:
 - Exclude units with zero empty cells (complete)
 - `target_cell` = the most constrained empty cell within the suggested unit (fewest non-zero notes mask bits, or if all zero: the first empty cell)
 
-**Reveal** — fires only when no strategy finds anything AND every empty cell has a non-zero notes mask (at least one candidate noted). "Notes present" means the notes mask for every empty cell is non-zero; it does not require that all valid candidates are present. Fills the most constrained empty cell (fewest bits set in notes mask, tiebroken by reading order) with the correct value from `solution`. `hint_count` is incremented.
+**Reveal** — fires only when no strategy finds anything AND every empty cell has a non-zero notes mask (at least one candidate noted). "Notes present" means the notes mask for every empty cell is non-zero; it does not require that all valid candidates are present. Fills the most constrained empty cell (fewest bits set in notes mask, tiebroken by reading order) with the correct value from `solution`. `hint_count` is incremented. After applying the digit, `check_completion()` must be called explicitly (the key is consumed before `handle_action`, so the normal completion check does not fire). Error-tracking logic (`revealed_errors`, `errors_shown`) is skipped — Reveal always inserts the correct digit.
 
 ---
 
@@ -201,8 +201,12 @@ If the cursor sits on the target cell, the background alternates between `hint_t
 
 ### AnimState changes
 
-New `hint_blink: bool` flag. When true:
-- The existing blink timer drives the yellow↔cursor-colour phase alternation on the target cell
+Two new fields:
+- `hint_blink: bool` — set to true when a hint with a target cell is active
+- `hint_blink_tick: u32` — separate tick counter for hint phase; incremented independently of `error_blink_tick` so that simultaneous error mode + active hint do not interfere
+
+When `hint_blink` is true:
+- `hint_blink_tick` drives the yellow↔cursor-colour phase alternation on the target cell
 - `is_active()` must return `true` when `hint_blink` is true (otherwise the 80 ms poll rate is not engaged and the cell never blinks)
 
 ---
@@ -248,6 +252,7 @@ Explanations use `{row}`, `{col}`, `{box}`, `{digit}` placeholders resolved at r
 | File | Change |
 |---|---|
 | `src/hint/mod.rs` | **new** — `Strategy` trait, `Hint` struct, registry, resolution logic |
+| `src/hint/strategies/mod.rs` | **new** — `pub mod tier1; pub mod tier2;` |
 | `src/hint/strategies/tier1.rs` | **new** — Full House through Box-Line Reduction |
 | `src/hint/strategies/tier2.rs` | **new** — Naked Triples through Swordfish (later iterations, file created empty) |
 | `src/i18n/mod.rs` | add hint `name` + `explanation` fields to `Strings`; fill DE + EN; all other 11 languages copy EN |
