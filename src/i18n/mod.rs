@@ -5,8 +5,8 @@
 // in the binary.  Dynamic values (counts, times) use `{}` as placeholder; call
 // `.replacen("{}", value, 1)` at the use-site.
 //
-// Panel control strings must fit in 18 chars (the inner width of the status panel).
-// Width formula: 2-space indent + key + spacing + description ≤ 18.
+// Panel control strings must fit in 34 chars (the inner width of the status panel).
+// Width formula: 2-space indent + key + spacing + description ≤ 34.
 
 // ── String catalogue ──────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ pub struct Strings {
     pub toggle_on:             &'static str,
     pub toggle_off:            &'static str,
 
-    // ── Control hints (≤ 18 chars each, shown in status panel) ──────────────
+    // ── Control hints (≤ 34 chars each, shown in status panel) ──────────────
     pub ctrl_move:             &'static str,
     pub ctrl_goto:             &'static str,
     pub ctrl_digit:            &'static str,
@@ -901,17 +901,17 @@ mod tests {
     fn assert_fits(s: &str, ctx: &str) {
         let len = s.chars().count();
         assert!(
-            len <= 18,
+            len <= 34,                          // was 18
             "Panel string too long ({} chars) in {}:\n  '{}'",
             len, ctx, s
         );
     }
 
-    /// Every panel and control string must fit within the 18-char inner panel
+    /// Every panel and control string must fit within the 34-char inner panel
     /// width. Static strings are checked directly; dynamic strings are tested
     /// with their worst-case substituted values.
     #[test]
-    fn all_panel_strings_fit_18_chars() {
+    fn all_panel_strings_fit_34_chars() {
         for &lang in ALL_LANGUAGES {
             let s  = lang.strings();
             let nm = format!("{lang:?}");

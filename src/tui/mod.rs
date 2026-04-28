@@ -25,9 +25,9 @@ use crossterm::event::{self, Event};
 use crossterm::{cursor::MoveTo, queue, style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor}, terminal::{Clear, ClearType}};
 
 /// Minimum terminal dimensions required to render the full game layout.
-/// Grid (73 wide × 37 tall) at col 2 + panel (22 wide) at col 77 → 100 cols.
+/// Grid (73 wide × 37 tall) at col 2 + panel (38 wide) at col 77 → 117 cols.
 /// Panel bottom border at row 37 + 2 margin rows → 39 rows.
-const MIN_COLS: u16 = 100;
+const MIN_COLS: u16 = 117;    // was 100
 const MIN_ROWS: u16 = 39;
 use std::io::{self, BufWriter, Write};
 use std::time::Duration;

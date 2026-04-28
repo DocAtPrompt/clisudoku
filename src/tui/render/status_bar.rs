@@ -16,7 +16,7 @@ pub fn format_elapsed_ms(ms: u64) -> String {
     format!("{:02}:{:02}", mins, secs)
 }
 
-/// Render a 22-wide × 37-tall info panel to the right of the grid.
+/// Render a 38-wide × 37-tall info panel to the right of the grid.
 ///
 /// Layout (rows 0-34 inside the borders):
 ///   Time / Mode / Errors / Filled / digit grid / Controls
@@ -47,7 +47,7 @@ pub fn render_panel(
     queue!(out,
         MoveTo(col_off, row_off),
         SetForegroundColor(b), SetBackgroundColor(bg),
-        Print(format!("╔{}╗", "═".repeat(20)))
+        Print(format!("╔{}╗", "═".repeat(36)))
     )?;
 
     // ── Content rows (35 rows, indices 0..35) ─────────────────────────────────
@@ -99,17 +99,17 @@ pub fn render_panel(
             queue!(out,
                 MoveTo(col_off, term_row),
                 SetForegroundColor(b), SetBackgroundColor(bg),
-                Print(format!("╠{}╣", "═".repeat(20)))
+                Print(format!("╠{}╣", "═".repeat(36)))
             )?;
         } else {
-            // Truncate to 18 display chars so panel width is always fixed,
+            // Truncate to 34 display chars so panel width is always fixed,
             // regardless of translation length.
-            let cell: String = text.chars().take(18).collect();
+            let cell: String = text.chars().take(34).collect();
             queue!(out,
                 MoveTo(col_off, term_row),
                 SetForegroundColor(b),   SetBackgroundColor(bg), Print('║'),
                 SetForegroundColor(*fg), SetBackgroundColor(bg),
-                Print(format!(" {:<18} ", cell)),
+                Print(format!(" {:<34} ", cell)),
                 SetForegroundColor(b),   SetBackgroundColor(bg), Print('║')
             )?;
         }
@@ -123,7 +123,7 @@ pub fn render_panel(
     queue!(out,
         MoveTo(col_off, row_off + 36),
         SetForegroundColor(b), SetBackgroundColor(bg),
-        Print(format!("╚{}╝", "═".repeat(20)))
+        Print(format!("╚{}╝", "═".repeat(36)))
     )?;
 
     Ok(())
