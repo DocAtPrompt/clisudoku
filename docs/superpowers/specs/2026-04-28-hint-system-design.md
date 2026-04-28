@@ -14,20 +14,25 @@ Two tightly coupled features:
 ### Width
 
 - Inner width: **36 characters** (was 20)
-- Total panel width: 38 characters (including 2 border chars)
+- Total panel width: 38 characters (including 2 border chars `╔`/`╗`)
 - Panel starts at column 77 (unchanged)
-- Terminal minimum: **117 columns** (was 99)
+- Panel ends at column 114 (77 + 38 − 1)
+- Terminal minimum: **117 columns** (was 100)
 
-### Startup Check
+### Terminal Layout (full column map)
 
-On launch, before entering raw mode, check terminal width:
-
-```rust
-if terminal_cols < 117 {
-    eprintln!("Terminal too narrow ({} cols). Minimum 117 required.", terminal_cols);
-    std::process::exit(1);
-}
 ```
+Columns 0–1    left margin (unused)
+Columns 2–74   grid (73 wide)
+Columns 75–76  gap (2 chars)
+Columns 77–114 panel (38 wide = 2 borders + 36 inner)
+Columns 115–116 right margin
+Total: 117 columns minimum
+```
+
+### Minimum Size Check
+
+The existing `MIN_COLS` constant in `src/tui/mod.rs` is updated from 100 to 117. The existing `wait_for_adequate_size` loop already handles the resize-wait UX — no new exit-on-start logic needed. The loop simply uses the updated constant.
 
 ### Panel Layout
 
@@ -40,19 +45,23 @@ if terminal_cols < 117 {
 ╚══════════════════════════════════════╝
 ```
 
-Controls section uses full labels now that space allows:
+Actual game key bindings (controls section uses these, no change to bindings):
 ```
-h    Hint
-n    Note mode
-e    Error display
-s    Scan mode
-p    Pause
-Esc  Menu
+0 / -   Note mode
+s       Scan mode
+e       Error display
+p       Pause
+h       Hint          ← new
+Esc     Menu
 ```
 
 ---
 
 ## 2. Hint System Architecture
+
+### New AppAction variant and key binding
+
+`src/tui/input.rs` gets a new `AppAction::RequestHint` variant and a `KeyCode::Char('h')` mapping in `map_key_to_action`. `h` is not currently mapped to anything so there is no conflict.
 
 ### Strategy Trait
 
@@ -62,9 +71,11 @@ Each strategy is an independent type implementing:
 pub trait Strategy: Send + Sync {
     fn name_en(&self) -> &'static str;
     fn name_de(&self) -> &'static str;
-    fn find(&self, grid: &Grid, notes: &Notes, solution: &Grid) -> Option<Hint>;
+    fn find(&self, state: &GameState, solution: &Grid) -> Option<Hint>;
 }
 ```
+
+`GameState` is passed (not a separate `Notes` type) because it already carries both the current grid and the notes mask via `notes_mask(row, col)`. `solution` is the pre-computed unique solution already stored in `App`.
 
 New strategies are added to the registry without touching any other code.
 
@@ -73,19 +84,21 @@ New strategies are added to the registry without touching any other code.
 ```rust
 pub struct Hint {
     /// Cells explaining WHY the hint works (green/cyan border).
-    pub cause_cells:     Vec<(usize, usize)>,
+    pub cause_cells:    Vec<(usize, usize)>,
     /// Cells where a candidate can be eliminated (red/magenta border).
-    pub elim_cells:      Vec<(usize, usize)>,
+    pub elim_cells:     Vec<(usize, usize)>,
     /// The cell where the player should act (blinking yellow background).
-    pub target_cell:     (usize, usize),
-    /// Digit being eliminated (for explanation text placeholders).
-    pub elim_digit:      Option<u8>,
-    /// Digit that goes into the target cell (for explanation text).
-    pub target_digit:    Option<u8>,
-    /// Explanation in English (may contain {row}, {col}, {box}, {digit} placeholders).
-    pub explanation_en:  String,
-    /// Explanation in German.
-    pub explanation_de:  String,
+    /// For Notes Hints, this is the cell in the suggested region with the
+    /// fewest candidates (most constrained), giving the player a starting point.
+    pub target_cell:    (usize, usize),
+    /// Digit being eliminated (used in explanation text placeholders).
+    pub elim_digit:     Option<u8>,
+    /// Digit that goes into the target cell (used in explanation text).
+    pub target_digit:   Option<u8>,
+    /// Pre-formatted explanation in English.
+    pub explanation_en: String,
+    /// Pre-formatted explanation in German.
+    pub explanation_de: String,
 }
 ```
 
@@ -99,14 +112,14 @@ Ordered list — first match wins when `h` is pressed:
 |---|---|---|---|---|
 | 1 | Full House | — | — | Last empty cell in unit |
 | 2 | Naked Single | — | — | Cell with one candidate |
-| 3 | Hidden Single | Cells eliminating the digit from other positions | — | Only possible cell for digit in unit |
-| — | *Notes Hint* | Promising region | — | — |
+| 3 | Hidden Single | Cells eliminating digit from other positions | — | Only possible cell for digit in unit |
+| — | *Notes Hint* | All cells of suggested unit | — | Most constrained cell in unit |
 | 4 | Naked Pairs | The two pair cells | Other cells in unit containing those candidates | — |
 | 5 | Hidden Pairs | Two cells sharing a hidden pair | Other candidates in those cells | — |
 | 6 | Pointing Pairs | 2–3 box cells in same row/col | Same digit outside box in that row/col | — |
 | 7 | Box-Line Reduction | 2–3 row/col cells in same box | Same digit in rest of box | — |
 
-**Tier 2 (subsequent iterations, no dependency on Extreme difficulty):**
+**Tier 2 (subsequent iterations):**
 
 | # | Strategy | Notes |
 |---|---|---|
@@ -122,32 +135,37 @@ Ordered list — first match wins when `h` is pressed:
 | 17 | WXYZ-Wing | 4-cell wing |
 | 18 | Swordfish | 3×3 generalisation of X-Wing |
 
-**Special entries (not strategies, but part of the resolution flow):**
+**Special entries (not strategies, inserted at fixed positions in registry):**
 
-- **Notes Hint** — inserted after Hidden Single in the registry. Fires when no logical strategy finds anything AND some empty cells lack notes. Highlights the most promising region (unit with fewest empty cells) and suggests the player add notes there.
-- **Reveal** — absolute last resort. Fires only when no strategy finds anything AND all empty cells have notes. Fills the most constrained empty cell (fewest remaining candidates) with its correct value. hint_count is incremented.
+**Notes Hint** — fires when no logical strategy finds anything AND at least one empty cell has a zero notes mask (no notes at all for that cell). Selection of unit to suggest:
+- Consider all units (rows, cols, boxes) that contain at least one empty cell without notes
+- Prefer boxes over rows/cols when tied on fewest empty cells (boxes are the natural annotation unit)
+- Exclude units with zero empty cells (complete)
+- `target_cell` = the most constrained empty cell within the suggested unit (fewest non-zero notes mask bits, or if all zero: the first empty cell)
+
+**Reveal** — fires only when no strategy finds anything AND every empty cell has a non-zero notes mask (at least one candidate noted). "Notes present" means the notes mask for every empty cell is non-zero; it does not require that all valid candidates are present. Fills the most constrained empty cell (fewest bits set in notes mask, tiebroken by reading order) with the correct value from `solution`. `hint_count` is incremented.
 
 ---
 
 ## 3. Resolution Flow
 
-When `h` is pressed:
+When `h` is pressed (`AppAction::RequestHint`):
 
 ```
-h pressed
+RequestHint received
     │
-    ├─ Hint already active? → close it, then search for new hint
+    ├─ Hint already active? → close it, search for new hint
     │
     ├─ Try strategies 1–N in order
     │       Found? → display hint, hint_count++
     │
-    ├─ Nothing found + notes incomplete?
-    │       → Notes Hint: highlight most promising region
-    │         "Complete notes in box X / row Y"
+    ├─ Nothing found + any empty cell has zero notes mask?
+    │       → Notes Hint: highlight suggested unit,
+    │         target_cell = most constrained cell in unit
     │         hint_count++
     │
-    ├─ Nothing found + all notes present?
-    │       → Reveal: fill most constrained cell (fewest candidates)
+    ├─ Nothing found + all empty cells have non-zero notes mask?
+    │       → Reveal: fill most constrained empty cell
     │         hint_count++
     │
     └─ Puzzle already solved? → no action
@@ -156,7 +174,7 @@ h pressed
 **While hint is active:**
 - Cells light up (coloured borders + blinking target)
 - Panel shows strategy name + explanation text
-- Any keypress closes the hint; if the key has a normal action it is also executed
+- **Any keypress closes the hint only** — the key is consumed and not forwarded to `handle_action`. This matches the existing `info_overlay` dismissal pattern in `src/tui/mod.rs`.
 - Cursor stays in place
 
 ---
@@ -179,46 +197,49 @@ h pressed
 
 ### Cursor on target cell
 
-If the cursor happens to sit on the target cell, the background alternates between `hint_target_bg` (yellow) and `cell_active_bg` (blue), communicating both roles simultaneously.
+If the cursor sits on the target cell, the background alternates between `hint_target_bg` (yellow) and `cell_active_bg` (blue/gold depending on theme), communicating both roles simultaneously.
 
 ### AnimState changes
 
-New `hint_blink: bool` flag. When true, the blink timer drives the yellow↔blue phase alternation on the target cell. Uses the existing blink infrastructure already present for error cells.
+New `hint_blink: bool` flag. When true:
+- The existing blink timer drives the yellow↔cursor-colour phase alternation on the target cell
+- `is_active()` must return `true` when `hint_blink` is true (otherwise the 80 ms poll rate is not engaged and the cell never blinks)
 
 ---
 
 ## 5. i18n for Hints
 
-Hints use a separate `HintStrings` struct. Only **English and German** are provided; all other languages fall back to English.
+Hint strings are added as new fields directly to the existing `Strings` struct in `src/i18n/mod.rs`, maintaining the established single-struct pattern and compile-time width guarantees.
+
+All 13 language constants get the new fields. German (`DE`) gets real German translations. All other 11 languages use the English text as a placeholder:
 
 ```rust
-pub struct HintStrings {
-    pub full_house_name:           &'static str,
-    pub full_house_explanation:    &'static str,
-    pub naked_single_name:         &'static str,
-    pub naked_single_explanation:  &'static str,
-    pub hidden_single_name:        &'static str,
-    pub hidden_single_explanation: &'static str,
-    pub notes_hint_name:           &'static str,
-    pub notes_hint_explanation:    &'static str,
-    // ... one name + explanation per strategy
-    pub reveal_name:               &'static str,
-    pub reveal_explanation:        &'static str,
+pub struct Strings {
+    // ... existing fields ...
+    pub hint_full_house_name:           &'static str,
+    pub hint_full_house_explanation:    &'static str,
+    pub hint_naked_single_name:         &'static str,
+    pub hint_naked_single_explanation:  &'static str,
+    pub hint_hidden_single_name:        &'static str,
+    pub hint_hidden_single_explanation: &'static str,
+    pub hint_notes_name:                &'static str,
+    pub hint_notes_explanation:         &'static str,
+    pub hint_naked_pairs_name:          &'static str,
+    pub hint_naked_pairs_explanation:   &'static str,
+    pub hint_hidden_pairs_name:         &'static str,
+    pub hint_hidden_pairs_explanation:  &'static str,
+    pub hint_pointing_pairs_name:       &'static str,
+    pub hint_pointing_pairs_explanation: &'static str,
+    pub hint_box_line_name:             &'static str,
+    pub hint_box_line_explanation:      &'static str,
+    pub hint_reveal_name:               &'static str,
+    pub hint_reveal_explanation:        &'static str,
 }
 ```
 
-Explanations use `{row}`, `{col}`, `{box}`, `{digit}` placeholders resolved at runtime.
+Explanations use `{row}`, `{col}`, `{box}`, `{digit}` placeholders resolved at runtime via `str::replacen`.
 
-Language selection:
-
-```rust
-pub fn hint_strings(lang: Language) -> &'static HintStrings {
-    match lang {
-        Language::De => &DE_HINTS,
-        _            => &EN_HINTS,
-    }
-}
-```
+`hint_count` is stored in `GameStats` for future database integration (see Out of Scope). It is not displayed in the panel in this iteration.
 
 ---
 
@@ -228,14 +249,15 @@ pub fn hint_strings(lang: Language) -> &'static HintStrings {
 |---|---|
 | `src/hint/mod.rs` | **new** — `Strategy` trait, `Hint` struct, registry, resolution logic |
 | `src/hint/strategies/tier1.rs` | **new** — Full House through Box-Line Reduction |
-| `src/hint/strategies/tier2.rs` | **new** — Naked Triples through Swordfish (later iterations) |
-| `src/i18n/hint_strings.rs` | **new** — `HintStrings`, EN + DE texts |
+| `src/hint/strategies/tier2.rs` | **new** — Naked Triples through Swordfish (later iterations, file created empty) |
+| `src/i18n/mod.rs` | add hint `name` + `explanation` fields to `Strings`; fill DE + EN; all other 11 languages copy EN |
 | `src/tui/colors.rs` | add `hint_cause_border`, `hint_elim_border`, `hint_target_bg` to all three themes |
-| `src/tui/anim.rs` | add `hint_blink` flag; yellow↔blue phase logic |
-| `src/tui/mod.rs` | `hint_count` in `GameStats`; `h` key handler; active hint state |
-| `src/tui/render/grid.rs` | coloured border segments for cause/elim cells; blinking target |
-| `src/tui/render/status_bar.rs` | expand panel to 36 inner chars; hint text area; full control labels |
-| `src/main.rs` | terminal width check at startup (≥ 117 cols) |
+| `src/tui/anim.rs` | add `hint_blink: bool`; include in `is_active()`; yellow↔cursor phase logic |
+| `src/tui/input.rs` | add `AppAction::RequestHint`; map `KeyCode::Char('h')` |
+| `src/tui/mod.rs` | `hint_count` in `GameStats`; `RequestHint` handler; active hint state; update `MIN_COLS` to 117 |
+| `src/tui/render/grid.rs` | coloured border segments for cause/elim cells; blinking target cell |
+| `src/tui/render/status_bar.rs` | expand panel to 36 inner chars; hint text area replaces controls when hint active; full control labels |
+| `src/lib.rs` | add `pub mod hint` |
 
 **Unchanged:** `solver::backtracking`, `puzzle::GameState`, `puzzle::Grid`, `render_info_overlay`
 
@@ -243,8 +265,8 @@ pub fn hint_strings(lang: Language) -> &'static HintStrings {
 
 ## 7. Out of Scope (later)
 
-- Extreme difficulty level (requires generator tuning for puzzles needing Tier 2 strategies)
+- Extreme difficulty level
 - Designer / pattern Sudokus
 - Hexadoku (16×16)
-- Hint statistics in database
-- Tier 2 strategy implementations
+- Hint statistics written to database (`hint_count` is tracked but not yet consumed)
+- Tier 2 strategy implementations (file scaffolded but empty)
