@@ -39,6 +39,10 @@ pub enum AppAction {
     Pause,
     /// Boss Key — toggle disguise mode (hide game as terminal).
     BossKey,
+    /// `s` key: toggle passive digit scan highlight.
+    ToggleScan,
+    /// `e` key: toggle error display (wrong digits shown in red).
+    ToggleErrors,
     Back,
     ConfirmYes,
     ConfirmNo,
@@ -59,10 +63,12 @@ pub fn map_key_to_action(key: KeyEvent, nav: &NavState) -> AppAction {
         KeyCode::Right => AppAction::MoveRight,
 
         KeyCode::Enter => AppAction::Enter,
-        KeyCode::Esc   => AppAction::Back,
+        KeyCode::Esc => AppAction::Back,
 
         KeyCode::Char(' ') => AppAction::Pause,
         KeyCode::Char('b') | KeyCode::Char('B') if !ctrl => AppAction::BossKey,
+        KeyCode::Char('s') | KeyCode::Char('S') if !ctrl => AppAction::ToggleScan,
+        KeyCode::Char('e') | KeyCode::Char('E') if !ctrl => AppAction::ToggleErrors,
         KeyCode::Char('-') => AppAction::ClearCell,
         KeyCode::Char('0') => AppAction::ToggleMode,
 

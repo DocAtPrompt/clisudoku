@@ -10,7 +10,7 @@ pub struct PuzzleGenerator {
 impl PuzzleGenerator {
     pub fn new(seed: u64) -> Self { Self { seed } }
 
-    pub fn generate(&self, difficulty: Difficulty) -> Grid {
+    pub fn generate(&self, difficulty: Difficulty, symmetry: bool) -> Grid {
         let mut rng = LcgRng::new(self.seed);
 
         // Step 1: fill a complete valid grid (randomized backtracking)
@@ -18,19 +18,48 @@ impl PuzzleGenerator {
 
         // Step 2: remove cells while keeping puzzle uniquely solvable at target difficulty
         let mut puzzle = full.clone();
-        let mut indices: Vec<usize> = (0..81).collect();
-        shuffle(&mut indices, &mut rng);
 
-        for &idx in &indices {
-            let row = idx / 9;
-            let col = idx % 9;
-            let prev_val = puzzle.get(row, col).value();
-            puzzle.clear(row, col);
+        if symmetry {
+            // 180° rotational symmetry: cell at index i pairs with cell at index 80−i.
+            // Iterate over the 40 pairs plus the unique centre cell (index 40).
+            let mut pair_indices: Vec<usize> = (0..=40).collect();
+            shuffle(&mut pair_indices, &mut rng);
 
-            if !self.is_uniquely_solvable(&puzzle, difficulty) {
-                // Restore
-                if let Some(v) = prev_val {
-                    puzzle.set_given(row, col, v);
+            for &idx in &pair_indices {
+                let (r1, c1) = (idx / 9, idx % 9);
+                let prev1 = puzzle.get(r1, c1).value();
+                puzzle.clear(r1, c1);
+
+                // For indices 0..40 remove the mirror cell too; index 40 is the centre.
+                let mirror_state = if idx < 40 {
+                    let m = 80 - idx;
+                    let (r2, c2) = (m / 9, m % 9);
+                    let prev2 = puzzle.get(r2, c2).value();
+                    puzzle.clear(r2, c2);
+                    Some((r2, c2, prev2))
+                } else {
+                    None
+                };
+
+                if !self.is_uniquely_solvable(&puzzle, difficulty) {
+                    if let Some(v) = prev1 { puzzle.set_given(r1, c1, v); }
+                    if let Some((r2, c2, Some(v))) = mirror_state {
+                        puzzle.set_given(r2, c2, v);
+                    }
+                }
+            }
+        } else {
+            let mut indices: Vec<usize> = (0..81).collect();
+            shuffle(&mut indices, &mut rng);
+
+            for &idx in &indices {
+                let row = idx / 9;
+                let col = idx % 9;
+                let prev_val = puzzle.get(row, col).value();
+                puzzle.clear(row, col);
+
+                if !self.is_uniquely_solvable(&puzzle, difficulty) {
+                    if let Some(v) = prev_val { puzzle.set_given(row, col, v); }
                 }
             }
         }
@@ -134,7 +163,7 @@ mod tests {
 
     #[test]
     fn generates_solvable_easy_puzzle() {
-        let grid = PuzzleGenerator::new(42).generate(Difficulty::Easy);
+        let grid = PuzzleGenerator::new(42).generate(Difficulty::Easy, false);
         let given_count = (0..9).flat_map(|r| (0..9).map(move |c| (r, c)))
             .filter(|&(r, c)| grid.get(r, c).is_given())
             .count();
@@ -145,8 +174,25 @@ mod tests {
 
     #[test]
     fn generates_solvable_hard_puzzle() {
-        let grid = PuzzleGenerator::new(99).generate(Difficulty::Hard);
+        let grid = PuzzleGenerator::new(99).generate(Difficulty::Hard, false);
         let result = Solver::new().solve(grid);
         assert!(result.grid.is_solved());
+    }
+
+    #[test]
+    fn symmetric_puzzle_has_rotational_symmetry() {
+        let grid = PuzzleGenerator::new(42).generate(Difficulty::Easy, true);
+        // Every given cell must have a partner at the 180°-rotated position.
+        for r in 0..9 {
+            for c in 0..9 {
+                let mirror_r = 8 - r;
+                let mirror_c = 8 - c;
+                assert_eq!(
+                    grid.get(r, c).is_empty(),
+                    grid.get(mirror_r, mirror_c).is_empty(),
+                    "symmetry broken at ({r},{c}) ↔ ({mirror_r},{mirror_c})"
+                );
+            }
+        }
     }
 }

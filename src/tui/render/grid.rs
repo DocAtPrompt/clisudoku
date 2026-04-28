@@ -1,5 +1,5 @@
 // src/tui/render/grid.rs
-use crate::puzzle::{CellKind, GameState};
+use crate::puzzle::{CellKind, GameState, Grid};
 use crate::tui::anim::AnimState;
 use crate::tui::colors::ColorScheme;
 use crate::tui::digit_style::DigitStyle;
@@ -106,6 +106,9 @@ pub fn render_grid(
     paused: bool,
     nav: &NavState,
     anim: &AnimState,
+    scan_digit: Option<u8>,
+    error_mode: bool,
+    solution: Option<&Grid>,
     colors: &ColorScheme,
     style: &dyn DigitStyle,
 ) -> io::Result<()> {
@@ -137,22 +140,49 @@ pub fn render_grid(
             )?;
 
             for col in 0..9usize {
-                let (fg, bg, content) = if paused {
-                    (overlay_bg, overlay_bg, "       ".to_string())
+                let (fg, bg, content, note_scan_col, blink) = if paused {
+                    (overlay_bg, overlay_bg, "       ".to_string(), None, false)
                 } else {
                     let cell = state.grid().get(row, col);
                     let notes_mask = state.notes_mask(row, col);
                     let content_lines = cell_display_lines(&cell, notes_mask, style);
-                    let fg = match &cell {
-                        CellKind::Given(_) => colors.digit_given,
-                        CellKind::Filled(_) => colors.digit_user,
-                        CellKind::Empty if notes_mask != 0 => colors.note_normal,
-                        _ => colors.grid_cell,
-                    };
-                    // Sweep animation overrides normal cell background.
-                    let bg = anim.sweep_bg(row, col)
-                        .unwrap_or_else(|| cell_bg(row, col, cursor, nav, colors));
-                    (fg, bg, content_lines[line_idx].clone())
+                    // Sweep animation: invert this cell if it is the active step.
+                    // Sweep takes priority over all other colour decisions.
+                    if let Some((sweep_fg, sweep_bg)) = anim.sweep_highlight(row, col) {
+                        (sweep_fg, sweep_bg, content_lines[line_idx].clone(), None, false)
+                    } else {
+                        // Passive scan: highlight matching digit in scan colour.
+                        let (fg, note_scan_col, blink) = match (&cell, scan_digit) {
+                            (CellKind::Given(d), Some(sd)) if *d == sd =>
+                                (colors.digit_scan, None, false),
+                            // Error check: wrong filled digit → red + blink when error_mode is on.
+                            (CellKind::Filled(d), _) => {
+                                let wrong = solution
+                                    .and_then(|sol| sol.get(row, col).value())
+                                    .map(|correct| correct != *d)
+                                    .unwrap_or(false);
+                                let show_red = wrong && error_mode;
+                                let col_fg = if show_red { colors.digit_error }
+                                             else if scan_digit == Some(*d) { colors.digit_scan }
+                                             else { colors.digit_user };
+                                (col_fg, None, show_red)
+                            }
+                            (CellKind::Given(_), _)  => (colors.digit_given, None, false),
+                            (CellKind::Empty, Some(sd)) if notes_mask & (1 << sd) != 0 => {
+                                let note_line = (sd - 1) / 3;
+                                let nsc = if line_idx == note_line as usize {
+                                    Some(((sd - 1) % 3) * 2 + 1)
+                                } else {
+                                    None
+                                };
+                                (colors.note_normal, nsc, false)
+                            }
+                            (CellKind::Empty, _) if notes_mask != 0 => (colors.note_normal, None, false),
+                            _ => (colors.grid_cell, None, false),
+                        };
+                        let bg = cell_bg(row, col, cursor, nav, colors);
+                        (fg, bg, content_lines[line_idx].clone(), note_scan_col, blink)
+                    }
                 };
 
                 let sep_fg = if paused { overlay_bg }
@@ -162,14 +192,39 @@ pub fn render_grid(
                 let sep_bg = if paused { overlay_bg }
                              else if col == 8 { colors.ui_background }
                              else { bg };
+                // Each cell occupies 8 terminal columns (7 content + 1 separator).
+                // Cell col `c` starts at col_off + 1 + c * 8 (after the outer OUTER_V).
+                // Use an explicit MoveTo so cursor displacement from any overlay cannot
+                // corrupt subsequent cells.
+                let cell_term_col = col_off + 1 + col as u16 * 8;
+                // Software blink: when blink is true and the error cell is in its
+                // "off" phase, overwrite the cell with spaces (hide the digit).
+                let (print_fg, print_content) = if blink && !anim.error_cell_visible() {
+                    (bg, "       ".to_string())
+                } else {
+                    (fg, content.clone())
+                };
                 queue!(out,
-                    SetForegroundColor(fg),
+                    MoveTo(cell_term_col, term_row),
+                    SetForegroundColor(print_fg),
                     SetBackgroundColor(bg),
-                    Print(&content),
+                    Print(&print_content),
                     SetForegroundColor(sep_fg),
                     SetBackgroundColor(sep_bg),
                     Print(v_sep(col))
                 )?;
+
+                // Overlay scan-highlighted note digit in magenta.
+                if let Some(char_off) = note_scan_col {
+                    let note_term_col = cell_term_col + char_off as u16;
+                    let sd = scan_digit.unwrap();
+                    queue!(out,
+                        MoveTo(note_term_col, term_row),
+                        SetForegroundColor(colors.digit_scan),
+                        SetBackgroundColor(bg),
+                        Print(char::from(b'0' + sd)),
+                    )?;
+                }
             }
         }
 
@@ -250,7 +305,7 @@ mod tests {
     fn grid_render_contains_outer_border_chars() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, &ColorScheme::default(), &RetroStyle)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('╔'));
@@ -263,7 +318,7 @@ mod tests {
     fn grid_render_contains_box_separators() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, &ColorScheme::default(), &RetroStyle)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('┃'));
@@ -278,7 +333,7 @@ mod tests {
         ).unwrap();
         let state = GameState::new(grid);
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), None, false, None, &ColorScheme::default(), &RetroStyle)
             .unwrap();
         assert!(!buf.is_empty());
     }

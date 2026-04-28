@@ -30,14 +30,16 @@ impl Grid {
     }
 
     pub fn from_str(s: &str) -> Result<Self, String> {
-        let digits: Vec<u8> = s
+        let mut digits: Vec<u8> = s
             .chars()
             .filter(|c| c.is_ascii_digit() || *c == '.')
             .map(|c| if c == '.' { 0 } else { c as u8 - b'0' })
             .collect();
-        if digits.len() != 81 {
-            return Err(format!("expected 81 cells, got {}", digits.len()));
+        if digits.len() > 81 {
+            return Err(format!("expected at most 81 cells, got {}", digits.len()));
         }
+        // Pad short strings with empty cells (0).
+        digits.resize(81, 0);
         let mut cells = [CellKind::Empty; 81];
         for (i, &v) in digits.iter().enumerate() {
             cells[i] = if v == 0 { CellKind::Empty } else { CellKind::Given(v) };
@@ -187,7 +189,16 @@ mod tests {
     }
 
     #[test]
-    fn from_str_rejects_bad_length() {
-        assert!(Grid::from_str("1234").is_err());
+    fn from_str_pads_short_string() {
+        // Short strings are padded with empty cells — no error.
+        let grid = Grid::from_str("1234").unwrap();
+        assert_eq!(grid.get(0, 0), CellKind::Given(1));
+        assert_eq!(grid.get(0, 4), CellKind::Empty);
+    }
+
+    #[test]
+    fn from_str_rejects_too_long() {
+        let long = "1".repeat(82);
+        assert!(Grid::from_str(&long).is_err());
     }
 }

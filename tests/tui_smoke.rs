@@ -1,4 +1,5 @@
 // tests/tui_smoke.rs
+use clisudoku::i18n::EN;
 use clisudoku::puzzle::{Grid, GameState};
 use clisudoku::tui::anim::AnimState;
 use clisudoku::tui::colors::ColorScheme;
@@ -22,13 +23,19 @@ fn render_game_screen_does_not_panic() {
             state: &state,
             cursor: (4, 4),
             note_mode: false,
+            scan_mode: false,
+            error_mode: false,
+            solution: None,
+            errors_shown: 0,
             elapsed_ms: 125_000,
             paused: false,
             nav: &NavState::default(),
             anim: &AnimState::default(),
+            scan_digit: None,
         },
         &ColorScheme::default(),
         &RetroStyle,
+        &EN,
     ).unwrap();
 
     assert!(!buf.is_empty());
@@ -48,6 +55,7 @@ fn render_start_screen_does_not_panic() {
         &clisudoku::tui::render::Screen::Start { selected: 0 },
         &ColorScheme::default(),
         &RetroStyle,
+        &EN,
     ).unwrap();
     assert!(!buf.is_empty());
 }

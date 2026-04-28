@@ -5,7 +5,7 @@ use clisudoku::{
 
 #[test]
 fn generated_easy_is_valid_and_solvable() {
-    let grid = PuzzleGenerator::new(7).generate(Difficulty::Easy);
+    let grid = PuzzleGenerator::new(7).generate(Difficulty::Easy, false);
     let result = Solver::new().solve(grid.clone());
     assert!(result.grid.is_solved(), "easy puzzle not solvable");
     let given_count = (0..9)
@@ -17,7 +17,7 @@ fn generated_easy_is_valid_and_solvable() {
 
 #[test]
 fn generated_medium_is_valid_and_solvable() {
-    let grid = PuzzleGenerator::new(13).generate(Difficulty::Medium);
+    let grid = PuzzleGenerator::new(13).generate(Difficulty::Medium, false);
     let result = Solver::new().solve(grid);
     assert!(result.grid.is_solved(), "medium puzzle not solvable");
 }
