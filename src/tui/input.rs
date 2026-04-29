@@ -43,6 +43,8 @@ pub enum AppAction {
     ToggleScan,
     /// `e` key: toggle error display (wrong digits shown in red).
     ToggleErrors,
+    /// Player requests a hint.
+    RequestHint,
     Back,
     ConfirmYes,
     ConfirmNo,
@@ -69,6 +71,7 @@ pub fn map_key_to_action(key: KeyEvent, nav: &NavState) -> AppAction {
         KeyCode::Char('b') | KeyCode::Char('B') if !ctrl => AppAction::BossKey,
         KeyCode::Char('s') | KeyCode::Char('S') if !ctrl => AppAction::ToggleScan,
         KeyCode::Char('e') | KeyCode::Char('E') if !ctrl => AppAction::ToggleErrors,
+        KeyCode::Char('h') | KeyCode::Char('H') if !ctrl => AppAction::RequestHint,
         KeyCode::Char('-') => AppAction::ClearCell,
         KeyCode::Char('0') => AppAction::ToggleMode,
 
@@ -184,5 +187,12 @@ mod tests {
             map_key_to_action(KeyEvent::new(KeyCode::Char('5'), KeyModifiers::NONE), &nav),
             AppAction::NumpadCell(4)
         );
+    }
+
+    #[test]
+    fn h_key_maps_to_request_hint() {
+        let nav = NavState::default();
+        assert_eq!(map_key_to_action(key(KeyCode::Char('h')), &nav), AppAction::RequestHint);
+        assert_eq!(map_key_to_action(key(KeyCode::Char('H')), &nav), AppAction::RequestHint);
     }
 }
