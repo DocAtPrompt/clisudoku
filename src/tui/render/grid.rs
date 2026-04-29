@@ -24,6 +24,56 @@ const BOX_X_BOX: char = '╋'; const BOX_X_THIN: char = '┿';
 const THIN_H: char = '─';
 const THIN_X_BOX: char = '╂'; const THIN_X_THIN: char = '┼';
 
+// ── Hint role helpers ──────────────────────────────────────────────────────
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum HintRole { Cause, Elim, Target }
+
+fn hint_role(row: usize, col: usize, hint: &crate::hint::Hint) -> Option<HintRole> {
+    if hint.target_cell == (row, col) { return Some(HintRole::Target); }
+    if hint.cause_cells.contains(&(row, col)) { return Some(HintRole::Cause); }
+    if hint.elim_cells.contains(&(row, col)) { return Some(HintRole::Elim); }
+    None
+}
+
+fn hint_role_color(role: HintRole, colors: &ColorScheme) -> Color {
+    match role {
+        HintRole::Cause  => colors.hint_cause_border,
+        HintRole::Elim   => colors.hint_elim_border,
+        HintRole::Target => colors.hint_cause_border,
+    }
+}
+
+/// Colour for the vertical separator to the RIGHT of cell (row, col), if a
+/// hint border applies. Returns None when both adjacent cells share the same
+/// hint role (no border between them) or when neither has a role.
+fn hint_right_border_color(
+    row: usize, col: usize,
+    hint: Option<&crate::hint::Hint>,
+    colors: &ColorScheme,
+) -> Option<Color> {
+    let h = hint?;
+    let role_left = hint_role(row, col, h);
+    let role_right = if col < 8 { hint_role(row, col + 1, h) } else { None };
+    if role_left == role_right { return None; }
+    let role = role_left.or(role_right)?;
+    Some(hint_role_color(role, colors))
+}
+
+/// Colour for the horizontal segment between row `row_above` and `row_above+1`
+/// at column `col`, if a hint border applies.
+fn hint_h_seg_color(
+    row_above: usize, col: usize,
+    hint: Option<&crate::hint::Hint>,
+    colors: &ColorScheme,
+) -> Option<Color> {
+    let h = hint?;
+    let role_above = hint_role(row_above, col, h);
+    let role_below = if row_above + 1 < 9 { hint_role(row_above + 1, col, h) } else { None };
+    if role_above == role_below { return None; }
+    let role = role_above.or(role_below)?;
+    Some(hint_role_color(role, colors))
+}
+
 fn is_box_col(col: usize) -> bool { col == 2 || col == 5 }
 fn is_box_row(row: usize) -> bool { row == 2 || row == 5 }
 
@@ -68,8 +118,27 @@ fn cell_bg(
     col: usize,
     cursor: (usize, usize),
     nav: &NavState,
+    hint: Option<&crate::hint::Hint>,
+    anim: &AnimState,
     colors: &ColorScheme,
 ) -> Color {
+    // Hint background takes priority over nav/cursor highlights.
+    if let Some(h) = hint {
+        match hint_role(row, col, h) {
+            Some(HintRole::Target) => {
+                // If cursor is also here, alternate between hint yellow and cursor blue.
+                if anim.hint_cell_yellow_phase() || cursor != (row, col) {
+                    return colors.hint_target_bg;
+                } else {
+                    return colors.cell_active_bg;
+                }
+            }
+            Some(HintRole::Cause) | Some(HintRole::Elim) => {
+                return colors.hint_target_bg;
+            }
+            None => {}
+        }
+    }
     match (&nav.mode, nav.box_idx) {
         (NavMode::Navigation, None) => {
             // Stage 1: whole grid is the "selection pending" hint
@@ -109,6 +178,7 @@ pub fn render_grid(
     scan_digit: Option<u8>,
     error_mode: bool,
     solution: Option<&Grid>,
+    hint: Option<&crate::hint::Hint>,
     colors: &ColorScheme,
     style: &dyn DigitStyle,
 ) -> io::Result<()> {
@@ -180,12 +250,13 @@ pub fn render_grid(
                             (CellKind::Empty, _) if notes_mask != 0 => (colors.note_normal, None, false),
                             _ => (colors.grid_cell, None, false),
                         };
-                        let bg = cell_bg(row, col, cursor, nav, colors);
+                        let bg = cell_bg(row, col, cursor, nav, hint, anim, colors);
                         (fg, bg, content_lines[line_idx].clone(), note_scan_col, blink)
                     }
                 };
 
                 let sep_fg = if paused { overlay_bg }
+                             else if let Some(c) = hint_right_border_color(row, col, hint, colors) { c }
                              else if col == 8 { colors.grid_border }
                              else if col == 2 || col == 5 { colors.grid_box }
                              else { colors.grid_cell };
@@ -244,14 +315,24 @@ pub fn render_grid(
                 Print(if paused { ' ' } else { L_SEP })
             )?;
             for col in 0..9usize {
+                let seg_fg = if paused { border_fg }
+                             else { hint_h_seg_color(row, col, hint, colors).unwrap_or(border_fg) };
                 queue!(out,
-                    SetForegroundColor(border_fg),
+                    SetForegroundColor(seg_fg),
                     SetBackgroundColor(row_bg)
                 )?;
                 for _ in 0..7 { queue!(out, Print(fill))?; }
                 if col < 8 {
+                    // Cross: use hint colour if either adjacent segment (this col or next col)
+                    // is highlighted. Prefer the colour from this column.
+                    let cross_fg = if paused { border_fg }
+                                   else {
+                                       hint_h_seg_color(row, col, hint, colors)
+                                           .or_else(|| hint_h_seg_color(row, col + 1, hint, colors))
+                                           .unwrap_or(border_fg)
+                                   };
                     queue!(out,
-                        SetForegroundColor(border_fg),
+                        SetForegroundColor(cross_fg),
                         SetBackgroundColor(row_bg),
                         Print(if paused { ' ' } else { h_cross(heavy, col) })
                     )?;
@@ -305,7 +386,7 @@ mod tests {
     fn grid_render_contains_outer_border_chars() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('╔'));
@@ -318,7 +399,7 @@ mod tests {
     fn grid_render_contains_box_separators() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('┃'));
@@ -333,7 +414,7 @@ mod tests {
         ).unwrap();
         let state = GameState::new(grid);
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), None, false, None, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle)
             .unwrap();
         assert!(!buf.is_empty());
     }
@@ -341,42 +422,67 @@ mod tests {
     #[test]
     fn nav_grid_stage_all_cells_active_bg() {
         // Stage 1: NavMode::Navigation with no box — entire grid should use active_bg
-        let state = empty_state();
+        let _state = empty_state();
         let colors = ColorScheme::default();
-        assert_eq!(cell_bg(0, 0, (4, 4), &nav_grid(), &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(8, 8, (4, 4), &nav_grid(), &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(4, 4, (4, 4), &nav_grid(), &colors), colors.cell_active_bg);
+        let anim = AnimState::default();
+        assert_eq!(cell_bg(0, 0, (4, 4), &nav_grid(), None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(8, 8, (4, 4), &nav_grid(), None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(4, 4, (4, 4), &nav_grid(), None, &anim, &colors), colors.cell_active_bg);
     }
 
     #[test]
     fn nav_box_stage_only_selected_box_active() {
         let colors = ColorScheme::default();
+        let anim = AnimState::default();
 
         // Numpad '5' (idx 4) = center box → reading-order box 4 → rows 3-5, cols 3-5
         let nav = nav_box(4);
-        assert_eq!(cell_bg(3, 3, (0, 0), &nav, &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(5, 5, (0, 0), &nav, &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(0, 0, (0, 0), &nav, &colors), colors.cell_normal_bg);
-        assert_eq!(cell_bg(8, 8, (0, 0), &nav, &colors), colors.cell_normal_bg);
+        assert_eq!(cell_bg(3, 3, (0, 0), &nav, None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(5, 5, (0, 0), &nav, None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(0, 0, (0, 0), &nav, None, &anim, &colors), colors.cell_normal_bg);
+        assert_eq!(cell_bg(8, 8, (0, 0), &nav, None, &anim, &colors), colors.cell_normal_bg);
 
         // Numpad '9' (idx 8) → reading-order box 2 → top-right → rows 0-2, cols 6-8
         let nav9 = nav_box(8);
-        assert_eq!(cell_bg(0, 6, (0, 0), &nav9, &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(2, 8, (0, 0), &nav9, &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(6, 6, (0, 0), &nav9, &colors), colors.cell_normal_bg); // bottom-right, not highlighted
+        assert_eq!(cell_bg(0, 6, (0, 0), &nav9, None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(2, 8, (0, 0), &nav9, None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(6, 6, (0, 0), &nav9, None, &anim, &colors), colors.cell_normal_bg);
 
         // Numpad '1' (idx 0) → reading-order box 6 → bottom-left → rows 6-8, cols 0-2
         let nav1 = nav_box(0);
-        assert_eq!(cell_bg(6, 0, (0, 0), &nav1, &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(8, 2, (0, 0), &nav1, &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(0, 0, (0, 0), &nav1, &colors), colors.cell_normal_bg); // top-left, not highlighted
+        assert_eq!(cell_bg(6, 0, (0, 0), &nav1, None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(8, 2, (0, 0), &nav1, None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(0, 0, (0, 0), &nav1, None, &anim, &colors), colors.cell_normal_bg);
     }
 
     #[test]
     fn nav_input_stage_only_cursor_active() {
         let colors = ColorScheme::default();
+        let anim = AnimState::default();
         let nav = nav_input();
-        assert_eq!(cell_bg(4, 4, (4, 4), &nav, &colors), colors.cell_active_bg);
-        assert_eq!(cell_bg(0, 0, (4, 4), &nav, &colors), colors.cell_normal_bg);
+        assert_eq!(cell_bg(4, 4, (4, 4), &nav, None, &anim, &colors), colors.cell_active_bg);
+        assert_eq!(cell_bg(0, 0, (4, 4), &nav, None, &anim, &colors), colors.cell_normal_bg);
+    }
+
+    #[test]
+    fn grid_render_with_hint_does_not_panic() {
+        use crate::hint::Hint;
+        let state = empty_state();
+        let hint = Hint {
+            cause_cells: vec![(0, 0), (0, 1)],
+            elim_cells:  vec![(1, 0), (1, 1)],
+            target_cell: (4, 4),
+            elim_digit: Some(3),
+            target_digit: Some(5),
+            explanation_en: "test".into(),
+            explanation_de: "test".into(),
+            name_en: "Test",
+            name_de: "Test",
+        };
+        let mut buf = Vec::new();
+        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(),
+                    &AnimState::default(), None, false, None, Some(&hint),
+                    &ColorScheme::default(), &RetroStyle).unwrap();
+        assert!(!buf.is_empty());
     }
 }

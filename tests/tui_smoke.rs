@@ -32,6 +32,7 @@ fn render_game_screen_does_not_panic() {
             nav: &NavState::default(),
             anim: &AnimState::default(),
             scan_digit: None,
+            hint: None,
         },
         &ColorScheme::default(),
         &RetroStyle,

@@ -928,6 +928,7 @@ impl App {
                         nav: &self.nav_state,
                         anim: &self.anim,
                         scan_digit,
+                        hint: self.active_hint.as_ref(),
                     };
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::QuitGame) => Screen::Confirm {
