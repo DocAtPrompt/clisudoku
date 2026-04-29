@@ -72,6 +72,14 @@ pub struct ColorScheme {
     pub ui_cursor_bg:     Color,
     /// Foreground color for selected menu items (contrast against ui_cursor_bg).
     pub ui_cursor_fg:     Color,
+
+    // Hint system — border and target colours
+    /// Border colour for cause cells (explains WHY the hint works).
+    pub hint_cause_border: Color,
+    /// Border colour for elimination cells (where a candidate is removed).
+    pub hint_elim_border:  Color,
+    /// Background colour for the target cell (blinking).
+    pub hint_target_bg:    Color,
 }
 
 impl Default for ColorScheme {
@@ -114,6 +122,10 @@ impl ColorScheme {
             ui_text_dim:          Color::Grey,
             ui_cursor_bg:         Color::DarkBlue,
             ui_cursor_fg:         Color::White,
+
+            hint_cause_border:    Color::Green,
+            hint_elim_border:     Color::Red,
+            hint_target_bg:       Color::Yellow,
         }
     }
 
@@ -146,6 +158,10 @@ impl ColorScheme {
             ui_text_dim:          Color::DarkGrey,
             ui_cursor_bg:         Color::DarkBlue,
             ui_cursor_fg:         Color::White,
+
+            hint_cause_border:    Color::Green,
+            hint_elim_border:     Color::Red,
+            hint_target_bg:       Color::Yellow,
         }
     }
 
@@ -179,6 +195,10 @@ impl ColorScheme {
             ui_text_dim:          Color::Grey,
             ui_cursor_bg:         Color::Rgb { r: 60, g: 55, b: 0 },
             ui_cursor_fg:         Color::Black,
+
+            hint_cause_border:    Color::Cyan,
+            hint_elim_border:     Color::Magenta,
+            hint_target_bg:       Color::Yellow,
         }
     }
 }
@@ -223,5 +243,23 @@ mod tests {
     fn given_digit_differs_from_user_digit() {
         let s = ColorScheme::default();
         assert_ne!(s.digit_given, s.digit_user);
+    }
+
+    #[test]
+    fn hint_colors_defined_for_all_themes() {
+        let dark = ColorScheme::dark();
+        assert_eq!(dark.hint_cause_border, Color::Green);
+        assert_eq!(dark.hint_elim_border,  Color::Red);
+        assert_eq!(dark.hint_target_bg,    Color::Yellow);
+
+        let light = ColorScheme::light();
+        assert_eq!(light.hint_cause_border, Color::Green);
+        assert_eq!(light.hint_elim_border,  Color::Red);
+        assert_eq!(light.hint_target_bg,    Color::Yellow);
+
+        let hc = ColorScheme::high_contrast();
+        assert_eq!(hc.hint_cause_border, Color::Cyan);
+        assert_eq!(hc.hint_elim_border,  Color::Magenta);
+        assert_eq!(hc.hint_target_bg,    Color::Yellow);
     }
 }
