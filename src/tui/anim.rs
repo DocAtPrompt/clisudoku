@@ -272,6 +272,8 @@ impl FireworkAnim {
 
 /// Blink rhythm for error cells: 4 ticks visible (320 ms), 4 ticks hidden (320 ms).
 const ERROR_BLINK_TICKS: u32 = 4;
+/// Blink rhythm for hint target cell: 4 ticks yellow, 4 ticks cursor colour.
+const HINT_BLINK_TICKS: u32 = 4;
 
 pub struct AnimState {
     pub sweeps:   Vec<SweepAnim>,
@@ -280,6 +282,10 @@ pub struct AnimState {
     pub error_blink: bool,
     /// Tick counter driving the error blink; incremented every advance().
     pub error_blink_tick: u32,
+    /// When true the hint target cell blinks yellow↔cursor-colour.
+    pub hint_blink:       bool,
+    /// Separate tick counter for hint blink, independent of error_blink_tick.
+    pub hint_blink_tick:  u32,
 }
 
 impl Default for AnimState {
@@ -289,13 +295,15 @@ impl Default for AnimState {
             firework:         None,
             error_blink:      false,
             error_blink_tick: 0,
+            hint_blink:       false,
+            hint_blink_tick:  0,
         }
     }
 }
 
 impl AnimState {
     pub fn is_active(&self) -> bool {
-        !self.sweeps.is_empty() || self.firework.is_some() || self.error_blink
+        !self.sweeps.is_empty() || self.firework.is_some() || self.error_blink || self.hint_blink
     }
 
     /// Advance all active animations by one tick; discard finished ones.
@@ -307,6 +315,9 @@ impl AnimState {
         }
         if self.error_blink {
             self.error_blink_tick = self.error_blink_tick.wrapping_add(1);
+        }
+        if self.hint_blink {
+            self.hint_blink_tick = self.hint_blink_tick.wrapping_add(1);
         }
     }
 
@@ -322,6 +333,12 @@ impl AnimState {
         self.error_blink_tick = 0;
     }
 
+    /// Returns true when the hint target cell should show yellow (hint colour),
+    /// false when it should show the cursor colour.
+    pub fn hint_cell_yellow_phase(&self) -> bool {
+        (self.hint_blink_tick / HINT_BLINK_TICKS) % 2 == 0
+    }
+
     /// If `(row, col)` is the currently active cell of any sweep, return the
     /// inversion colours `(fg=Black, bg=White)` to apply.
     pub fn sweep_highlight(&self, row: usize, col: usize) -> Option<(Color, Color)> {
@@ -331,5 +348,47 @@ impl AnimState {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hint_blink_makes_anim_active() {
+        let mut a = AnimState::default();
+        assert!(!a.is_active());
+        a.hint_blink = true;
+        assert!(a.is_active());
+    }
+
+    #[test]
+    fn hint_cell_phase_alternates() {
+        let mut a = AnimState::default();
+        a.hint_blink = true;
+        // Phase at tick 0 = yellow (true)
+        assert!(a.hint_cell_yellow_phase());
+        // Advance HINT_BLINK_TICKS times → phase flips to false
+        for _ in 0..4 { a.advance(); }
+        assert!(!a.hint_cell_yellow_phase());
+        // Advance again → flips back
+        for _ in 0..4 { a.advance(); }
+        assert!(a.hint_cell_yellow_phase());
+    }
+
+    #[test]
+    fn hint_blink_tick_independent_from_error_blink_tick() {
+        let mut a = AnimState::default();
+        a.error_blink = true;
+        a.hint_blink = true;
+        for _ in 0..3 { a.advance(); }
+        // Both ticks incremented but they are separate fields
+        assert_eq!(a.error_blink_tick, 3);
+        assert_eq!(a.hint_blink_tick, 3);
+        // Resetting error blink does not affect hint
+        a.restart_error_blink();
+        assert_eq!(a.error_blink_tick, 0);
+        assert_eq!(a.hint_blink_tick, 3);
     }
 }
