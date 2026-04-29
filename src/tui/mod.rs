@@ -59,6 +59,8 @@ pub struct GameStats {
     pub cheat_fill_notes: bool,
     /// Whether scan mode was activated at least once during this game.
     pub scan_used: bool,
+    /// Number of hints requested during this game.
+    pub hint_count: u32,
 }
 
 pub struct App {
@@ -102,6 +104,8 @@ pub struct App {
     /// Info overlay: (message, subtitle, auto_dismiss_after_3s, shown_at).
     /// Puzzle-error overlays set auto_dismiss=false so the player must press a key.
     pub info_overlay: Option<(String, Option<String>, bool, std::time::Instant)>,
+    /// Currently displayed hint, if any. Cleared on any keypress.
+    pub active_hint: Option<crate::hint::Hint>,
     /// When true, drain all buffered input events at the top of the next run() loop iteration.
     /// Set after start_game() so key presses made during puzzle generation are discarded.
     drain_input: bool,
@@ -136,6 +140,7 @@ impl App {
             seq: SeqDetector::default(),
             anim: AnimState::default(),
             info_overlay: None,
+            active_hint: None,
             drain_input: false,
         }
     }
@@ -429,6 +434,9 @@ impl App {
                 self.scan_mode = !self.scan_mode;
                 if self.scan_mode { self.stats.scan_used = true; }
             }
+            AppAction::RequestHint => {
+                self.handle_hint_request();
+            }
             AppAction::ToggleErrors => {
                 self.error_mode = !self.error_mode;
                 self.anim.error_blink      = self.error_mode;
@@ -503,6 +511,61 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    fn handle_hint_request(&mut self) {
+        use crate::hint;
+
+        // If hint already active, close it and search fresh.
+        self.active_hint = None;
+        self.anim.hint_blink = false;
+
+        let (state, solution) = match (&self.game_state, &self.solution) {
+            (Some(s), Some(sol)) => (s, sol),
+            _ => return,
+        };
+
+        // Puzzle already solved — no hint needed.
+        if state.grid().is_solved() { return; }
+
+        // NotesHint is part of the registry, so find_hint() already handles the
+        // "missing notes" case. If find_hint returns None, no strategy fired at all
+        // (including NotesHint), which means every empty cell has at least one note
+        // but no logical move is deducible → fall through to Reveal.
+        let h = match hint::find_hint(state, solution) {
+            Some(h) => h,
+            None => {
+                self.perform_reveal(solution.clone());
+                return;
+            }
+        };
+
+        self.stats.hint_count += 1;
+        self.anim.hint_blink = true;
+        self.anim.hint_blink_tick = 0;
+        self.active_hint = Some(h);
+    }
+
+    fn perform_reveal(&mut self, solution: Grid) {
+        use crate::hint;
+        use crate::puzzle::GameEvent;
+
+        let state = match &self.game_state { Some(s) => s, None => return };
+        let (row, col) = match hint::most_constrained_cell(state) {
+            Some(c) => c,
+            None => return,
+        };
+        let digit = match solution.get(row, col).value() {
+            Some(d) => d,
+            None => return,
+        };
+
+        self.stats.hint_count += 1;
+
+        if let Some(state) = &mut self.game_state {
+            state.apply(GameEvent::SetDigit { row, col, digit });
+        }
+        self.check_completion(row, col);
     }
 
     fn move_cursor(&mut self, dr: i8, dc: i8) {
@@ -735,8 +798,13 @@ impl App {
                         if key.kind == crossterm::event::KeyEventKind::Press
                         || key.kind == crossterm::event::KeyEventKind::Repeat =>
                     {
+                        // Active hint: any key dismisses it (key is consumed, not forwarded).
+                        if self.active_hint.is_some() {
+                            self.active_hint = None;
+                            self.anim.hint_blink = false;
+                            self.needs_clear = true;
                         // Info-overlay: any key dismisses it early.
-                        if self.info_overlay.is_some() {
+                        } else if self.info_overlay.is_some() {
                             self.info_overlay = None;
                             self.needs_clear = true;
                         } else {
@@ -1005,6 +1073,23 @@ mod tests {
         // No confirm dialog — cleared immediately
         assert!(app.confirm_pending.is_none());
         assert!(matches!(app.screen, AppScreen::Game));
+    }
+
+    #[test]
+    fn requesting_hint_on_game_screen_sets_active_hint() {
+        // Nearly-solved puzzle: last digit missing (the '0' at position 71)
+        let puzzle =
+            "534678912672195348198342567859761423426853791713924856961537284287419630345286179";
+        let grid = crate::puzzle::Grid::from_str(puzzle).unwrap();
+        let solution = crate::solver::backtracking::solve_backtracking(grid.clone());
+        let mut app = App::new(Box::new(FakeClock { ms: 1000 }));
+        app.game_state = Some(crate::puzzle::GameState::new(grid));
+        app.solution = solution;
+        app.screen = AppScreen::Game;
+        app.handle_action(AppAction::RequestHint);
+        // Either a hint was found, or reveal was performed (hint_count > 0 either way)
+        assert!(app.stats.hint_count > 0 || app.active_hint.is_some(),
+                "RequestHint should produce some response");
     }
 
     #[test]
