@@ -252,17 +252,207 @@ impl Strategy for NakedPairs {
 impl Strategy for HiddenPairs {
     fn name_en(&self) -> &'static str { "Hidden Pairs" }
     fn name_de(&self) -> &'static str { "Hidden Pairs" }
-    fn find(&self, _state: &GameState, _solution: &Grid) -> Option<Hint> { None }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for unit in all_units() {
+            let empties: Vec<(usize,usize)> = unit.iter()
+                .filter(|&&(r,c)| matches!(grid.get(r,c), CellKind::Empty))
+                .copied().collect();
+            for d1 in 1u8..=9 {
+                for d2 in (d1+1)..=9 {
+                    // Find cells in this unit where d1 or d2 appear in notes
+                    let pair_cells: Vec<(usize,usize)> = empties.iter()
+                        .filter(|&&(r,c)| {
+                            let m = state.notes_mask(r,c);
+                            (m & (1<<d1)) != 0 || (m & (1<<d2)) != 0
+                        })
+                        .copied().collect();
+                    if pair_cells.len() != 2 { continue; }
+                    // Both d1 AND d2 must appear in BOTH cells
+                    let both_digits = pair_cells.iter().all(|&(r,c)| {
+                        let m = state.notes_mask(r,c);
+                        (m & (1<<d1)) != 0 && (m & (1<<d2)) != 0
+                    });
+                    if !both_digits { continue; }
+                    // The pair cells must have extra candidates to eliminate
+                    let pair_mask = (1u16<<d1) | (1u16<<d2);
+                    let elim: Vec<(usize,usize)> = pair_cells.iter()
+                        .filter(|&&(r,c)| state.notes_mask(r,c) & !pair_mask != 0)
+                        .copied().collect();
+                    if elim.is_empty() { continue; }
+                    let target = elim[0];
+                    return Some(Hint {
+                        cause_cells:    pair_cells,
+                        elim_cells:     elim,
+                        target_cell:    target,
+                        elim_digit:     Some(d1),
+                        target_digit:   None,
+                        name_en:        self.name_en(),
+                        name_de:        self.name_de(),
+                        explanation_en: format!("Only these cells can hold {}/{}.", d1, d2),
+                        explanation_de: format!("Nur diese Zellen k\u{f6}nnen {}/{} halten.", d1, d2),
+                    });
+                }
+            }
+        }
+        None
+    }
 }
+
 impl Strategy for PointingPairs {
     fn name_en(&self) -> &'static str { "Pointing Pairs" }
     fn name_de(&self) -> &'static str { "Pointing Pairs" }
-    fn find(&self, _state: &GameState, _solution: &Grid) -> Option<Hint> { None }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for box_idx in 0..9usize {
+            let br = (box_idx / 3) * 3;
+            let bc = (box_idx % 3) * 3;
+            let box_cells: Vec<(usize,usize)> = (0..3)
+                .flat_map(|dr| (0..3).map(move |dc| (br+dr, bc+dc)))
+                .collect();
+            for digit in 1u8..=9 {
+                // Cells in this box where digit is noted
+                let cand_cells: Vec<(usize,usize)> = box_cells.iter()
+                    .filter(|&&(r,c)| {
+                        matches!(grid.get(r,c), CellKind::Empty)
+                            && (state.notes_mask(r,c) & (1<<digit)) != 0
+                    })
+                    .copied().collect();
+                if cand_cells.len() < 2 { continue; }
+                // All in same row?
+                let row = cand_cells[0].0;
+                if cand_cells.iter().all(|&(r,_)| r == row) {
+                    let elim: Vec<(usize,usize)> = (0..9)
+                        .filter(|&c| {
+                            let cell_box = (row/3)*3 + c/3;
+                            cell_box != box_idx
+                                && matches!(grid.get(row,c), CellKind::Empty)
+                                && (state.notes_mask(row,c) & (1<<digit)) != 0
+                        })
+                        .map(|c| (row,c))
+                        .collect();
+                    if !elim.is_empty() {
+                        return Some(Hint {
+                            cause_cells:    cand_cells,
+                            elim_cells:     elim.clone(),
+                            target_cell:    elim[0],
+                            elim_digit:     Some(digit),
+                            target_digit:   None,
+                            name_en:        self.name_en(),
+                            name_de:        self.name_de(),
+                            explanation_en: format!("{} in this box points to this row.", digit),
+                            explanation_de: format!("{} in dieser Box zeigt auf diese Zeile.", digit),
+                        });
+                    }
+                }
+                // All in same col?
+                let col = cand_cells[0].1;
+                if cand_cells.iter().all(|&(_,c)| c == col) {
+                    let elim: Vec<(usize,usize)> = (0..9)
+                        .filter(|&r| {
+                            let cell_box = (r/3)*3 + col/3;
+                            cell_box != box_idx
+                                && matches!(grid.get(r,col), CellKind::Empty)
+                                && (state.notes_mask(r,col) & (1<<digit)) != 0
+                        })
+                        .map(|r| (r,col))
+                        .collect();
+                    if !elim.is_empty() {
+                        return Some(Hint {
+                            cause_cells:    cand_cells,
+                            elim_cells:     elim.clone(),
+                            target_cell:    elim[0],
+                            elim_digit:     Some(digit),
+                            target_digit:   None,
+                            name_en:        self.name_en(),
+                            name_de:        self.name_de(),
+                            explanation_en: format!("{} in this box points to this column.", digit),
+                            explanation_de: format!("{} in dieser Box zeigt auf diese Spalte.", digit),
+                        });
+                    }
+                }
+            }
+        }
+        None
+    }
 }
+
 impl Strategy for BoxLineReduction {
     fn name_en(&self) -> &'static str { "Box-Line Reduction" }
     fn name_de(&self) -> &'static str { "Box-Line Reduction" }
-    fn find(&self, _state: &GameState, _solution: &Grid) -> Option<Hint> { None }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        // For each row: if all candidates for a digit are in the same box → eliminate from rest of box
+        for row in 0..9usize {
+            for digit in 1u8..=9 {
+                let cand_cols: Vec<usize> = (0..9)
+                    .filter(|&c| matches!(grid.get(row,c), CellKind::Empty)
+                        && (state.notes_mask(row,c) & (1<<digit)) != 0)
+                    .collect();
+                if cand_cols.len() < 2 { continue; }
+                let box_col = cand_cols[0] / 3;
+                if !cand_cols.iter().all(|&c| c/3 == box_col) { continue; }
+                let br = (row/3)*3;
+                let bc = box_col * 3;
+                let cand_cells: Vec<(usize,usize)> = cand_cols.iter().map(|&c| (row,c)).collect();
+                let elim: Vec<(usize,usize)> = (0..3).flat_map(|dr| (0..3).map(move |dc| (br+dr, bc+dc)))
+                    .filter(|&(r,c)| r != row
+                        && matches!(grid.get(r,c), CellKind::Empty)
+                        && (state.notes_mask(r,c) & (1<<digit)) != 0)
+                    .collect();
+                if !elim.is_empty() {
+                    return Some(Hint {
+                        cause_cells:    cand_cells,
+                        elim_cells:     elim.clone(),
+                        target_cell:    elim[0],
+                        elim_digit:     Some(digit),
+                        target_digit:   None,
+                        name_en:        self.name_en(),
+                        name_de:        self.name_de(),
+                        explanation_en: format!("{} in this row is confined to one box.", digit),
+                        explanation_de: format!("{} in dieser Zeile ist auf eine Box beschr\u{e4}nkt.", digit),
+                    });
+                }
+            }
+        }
+        // For each col: if all candidates for a digit are in the same box → eliminate from rest of box
+        for col in 0..9usize {
+            for digit in 1u8..=9 {
+                let cand_rows: Vec<usize> = (0..9)
+                    .filter(|&r| matches!(grid.get(r,col), CellKind::Empty)
+                        && (state.notes_mask(r,col) & (1<<digit)) != 0)
+                    .collect();
+                if cand_rows.len() < 2 { continue; }
+                let box_row = cand_rows[0] / 3;
+                if !cand_rows.iter().all(|&r| r/3 == box_row) { continue; }
+                let br = box_row * 3;
+                let bc = (col/3)*3;
+                let cand_cells: Vec<(usize,usize)> = cand_rows.iter().map(|&r| (r,col)).collect();
+                let elim: Vec<(usize,usize)> = (0..3).flat_map(|dr| (0..3).map(move |dc| (br+dr, bc+dc)))
+                    .filter(|&(r,c)| c != col
+                        && matches!(grid.get(r,c), CellKind::Empty)
+                        && (state.notes_mask(r,c) & (1<<digit)) != 0)
+                    .collect();
+                if !elim.is_empty() {
+                    return Some(Hint {
+                        cause_cells:    cand_cells,
+                        elim_cells:     elim.clone(),
+                        target_cell:    elim[0],
+                        elim_digit:     Some(digit),
+                        target_digit:   None,
+                        name_en:        self.name_en(),
+                        name_de:        self.name_de(),
+                        explanation_en: format!("{} in this column is confined to one box.", digit),
+                        explanation_de: format!("{} in dieser Spalte ist auf eine Box beschr\u{e4}nkt.", digit),
+                    });
+                }
+            }
+        }
+        None
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -367,5 +557,38 @@ mod tests {
         ).unwrap();
         let hint = NakedPairs.find(&state, &sol);
         assert!(hint.is_none());
+    }
+
+    #[test]
+    fn hidden_pairs_returns_none_without_notes() {
+        let state = state_from(
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        );
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+        ).unwrap();
+        assert!(HiddenPairs.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn pointing_pairs_returns_none_without_notes() {
+        let state = state_from(
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        );
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+        ).unwrap();
+        assert!(PointingPairs.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn box_line_reduction_returns_none_without_notes() {
+        let state = state_from(
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        );
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+        ).unwrap();
+        assert!(BoxLineReduction.find(&state, &sol).is_none());
     }
 }
