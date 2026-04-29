@@ -95,7 +95,14 @@ pub fn render_frame(
                 }
             }
             // Panel to the right of the grid: col 2 + 73 (grid) + 2 (gap) = 77
-            status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, *scan_mode, *error_mode, *errors_shown, filled_count, digit_counts, *scan_digit, colors, strings)?;
+            let hint_text = hint.map(|h| {
+                if std::ptr::eq(strings, &crate::i18n::DE) {
+                    (h.name_de, h.explanation_de.as_str())
+                } else {
+                    (h.name_en, h.explanation_en.as_str())
+                }
+            });
+            status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, *scan_mode, *error_mode, *errors_shown, filled_count, digit_counts, *scan_digit, colors, strings, hint_text)?;
             if *paused {
                 render_paused_overlay(out, strings.resume_hint, colors)?;
             }

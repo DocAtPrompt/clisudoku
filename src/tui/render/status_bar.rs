@@ -33,6 +33,8 @@ pub fn render_panel(
     scan_digit:   Option<u8>,
     colors:       &ColorScheme,
     strings:      &'static Strings,
+    // When `Some((name, explanation))`, replaces the controls section with hint text.
+    hint_text:    Option<(&str, &str)>,
 ) -> io::Result<()> {
     let time_str   = format_elapsed_ms(elapsed_ms);
     let mode_label = if note_mode { strings.mode_notes } else { strings.mode_solution };
@@ -73,21 +75,36 @@ pub fn render_panel(
         (String::new(), t, false),
         // divider
         (String::new(),                        b, true),
-        (strings.panel_controls.into(),        t, false),
-        (String::new(),                        d, false),
-        (strings.ctrl_move.into(),             d, false),
-        (strings.ctrl_goto.into(),             d, false),
-        (strings.ctrl_digit.into(),            d, false),
-        (strings.ctrl_mode.into(),             d, false),
-        (strings.ctrl_scan.into(),             d, false),
-        (strings.ctrl_errors.into(),           d, false),
-        (strings.ctrl_undo.into(),             d, false),
-        (strings.ctrl_redo.into(),             d, false),
-        (strings.ctrl_clear.into(),            d, false),
-        (strings.ctrl_pause.into(),            d, false),
-        (strings.ctrl_boss.into(),             d, false),
-        (strings.ctrl_quit.into(),             d, false),
     ];
+
+    if let Some((name, explanation)) = hint_text {
+        // Hint mode: replace controls with strategy name + explanation.
+        rows.push((name.to_string(), t, false));
+        rows.push((String::new(), d, false));
+        for line in word_wrap(explanation, 34) {
+            rows.push((line, d, false));
+        }
+        rows.push((String::new(), d, false));
+        rows.push((strings.dismiss.into(), d, false));
+    } else {
+        rows.extend(vec![
+            (strings.panel_controls.into(),        t, false),
+            (String::new(),                        d, false),
+            (strings.ctrl_move.into(),             d, false),
+            (strings.ctrl_goto.into(),             d, false),
+            (strings.ctrl_digit.into(),            d, false),
+            (strings.ctrl_mode.into(),             d, false),
+            (strings.ctrl_scan.into(),             d, false),
+            (strings.ctrl_errors.into(),           d, false),
+            (strings.ctrl_hint.into(),             d, false),
+            (strings.ctrl_undo.into(),             d, false),
+            (strings.ctrl_redo.into(),             d, false),
+            (strings.ctrl_clear.into(),            d, false),
+            (strings.ctrl_pause.into(),            d, false),
+            (strings.ctrl_boss.into(),             d, false),
+            (strings.ctrl_quit.into(),             d, false),
+        ]);
+    }
 
     while rows.len() < 35 {
         rows.push((String::new(), d, false));
@@ -228,6 +245,32 @@ fn render_digit_grid(
     )
 }
 
+// ── Word wrap helper ──────────────────────────────────────────────────────────
+
+/// Wrap `text` to lines of at most `width` characters, splitting on whitespace.
+/// Words longer than `width` get their own (overflowing) line.
+fn word_wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for word in text.split_whitespace() {
+        if current.is_empty() {
+            current.push_str(word);
+            if current.chars().count() >= width {
+                lines.push(current.clone());
+                current.clear();
+            }
+        } else if current.chars().count() + 1 + word.chars().count() <= width {
+            current.push(' ');
+            current.push_str(word);
+        } else {
+            lines.push(current.clone());
+            current = word.to_string();
+        }
+    }
+    if !current.is_empty() { lines.push(current); }
+    lines
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -239,7 +282,7 @@ mod tests {
     fn call_render_panel(buf: &mut Vec<u8>, elapsed_ms: u64, note_mode: bool) {
         render_panel(
             buf, (0, 0), elapsed_ms, note_mode, false, false, 0, 0,
-            [0u8; 10], None, &ColorScheme::default(), &EN,
+            [0u8; 10], None, &ColorScheme::default(), &EN, None,
         ).unwrap();
     }
 
@@ -293,12 +336,36 @@ mod tests {
         counts[5] = 7;
         render_panel(
             &mut buf, (0, 0), 0, false, false, false, 0, 0,
-            counts, None, &ColorScheme::default(), &EN,
+            counts, None, &ColorScheme::default(), &EN, None,
         ).unwrap();
         let s = String::from_utf8_lossy(&buf);
         // Digit 5 header char '5' and count '2' should appear
         assert!(s.contains('5'));
         assert!(s.contains('2'));
+    }
+
+    #[test]
+    fn panel_shows_hint_name_when_hint_active() {
+        let mut buf = Vec::new();
+        render_panel(
+            &mut buf, (0, 0), 0, false, false, false, 0, 0,
+            [0u8; 10], None, &ColorScheme::default(), &EN,
+            Some(("Naked Single", "Only 5 fits in this cell.")),
+        ).unwrap();
+        let s = String::from_utf8_lossy(&buf);
+        assert!(s.contains("Naked Single"));
+        assert!(s.contains("Only 5 fits"));
+        // dismiss line
+        assert!(s.contains("press any key"));
+        // Controls heading should NOT appear in hint mode
+        assert!(!s.contains("Controls"));
+    }
+
+    #[test]
+    fn word_wrap_splits_on_width() {
+        let lines = word_wrap("Only 5 fits in this cell because all others are eliminated.", 20);
+        assert!(lines.iter().all(|l| l.chars().count() <= 20));
+        assert!(lines.len() >= 2);
     }
 
     #[test]
@@ -308,7 +375,7 @@ mod tests {
         counts[3] = 9; // digit 3 fully placed
         render_panel(
             &mut buf, (0, 0), 0, false, false, false, 0, 0,
-            counts, None, &ColorScheme::default(), &EN,
+            counts, None, &ColorScheme::default(), &EN, None,
         ).unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('\u{00b7}')); // · for completed digit
