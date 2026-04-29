@@ -147,12 +147,107 @@ impl Strategy for HiddenSingle {
 impl Strategy for NotesHint {
     fn name_en(&self) -> &'static str { "Add Notes" }
     fn name_de(&self) -> &'static str { "Notizen erg\u{e4}nzen" }
-    fn find(&self, _state: &GameState, _solution: &Grid) -> Option<Hint> { None }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        let units = all_units();
+        let mut best_unit: Option<Vec<(usize, usize)>> = None;
+        let mut best_empty = usize::MAX;
+        let mut best_is_box = false;
+
+        for (i, unit) in units.iter().enumerate() {
+            // In all_units(), for each i in 0..9 we push: row (i*3), col (i*3+1), box (i*3+2)
+            // So boxes are at indices where i % 3 == 2
+            let is_box = i % 3 == 2;
+            // Does this unit have at least one empty cell with zero notes?
+            let has_empty_no_notes = unit.iter().any(|&(r, c)|
+                matches!(grid.get(r, c), CellKind::Empty) && state.notes_mask(r, c) == 0
+            );
+            if !has_empty_no_notes { continue; }
+
+            let total_empty = unit.iter()
+                .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
+                .count();
+            if total_empty == 0 { continue; }
+
+            let better = best_unit.is_none()
+                || (is_box && !best_is_box)
+                || (is_box == best_is_box && total_empty < best_empty);
+            if better {
+                best_unit = Some(unit.clone());
+                best_empty = total_empty;
+                best_is_box = is_box;
+            }
+        }
+
+        let unit = best_unit?;
+        // target_cell = most constrained empty cell in unit (fewest candidates)
+        let target = unit.iter()
+            .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
+            .min_by_key(|&&(r, c)| candidates(grid, r, c).count_ones())
+            .copied()?;
+
+        Some(Hint {
+            cause_cells: unit.iter()
+                .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty) && (r, c) != target)
+                .copied().collect(),
+            elim_cells:     vec![],
+            target_cell:    target,
+            elim_digit:     None,
+            target_digit:   None,
+            name_en:        self.name_en(),
+            name_de:        self.name_de(),
+            explanation_en: "Add pencil marks in this unit to continue.".to_string(),
+            explanation_de: "Trage Notizen in diese Einheit ein.".to_string(),
+        })
+    }
 }
+
 impl Strategy for NakedPairs {
     fn name_en(&self) -> &'static str { "Naked Pairs" }
     fn name_de(&self) -> &'static str { "Naked Pairs" }
-    fn find(&self, _state: &GameState, _solution: &Grid) -> Option<Hint> { None }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for unit in all_units() {
+            let empties: Vec<(usize, usize)> = unit.iter()
+                .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
+                .copied().collect();
+            for i in 0..empties.len() {
+                let (r1, c1) = empties[i];
+                let m1 = state.notes_mask(r1, c1);
+                if m1.count_ones() != 2 { continue; }
+                for j in (i + 1)..empties.len() {
+                    let (r2, c2) = empties[j];
+                    if state.notes_mask(r2, c2) != m1 { continue; }
+                    // Found a naked pair — extract the two digits from the mask
+                    let d1 = m1.trailing_zeros() as u8;
+                    let remaining = m1 >> (d1 as u32 + 1);
+                    let d2 = d1 + 1 + remaining.trailing_zeros() as u8;
+                    let elim: Vec<(usize, usize)> = empties.iter()
+                        .filter(|&&(r, c)| {
+                            (r, c) != (r1, c1) && (r, c) != (r2, c2)
+                                && (state.notes_mask(r, c) & m1) != 0
+                        })
+                        .copied().collect();
+                    if elim.is_empty() { continue; }
+                    let target = elim[0];
+                    return Some(Hint {
+                        cause_cells:    vec![(r1, c1), (r2, c2)],
+                        elim_cells:     elim,
+                        target_cell:    target,
+                        elim_digit:     Some(d1),
+                        target_digit:   None,
+                        name_en:        self.name_en(),
+                        name_de:        self.name_de(),
+                        explanation_en: format!("Cells with {}/{} form a pair. Eliminate from others.", d1, d2),
+                        explanation_de: format!("Zellen mit {}/{} bilden ein Paar. In anderen eliminieren.", d1, d2),
+                    });
+                }
+            }
+        }
+        None
+    }
 }
 impl Strategy for HiddenPairs {
     fn name_en(&self) -> &'static str { "Hidden Pairs" }
@@ -228,5 +323,49 @@ mod tests {
         let sol = Grid::from_str(HIDDEN_SINGLE_SOL).unwrap();
         let hint = HiddenSingle.find(&state, &sol);
         assert!(hint.is_some(), "should find a hidden single");
+    }
+
+    #[test]
+    fn notes_hint_fires_when_empty_cell_has_no_notes() {
+        // Any standard puzzle where no notes have been entered yet
+        let state = state_from(
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        );
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+        ).unwrap();
+        // With no notes set, NotesHint should fire
+        let hint = NotesHint.find(&state, &sol);
+        assert!(hint.is_some(), "should find notes hint when notes are missing");
+    }
+
+    #[test]
+    fn notes_hint_silent_when_all_empty_cells_have_notes() {
+        // A nearly-solved puzzle with one empty cell that has a note
+        let puzzle =
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286170";
+        let mut state = state_from(puzzle);
+        // Toggle a note for the last empty cell (8,8) — digit 9
+        use crate::puzzle::GameEvent;
+        state.apply(GameEvent::ToggleNote { row: 8, col: 8, digit: 9 });
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+        ).unwrap();
+        // NotesHint should NOT fire — all empty cells have at least one note
+        let hint = NotesHint.find(&state, &sol);
+        assert!(hint.is_none());
+    }
+
+    #[test]
+    fn naked_pairs_returns_none_without_notes() {
+        // Without notes, NakedPairs cannot fire (it works from notes masks)
+        let state = state_from(
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        );
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+        ).unwrap();
+        let hint = NakedPairs.find(&state, &sol);
+        assert!(hint.is_none());
     }
 }
