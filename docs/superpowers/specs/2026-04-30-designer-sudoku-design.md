@@ -8,7 +8,7 @@ Add a "Designer Sudoku" mode where given-cells form a recognisable visual patter
 
 **New module:** `src/pattern/mod.rs`
 - `Pattern` struct: name (EN + DE), 81-bit cell mask (`[bool; 81]`), cell count, category tag
-- 27 built-in patterns, sorted by cell count descending at compile time
+- 28 built-in patterns, sorted by cell count descending at compile time
 - CLI parsing helper: parse 81-char string of `.`/`0` (empty) and `1`/`*` (pattern cell)
 
 **Modified:** `src/generator/mod.rs`
@@ -26,14 +26,14 @@ Add a "Designer Sudoku" mode where given-cells form a recognisable visual patter
 
 **Modified:** `src/tui/mod.rs`
 - New `AppScreen::PatternSelect { selected: usize }` state
-- New `AppScreen::Generating { ... }` state
+- New `AppScreen::Generating { pattern: Pattern, rx: Receiver<GenMsg>, verb_idx: usize, countdown_secs: u8, from_cli: bool }` state
 - `DifficultySelect` gets a fourth option "Designer ▶"
 
 **Modified:** `src/tui/render/` — two new render functions:
 - `pattern_select::render_pattern_select` — miniature + title + count
 - `generating::render_generating` — grid-area message overlay
 
-**Modified:** `src/db/` — new `GameCategory::Design` variant; schema migration adds `category TEXT DEFAULT 'classic'` to `games` table.
+**Modified:** `src/db/` — new `GameCategory::Design` variant; schema migration adds `category` and `pattern_name` columns to `games` table.
 
 **Modified:** `src/main.rs` — `--pattern <81chars>` CLI flag
 
@@ -68,19 +68,19 @@ CLI: --pattern "1..1..1..."
 │                                                                     │
 │                           Smiley 😊                                 │
 │                                                                     │
-│                     · · · █ █ █ · · ·                               │
-│                     · · █ · · · █ · ·                               │
-│                     · · █ █ · █ █ · ·                               │
+│                     · · █ █ █ █ █ · ·                               │
 │                     · █ · · · · · █ ·                               │
+│                     █ · · █ · █ · · █                               │
+│                     █ · · · · · · · █                               │
 │                     █ · · · · · · · █                               │
 │                     █ · █ · · · █ · █                               │
+│                     █ · · █ █ █ · · █                               │
 │                     · █ · · · · · █ ·                               │
-│                     · · · █ █ █ · · ·                               │
-│                     · · · · · · · · ·                               │
+│                     · · █ █ █ █ █ · ·                               │
 │                                                                     │
 │                          31 / 81                                    │
 │                                                                     │
-│                       ◄   7 / 27   ►                                │
+│                       ◄   7 / 28   ►                                │
 │                                                                     │
 │                    Enter: select   Esc: back                        │
 └─────────────────────────────────────────────────────────────────────┘
@@ -88,7 +88,7 @@ CLI: --pattern "1..1..1..."
 
 - Each cell: `█` (U+2588) for pattern cell, `·` for empty, space-separated
 - Pattern name above miniature (EN/DE via i18n)
-- Position indicator `n / 27` below miniature
+- Position indicator `n / 28` below miniature
 - Left/Right arrows navigate; wraps around (zyklisch)
 - Patterns sorted by cell count **descending** (most givens first)
 - No difficulty shown — determined after generation
@@ -116,7 +116,7 @@ CLI: --pattern "1..1..1..."
 - Message shown **centered in the grid area** (cols 2–74, rows 1–37)
 - Format: `"<verb> sudoku..."` with countdown seconds on the right
 - On new seed: `"using new seed…"` for ~1 s, then resumes with next verb
-- Verb list (37 entries, randomised order per session):
+- Verb list (38 entries, randomised order per session):
   `generating` `frying` `baking` `roasting` `shoveling` `tinkering`
   `brewing` `distilling` `cooking` `boiling` `simmering` `grilling`
   `toasting` `smoking` `seasoning` `marinating` `kneading` `blending`
@@ -151,7 +151,7 @@ In both warning cases the panel replaces the controls section identically to a n
 
 `hint_count` (already tracked in `GameStats`) is shown in the panel alongside the timer and mode indicators.
 
-Format: `h: 3` or `hints: 3` — fits in the existing panel line budget.
+Format: `h: 3` — fits in the existing panel line budget.
 
 ---
 
@@ -162,12 +162,13 @@ New `GameCategory` enum:
 pub enum GameCategory { Classic, Design }
 ```
 
-Schema migration (applied on first run if column absent):
+Schema migration (applied on first run if columns absent):
 ```sql
 ALTER TABLE games ADD COLUMN category TEXT NOT NULL DEFAULT 'classic';
+ALTER TABLE games ADD COLUMN pattern_name TEXT;
 ```
 
-Designer games are stored with `category = 'design'` and additionally `pattern_name TEXT` (nullable for classic games).
+Designer games are stored with `category = 'design'` and `pattern_name = <pattern name>`. Classic games have `category = 'classic'` and `pattern_name = NULL`.
 
 ---
 
@@ -182,7 +183,7 @@ Designer games are stored with `category = 'design'` and additionally `pattern_n
 
 ---
 
-## 27 Built-in Patterns
+## 28 Built-in Patterns
 
 Sorted by cell count descending (name / count):
 
@@ -190,28 +191,28 @@ Sorted by cell count descending (name / count):
 |---|------|-------|
 | 1 | Holy Crap | 46 |
 | 2 | Checker | 41 |
-| 3 | Heart | 40 |
-| 4 | Wind Up | 40 |
-| 5 | Shit Happens | 39 |
-| 6 | Bug or Feature? | 39 |
-| 7 | Ripples | 37 |
-| 8 | Fire Fighter | 36 |
+| 3 | Rudolph | 41 |
+| 4 | Bug or Feature? | 41 |
+| 5 | Heart | 40 |
+| 6 | Wind Up | 40 |
+| 7 | Shit Happens | 39 |
+| 8 | Ripples | 37 |
 | 9 | Mamihlapinatapai | 36 |
-| 10 | Rudolph | 41 |
-| 11 | Border | 32 |
-| 12 | Smiley | 31 |
-| 13 | Badley | 31 |
-| 14 | Bigger Fish to Fry | 31 |
-| 15 | Lost My Cherries | 30 |
-| 16 | Anchor | 30 |
-| 17 | Five to Twelve | 29 |
-| 18 | Joshua | 29 |
-| 19 | An Apple a Day | 28 |
-| 20 | Diamond | 28 |
-| 21 | Asterisk | 33 |
-| 22 | Rainy Day | 32 |
-| 23 | Per Aspera ad Astra | 27 |
-| 24 | Wave | 27 |
+| 10 | Fire Fighter | 36 |
+| 11 | Asterisk | 33 |
+| 12 | Border | 32 |
+| 13 | Rainy Day | 32 |
+| 14 | Smiley | 31 |
+| 15 | Badley | 31 |
+| 16 | Bigger Fish to Fry | 31 |
+| 17 | Anchor | 30 |
+| 18 | Lost My Cherries | 30 |
+| 19 | Joshua | 29 |
+| 20 | Five to Twelve | 29 |
+| 21 | Diamond | 28 |
+| 22 | An Apple a Day | 28 |
+| 23 | Wave | 27 |
+| 24 | Per Aspera ad Astra | 27 |
 | 25 | Minion | 27 |
 | 26 | 42 | 26 |
 | 27 | Home Office | 26 |
@@ -234,21 +235,21 @@ diamond
 smiley
 001111100
 010000010
-001100110  (eyes at col 2-3 and 5-6: 0,0,1,1,0,1,1,0,0)
-010000010
+100101001
+100000001
 100000001
 101000101
+100111001
 010000010
-000111000
-000000000
+001111100
 
 badley
 001111100
 010000010
-001100110
-010000010
+100101001
 100000001
-000111001  (frown: top of inverted U)
+100000001
+100111001
 101000101
 010000010
 001111100
