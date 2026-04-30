@@ -238,7 +238,7 @@ impl Language {
 
 // ── English ───────────────────────────────────────────────────────────────────
 
-pub const EN: Strings = Strings {
+pub static EN: Strings = Strings {
     menu_new_game:        "New Game",
     menu_language:        "Language",
     menu_theme:           "Theme",
@@ -309,7 +309,7 @@ pub const EN: Strings = Strings {
 
 // ── German ────────────────────────────────────────────────────────────────────
 
-pub const DE: Strings = Strings {
+pub static DE: Strings = Strings {
     menu_new_game:        "Neues Spiel",
     menu_language:        "Sprache",
     menu_theme:           "Theme",
@@ -380,7 +380,7 @@ pub const DE: Strings = Strings {
 
 // ── Spanish ───────────────────────────────────────────────────────────────────
 
-pub const ES: Strings = Strings {
+pub static ES: Strings = Strings {
     menu_new_game:        "Nueva partida",
     menu_language:        "Idioma",
     menu_theme:           "Tema",
@@ -451,7 +451,7 @@ pub const ES: Strings = Strings {
 
 // ── Italian ───────────────────────────────────────────────────────────────────
 
-pub const IT: Strings = Strings {
+pub static IT: Strings = Strings {
     menu_new_game:        "Nuova partita",
     menu_language:        "Lingua",
     menu_theme:           "Tema",
@@ -522,7 +522,7 @@ pub const IT: Strings = Strings {
 
 // ── French ────────────────────────────────────────────────────────────────────
 
-pub const FR: Strings = Strings {
+pub static FR: Strings = Strings {
     menu_new_game:        "Nouvelle partie",
     menu_language:        "Langue",
     menu_theme:           "Thème",
@@ -593,7 +593,7 @@ pub const FR: Strings = Strings {
 
 // ── Slovenian ─────────────────────────────────────────────────────────────────
 
-pub const SL: Strings = Strings {
+pub static SL: Strings = Strings {
     menu_new_game:        "Nova igra",
     menu_language:        "Jezik",
     menu_theme:           "Tema",
@@ -664,7 +664,7 @@ pub const SL: Strings = Strings {
 
 // ── Esperanto ─────────────────────────────────────────────────────────────────
 
-pub const EO: Strings = Strings {
+pub static EO: Strings = Strings {
     menu_new_game:        "Nova ludo",
     menu_language:        "Lingvo",
     menu_theme:           "Temo",
@@ -735,7 +735,7 @@ pub const EO: Strings = Strings {
 
 // ── Toki Pona ─────────────────────────────────────────────────────────────────
 
-pub const TP: Strings = Strings {
+pub static TP: Strings = Strings {
     menu_new_game:        "musi sin",
     menu_language:        "toki",
     menu_theme:           "kule",
@@ -806,7 +806,7 @@ pub const TP: Strings = Strings {
 
 // ── Leetspeak ─────────────────────────────────────────────────────────────────
 
-pub const LEET: Strings = Strings {
+pub static LEET: Strings = Strings {
     menu_new_game:        "N3W G4M3",
     menu_language:        "L4NGU4G3",
     menu_theme:           "TH3M3",
@@ -877,7 +877,7 @@ pub const LEET: Strings = Strings {
 
 // ── Swahili ───────────────────────────────────────────────────────────────────
 
-pub const SW: Strings = Strings {
+pub static SW: Strings = Strings {
     menu_new_game:        "Mchezo Mpya",
     menu_language:        "Lugha",
     menu_theme:           "Mandhari",
@@ -948,7 +948,7 @@ pub const SW: Strings = Strings {
 
 // ── Afrikaans ─────────────────────────────────────────────────────────────────
 
-pub const AF: Strings = Strings {
+pub static AF: Strings = Strings {
     menu_new_game:        "Nuwe spel",
     menu_language:        "Taal",
     menu_theme:           "Tema",
@@ -1020,7 +1020,7 @@ pub const AF: Strings = Strings {
 // ── Mandarin Chinese in Pinyin romanisation ───────────────────────────────────
 // Tone marks: macron=1st, acute=2nd, caron=3rd, grave=4th.
 
-pub const PY: Strings = Strings {
+pub static PY: Strings = Strings {
     menu_new_game:        "X\u{12b}n y\u{f3}ux\u{ec}",
     menu_language:        "Y\u{1d4}y\u{e1}n",
     menu_theme:           "Zh\u{fa}t\u{ed}",
@@ -1091,7 +1091,7 @@ pub const PY: Strings = Strings {
 
 // ── Indonesian (Bahasa Indonesia) ─────────────────────────────────────────────
 
-pub const ID: Strings = Strings {
+pub static ID: Strings = Strings {
     menu_new_game:        "Permainan Baru",
     menu_language:        "Bahasa",
     menu_theme:           "Tema",
