@@ -126,11 +126,14 @@ fn cell_bg(
     if let Some(h) = hint {
         match hint_role(row, col, h) {
             Some(HintRole::Target) => {
-                // If cursor is also here, alternate between hint yellow and cursor blue.
-                if anim.hint_cell_yellow_phase() || cursor != (row, col) {
+                // Blink regardless of cursor position: yellow ↔ normal (or cursor-blue
+                // if the cursor happens to be on this cell).
+                if anim.hint_cell_yellow_phase() {
                     return colors.hint_target_bg;
-                } else {
+                } else if cursor == (row, col) {
                     return colors.cell_active_bg;
+                } else {
+                    return colors.cell_normal_bg;
                 }
             }
             Some(HintRole::Cause) | Some(HintRole::Elim) => {
