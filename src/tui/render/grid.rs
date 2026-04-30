@@ -251,9 +251,23 @@ pub fn render_grid(
                             _ => (colors.grid_cell, None, false),
                         };
                         let bg = cell_bg(row, col, cursor, nav, hint, anim, colors);
+                        // Ensure readable contrast: use dark text on the yellow hint
+                        // background so digits don't disappear against the highlight.
+                        let on_hint_yellow = hint
+                            .and_then(|h| hint_role(row, col, h))
+                            .is_some()
+                            && bg == colors.hint_target_bg;
+                        let fg = if on_hint_yellow { Color::Black } else { fg };
                         (fg, bg, content_lines[line_idx].clone(), note_scan_col, blink)
                     }
                 };
+
+                // Recompute hint-yellow flag for use in the note-scan overlay below
+                // (on_hint_yellow is computed inside the else branch above but not
+                // accessible here after destructuring).
+                let on_hint_yellow = !paused
+                    && hint.and_then(|h| hint_role(row, col, h)).is_some()
+                    && bg == colors.hint_target_bg;
 
                 let sep_fg = if paused { overlay_bg }
                              else if let Some(c) = hint_right_border_color(row, col, hint, colors) { c }
@@ -285,13 +299,14 @@ pub fn render_grid(
                     Print(v_sep(col))
                 )?;
 
-                // Overlay scan-highlighted note digit in magenta.
+                // Overlay scan-highlighted note digit in magenta (black on hint yellow).
                 if let Some(char_off) = note_scan_col {
                     let note_term_col = cell_term_col + char_off as u16;
                     let sd = scan_digit.unwrap();
+                    let scan_fg = if on_hint_yellow { Color::Black } else { colors.digit_scan };
                     queue!(out,
                         MoveTo(note_term_col, term_row),
-                        SetForegroundColor(colors.digit_scan),
+                        SetForegroundColor(scan_fg),
                         SetBackgroundColor(bg),
                         Print(char::from(b'0' + sd)),
                     )?;

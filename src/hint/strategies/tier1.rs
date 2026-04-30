@@ -123,9 +123,38 @@ impl Strategy for HiddenSingle {
                     .copied().collect();
                 if positions.len() == 1 {
                     let (r, c) = positions[0];
-                    let cause: Vec<(usize, usize)> = unit.iter()
-                        .filter(|&&(rr, cc)| (rr, cc) != (r, c) && grid.get(rr, cc).value().is_some())
-                        .copied().collect();
+                    // Collect cells that already contain `digit` and "see" the
+                    // other empty cells in this unit — showing WHY only (r, c)
+                    // can hold the digit (all other positions are blocked).
+                    let mut cause_set: std::collections::HashSet<(usize, usize)> =
+                        std::collections::HashSet::new();
+                    for &(rr, cc) in &unit {
+                        if (rr, cc) == (r, c) { continue; }
+                        if !matches!(grid.get(rr, cc), CellKind::Empty) { continue; }
+                        // Same row
+                        for col in 0..9 {
+                            if grid.get(rr, col).value() == Some(digit) {
+                                cause_set.insert((rr, col));
+                            }
+                        }
+                        // Same column
+                        for row in 0..9 {
+                            if grid.get(row, cc).value() == Some(digit) {
+                                cause_set.insert((row, cc));
+                            }
+                        }
+                        // Same box
+                        let br = (rr / 3) * 3;
+                        let bc = (cc / 3) * 3;
+                        for dr in 0..3 {
+                            for dc in 0..3 {
+                                if grid.get(br + dr, bc + dc).value() == Some(digit) {
+                                    cause_set.insert((br + dr, bc + dc));
+                                }
+                            }
+                        }
+                    }
+                    let cause: Vec<(usize, usize)> = cause_set.into_iter().collect();
                     return Some(Hint {
                         cause_cells:    cause,
                         elim_cells:     vec![],
