@@ -286,19 +286,19 @@ pub enum RainCell {
 }
 
 pub struct RainColumn {
-    pub start_delay:     u32,
-    /// Rain head advances 1 row every `speed` ticks.
-    pub speed:           u8,
-    frame_tick:          u8,
-    /// Looping head position. Resets to -(trail_len) after exiting the bottom.
-    pub head:            i16,
-    pub trail_len:       u8,
-    /// True after the head has completed its first full pass through the grid.
-    first_pass_done:     bool,
-    /// Rows settled from the bottom (0 → RAIN_ROWS). Grows after first_pass_done.
-    pub settled_rows:    usize,
-    settle_tick:         u8,
-    pub chars:           Vec<char>,
+    start_delay:     u32,
+    /// Chars scroll down 1 row every `speed` ticks.
+    speed:           u8,
+    frame_tick:      u8,
+    /// Total rows scrolled so far (grows unbounded). Used to compute char index and head.
+    scroll_off:      usize,
+    /// True once scroll_off has reached RAIN_ROWS (first full pass completed).
+    first_pass_done: bool,
+    /// Rows crystallised from the bottom (0 → RAIN_ROWS).
+    pub settled_rows: usize,
+    settle_tick:      u8,
+    /// Pre-generated character pool; indexed via (row + scroll_off).
+    chars:           Vec<char>,
 }
 
 pub struct MatrixRainAnim {
@@ -312,15 +312,13 @@ impl MatrixRainAnim {
         let columns = (0..RAIN_COLS).map(|_| {
             let start_delay = (rng_next(&mut s) * 18.0) as u32;
             let speed       = if rng_next(&mut s) < 0.45 { 1u8 } else { 2u8 };
-            let trail_len   = 5 + (rng_next(&mut s) * 9.0) as u8; // 5 ..= 13
-            let char_count  = (RAIN_ROWS + trail_len as usize + 4).max(60);
-            let chars = (0..char_count).map(|_| {
+            // Large pool so scrolling looks random without noticeable repetition.
+            let chars = (0..96).map(|_| {
                 let idx = (rng_next(&mut s) * MATRIX_CHARS.len() as f32) as usize;
                 MATRIX_CHARS[idx % MATRIX_CHARS.len()] as char
             }).collect();
             RainColumn {
-                start_delay, speed, frame_tick: 0,
-                head: -(trail_len as i16), trail_len,
+                start_delay, speed, frame_tick: 0, scroll_off: 0,
                 first_pass_done: false, settled_rows: 0, settle_tick: 0,
                 chars,
             }
@@ -328,7 +326,7 @@ impl MatrixRainAnim {
         Self { columns, tick: 0 }
     }
 
-    /// All columns have fully settled — the whole grid is visible again.
+    /// All columns fully crystallised — whole grid visible again.
     pub fn done(&self) -> bool {
         self.columns.iter().all(|c| {
             if self.tick <= c.start_delay { return false; }
@@ -341,20 +339,17 @@ impl MatrixRainAnim {
         for col in &mut self.columns {
             if self.tick <= col.start_delay { continue; }
 
-            // ── Rain head: advances and loops back to the top ──────────────
+            // ── Dense scrolling rain ───────────────────────────────────────
             col.frame_tick += 1;
             if col.frame_tick >= col.speed {
                 col.frame_tick = 0;
-                col.head += 1;
-                // When head exits the bottom, loop back and mark first pass done.
-                if col.head >= RAIN_ROWS as i16 {
-                    col.head = -(col.trail_len as i16);
+                col.scroll_off = col.scroll_off.wrapping_add(1);
+                if col.scroll_off >= RAIN_ROWS {
                     col.first_pass_done = true;
                 }
             }
 
             // ── Settled zone: grows upward after the first full pass ───────
-            // One row settles per tick so the build-up takes ~RAIN_ROWS ticks.
             if col.first_pass_done && col.settled_rows < RAIN_ROWS {
                 col.settle_tick += 1;
                 if col.settle_tick >= col.speed {
@@ -368,8 +363,9 @@ impl MatrixRainAnim {
     /// What to render at grid position `(col, row)`.
     ///
     /// - `Settled`  → skip; the game screen rendered beneath shows through
-    /// - `Blank`    → overdraw with background colour
-    /// - `Rain`     → coloured falling character
+    /// - `Blank`    → overdraw with background colour (column not started)
+    /// - `Rain`     → dense scrolling character with brightness level
+    ///               0 = bright head (White), 1 = near (Green), 2 = far (DarkGreen)
     pub fn cell_at(&self, col: usize, row: usize) -> RainCell {
         let c = &self.columns[col];
 
@@ -377,27 +373,27 @@ impl MatrixRainAnim {
             return RainCell::Blank;
         }
 
-        // Settled zone: bottom `settled_rows` rows reveal the real grid.
+        // Crystallised zone: bottom settled_rows rows reveal real grid content.
         let settle_row = RAIN_ROWS.saturating_sub(c.settled_rows);
         if row >= settle_row {
             return RainCell::Settled;
         }
 
-        // Falling rain — head and fading trail.
-        let row_i = row as i16;
-        let head  = c.head;
-        if row_i >= 0 && row_i < RAIN_ROWS as i16 {
-            if row_i == head {
-                return RainCell::Rain(c.chars[row % c.chars.len()], 0);
-            }
-            if row_i < head && row_i >= head - c.trail_len as i16 {
-                let dist  = (head - row_i) as usize;
-                let level = if dist <= c.trail_len as usize / 2 { 1u8 } else { 2u8 };
-                return RainCell::Rain(c.chars[row % c.chars.len()], level);
-            }
-        }
+        // Dense rain: every unsettled row has a scrolling character.
+        let char_idx = (row.wrapping_add(c.scroll_off)) % c.chars.len();
+        let ch       = c.chars[char_idx];
 
-        RainCell::Blank
+        // Bright "head" band: the row currently pointed at by scroll_off.
+        let virtual_head = c.scroll_off % RAIN_ROWS;
+        let level = if row == virtual_head {
+            0 // White — leading bright character
+        } else if row < virtual_head && virtual_head - row <= 3 {
+            1 // Green — short bright trail just above the head
+        } else {
+            2 // DarkGreen — dense background rain
+        };
+
+        RainCell::Rain(ch, level)
     }
 }
 
