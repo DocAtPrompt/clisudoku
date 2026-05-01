@@ -10,6 +10,9 @@ use crossterm::{
 };
 use std::io::{self, Write};
 
+/// Terminal width assumed for this screen (matches crate::tui::MIN_COLS).
+const TERMINAL_WIDTH: u16 = 117;
+
 /// Center column for 117-wide terminal.
 /// Miniature: 9 cells × 2 chars (char + space) − 1 trailing space = 17 chars wide.
 /// Center on 117 cols: left margin = (117 − 17) / 2 = 50.
@@ -33,13 +36,13 @@ pub fn render_pattern_select(
             MoveTo(0, row),
             SetForegroundColor(bg),
             SetBackgroundColor(bg),
-            Print(" ".repeat(117))
+            Print(" ".repeat(TERMINAL_WIDTH as usize))
         )?;
     }
 
     // ── Title ────────────────────────────────────────────────────────────────
     let title = strings.designer_title;
-    let title_col = ((117u16).saturating_sub(title.len() as u16)) / 2;
+    let title_col = (TERMINAL_WIDTH.saturating_sub(title.chars().count() as u16)) / 2;
     queue!(out,
         MoveTo(title_col, 2),
         SetForegroundColor(fg),
@@ -53,7 +56,7 @@ pub fn render_pattern_select(
     } else {
         pattern.name_en
     };
-    let name_col = ((117u16).saturating_sub(name.len() as u16)) / 2;
+    let name_col = (TERMINAL_WIDTH.saturating_sub(name.chars().count() as u16)) / 2;
     queue!(out,
         MoveTo(name_col, 4),
         SetForegroundColor(fg),
@@ -88,7 +91,7 @@ pub fn render_pattern_select(
 
     // ── Cell count ───────────────────────────────────────────────────────────
     let count_str = format!("{} / 81", pattern.cell_count);
-    let count_col = ((117u16).saturating_sub(count_str.len() as u16)) / 2;
+    let count_col = (TERMINAL_WIDTH.saturating_sub(count_str.chars().count() as u16)) / 2;
     queue!(out,
         MoveTo(count_col, 16),
         SetForegroundColor(dim),
@@ -98,7 +101,7 @@ pub fn render_pattern_select(
 
     // ── Position indicator ◄ N / 28 ► ───────────────────────────────────────
     let pos_str = format!("\u{25c4}  {} / {}  \u{25ba}", selected + 1, PATTERNS.len());
-    let pos_col = ((117u16).saturating_sub(pos_str.len() as u16)) / 2;
+    let pos_col = (TERMINAL_WIDTH.saturating_sub(pos_str.chars().count() as u16)) / 2;
     queue!(out,
         MoveTo(pos_col, 18),
         SetForegroundColor(fg),
@@ -108,7 +111,7 @@ pub fn render_pattern_select(
 
     // ── Navigation hint ───────────────────────────────────────────────────────
     let hint = "Enter: select   Esc: back";
-    let hint_col = ((117u16).saturating_sub(hint.len() as u16)) / 2;
+    let hint_col = (TERMINAL_WIDTH.saturating_sub(hint.chars().count() as u16)) / 2;
     queue!(out,
         MoveTo(hint_col, 20),
         SetForegroundColor(dim),
