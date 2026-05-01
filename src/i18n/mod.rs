@@ -62,6 +62,19 @@ pub struct Strings {
     /// Hint key control label.
     pub ctrl_hint: &'static str,
 
+    /// Fourth option on the difficulty select screen.
+    pub difficulty_designer:   &'static str,
+    /// Title of the pattern-select screen.
+    pub designer_title:        &'static str,
+    /// Hint pre-check warning: player has incorrect filled digits.
+    pub hint_has_errors:       &'static str,
+    /// Hint pre-check warning: player has incorrect notes.
+    pub hint_has_wrong_notes:  &'static str,
+    /// Generating screen cancel hint shown at the bottom.
+    pub generating_cancel:     &'static str,
+    /// Shown for ~1 s when the generator moves to a new seed.
+    pub using_new_seed:        &'static str,
+
     // ── Hint strategy names and explanations ─────────────────────────────────
     // Explanations use {row}, {col}, {box}, {digit} as placeholders.
     // Only EN and DE have translated values; all other languages copy EN.
@@ -274,6 +287,12 @@ pub static EN: Strings = Strings {
     ctrl_boss:            "  b      boss key",
     ctrl_quit:            "  Esc    quit",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -345,6 +364,12 @@ pub static DE: Strings = Strings {
     ctrl_boss:            "  b      Tarnmodus",
     ctrl_quit:            "  Esc    Beenden",
     ctrl_hint:                   "  h      Hinweis",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Zuerst Fehler korrigieren.",
+    hint_has_wrong_notes: "Notizen enthalten Fehler.",
+    generating_cancel:    "  Esc    Abbrechen",
+    using_new_seed:       "Neuer Seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Nur eine leere Zelle bleibt in dieser Einheit.",
@@ -416,6 +441,12 @@ pub static ES: Strings = Strings {
     ctrl_boss:            "  b      pantalla",
     ctrl_quit:            "  Esc    salir",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -487,6 +518,12 @@ pub static IT: Strings = Strings {
     ctrl_boss:            "  b      schermo",
     ctrl_quit:            "  Esc    esci",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -558,6 +595,12 @@ pub static FR: Strings = Strings {
     ctrl_boss:            "  b      patron",
     ctrl_quit:            "  Esc    quitter",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -629,6 +672,12 @@ pub static SL: Strings = Strings {
     ctrl_boss:            "  b      \u{161}ef",
     ctrl_quit:            "  Esc    izhod",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -700,6 +749,12 @@ pub static EO: Strings = Strings {
     ctrl_boss:            "  b      ka\u{15d}modo",
     ctrl_quit:            "  Esc    eliri",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -771,6 +826,12 @@ pub static TP: Strings = Strings {
     ctrl_boss:            "  b      len",
     ctrl_quit:            "  Esc    pini",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -842,6 +903,12 @@ pub static LEET: Strings = Strings {
     ctrl_boss:            "  b      b0ss k3y",
     ctrl_quit:            "  Esc    qu1t",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -913,6 +980,12 @@ pub static SW: Strings = Strings {
     ctrl_boss:            "  b      ficha",
     ctrl_quit:            "  Esc    toka",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -984,6 +1057,12 @@ pub static AF: Strings = Strings {
     ctrl_boss:            "  b      baas",
     ctrl_quit:            "  Esc    verlaat",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -1056,6 +1135,12 @@ pub static PY: Strings = Strings {
     ctrl_boss:            "  b      y\u{1d0}nc\u{e1}ng",
     ctrl_quit:            "  Esc    tu\u{ec}ch\u{16b}",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -1127,6 +1212,12 @@ pub static ID: Strings = Strings {
     ctrl_boss:            "  b      kunci bos",
     ctrl_quit:            "  Esc    keluar",
     ctrl_hint:                   "  h      hint",
+    difficulty_designer:  "Designer \u{25b6}",
+    designer_title:       "Designer Sudoku",
+    hint_has_errors:      "Fix your errors first.",
+    hint_has_wrong_notes: "Your notes contain errors.",
+    generating_cancel:    "  Esc    cancel",
+    using_new_seed:       "using new seed...",
 
     hint_full_house_name:        "Full House",
     hint_full_house_explain:     "Only one empty cell remains in this unit.",
@@ -1255,6 +1346,19 @@ mod tests {
                 &format!("{nm}.panel_filled"),
             );
         }
+    }
+
+    #[test]
+    fn new_designer_strings_not_empty() {
+        assert!(!EN.difficulty_designer.is_empty());
+        assert!(!EN.designer_title.is_empty());
+        assert!(!EN.hint_has_errors.is_empty());
+        assert!(!EN.hint_has_wrong_notes.is_empty());
+        assert!(!EN.generating_cancel.is_empty());
+        assert!(!EN.using_new_seed.is_empty());
+        // DE has distinct translations for the two hint warnings
+        assert_ne!(DE.hint_has_errors, EN.hint_has_errors);
+        assert_ne!(DE.hint_has_wrong_notes, EN.hint_has_wrong_notes);
     }
 
     #[test]
