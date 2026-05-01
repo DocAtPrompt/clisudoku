@@ -79,6 +79,27 @@ fn main() {
         }
     }
 
+    // --pattern <81chars> — load a designer pattern directly.
+    if let Some(pos) = args.iter().position(|a| a == "--pattern") {
+        match args.get(pos + 1) {
+            Some(s) => {
+                match clisudoku::pattern::Pattern::from_cli_str(s) {
+                    Ok(pattern) => {
+                        app.start_generating(pattern, true);
+                    }
+                    Err(e) => {
+                        eprintln!("Invalid pattern string: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            None => {
+                eprintln!("Option --pattern requires an 81-character string.");
+                std::process::exit(1);
+            }
+        }
+    }
+
     if let Err(e) = app.run() {
         eprintln!("Error: {}", e);
         std::process::exit(1);
@@ -100,6 +121,10 @@ OPTIONS:
                        (minimum 17 given cells required).
 
     -f <FILE>          Load a puzzle from a text file (same format as -s).
+
+    --pattern <81chars>
+                       Generate a designer puzzle from a custom pattern.
+                       81 chars: '1' or '*' = pattern cell, '.' or '0' = always empty.
 
     -t, --theme <NAME>     Set the color theme. Available themes:
 
@@ -162,4 +187,18 @@ fn load_puzzle(app: &mut App, s: &str) {
     // All checks passed — start directly in Game screen.
     app.game_state = Some(GameState::new(grid));
     app.screen = clisudoku::tui::AppScreen::Game;
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn parse_pattern_str_valid() {
+        let p = clisudoku::pattern::Pattern::from_cli_str(&"1".repeat(81)).unwrap();
+        assert_eq!(p.cell_count, 81);
+    }
+
+    #[test]
+    fn parse_pattern_str_invalid_length() {
+        assert!(clisudoku::pattern::Pattern::from_cli_str("1111").is_err());
+    }
 }
