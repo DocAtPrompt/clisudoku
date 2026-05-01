@@ -168,6 +168,11 @@ fn cell_bg(
     }
 }
 
+/// Matrix Mode green palette — used when `matrix_mode` is active.
+const MATRIX_BRIGHT:  Color = Color::Rgb { r:   0, g: 255, b:  65 }; // #00FF41 classic green
+const MATRIX_MID:     Color = Color::Rgb { r:   0, g: 200, b:  40 };
+const MATRIX_DIM:     Color = Color::Rgb { r:   0, g: 100, b:  20 };
+
 /// Render the full 73×37 Sudoku grid at terminal position `(row_off, col_off)`.
 pub fn render_grid(
     out: &mut impl Write,
@@ -184,6 +189,7 @@ pub fn render_grid(
     hint: Option<&crate::hint::Hint>,
     colors: &ColorScheme,
     style: &dyn DigitStyle,
+    matrix_mode: bool,
 ) -> io::Result<()> {
     let _ = note_mode; // reserved for future cursor highlight differentiation
     let overlay_bg = Color::Rgb { r: 35, g: 35, b: 35 };
@@ -224,6 +230,13 @@ pub fn render_grid(
                     if let Some((sweep_fg, sweep_bg)) = anim.sweep_highlight(row, col) {
                         (sweep_fg, sweep_bg, content_lines[line_idx].clone(), None, false)
                     } else {
+                        // Matrix Mode overrides: remap standard digit/note colours to green.
+                        let (c_given, c_user, c_note) = if matrix_mode {
+                            (MATRIX_BRIGHT, MATRIX_MID, MATRIX_DIM)
+                        } else {
+                            (colors.digit_given, colors.digit_user, colors.note_normal)
+                        };
+
                         // Passive scan: highlight matching digit in scan colour.
                         let (fg, note_scan_col, blink) = match (&cell, scan_digit) {
                             (CellKind::Given(d), Some(sd)) if *d == sd =>
@@ -237,10 +250,10 @@ pub fn render_grid(
                                 let show_red = wrong && error_mode;
                                 let col_fg = if show_red { colors.digit_error }
                                              else if scan_digit == Some(*d) { colors.digit_scan }
-                                             else { colors.digit_user };
+                                             else { c_user };
                                 (col_fg, None, show_red)
                             }
-                            (CellKind::Given(_), _)  => (colors.digit_given, None, false),
+                            (CellKind::Given(_), _)  => (c_given, None, false),
                             (CellKind::Empty, Some(sd)) if notes_mask & (1 << sd) != 0 => {
                                 let note_line = (sd - 1) / 3;
                                 let nsc = if line_idx == note_line as usize {
@@ -248,9 +261,9 @@ pub fn render_grid(
                                 } else {
                                     None
                                 };
-                                (colors.note_normal, nsc, false)
+                                (c_note, nsc, false)
                             }
-                            (CellKind::Empty, _) if notes_mask != 0 => (colors.note_normal, None, false),
+                            (CellKind::Empty, _) if notes_mask != 0 => (c_note, None, false),
                             _ => (colors.grid_cell, None, false),
                         };
                         let bg = cell_bg(row, col, cursor, nav, hint, anim, colors);
@@ -404,7 +417,7 @@ mod tests {
     fn grid_render_contains_outer_border_chars() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('╔'));
@@ -417,7 +430,7 @@ mod tests {
     fn grid_render_contains_box_separators() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('┃'));
@@ -432,7 +445,7 @@ mod tests {
         ).unwrap();
         let state = GameState::new(grid);
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle)
+        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false)
             .unwrap();
         assert!(!buf.is_empty());
     }
@@ -500,7 +513,7 @@ mod tests {
         let mut buf = Vec::new();
         render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(),
                     &AnimState::default(), None, false, None, Some(&hint),
-                    &ColorScheme::default(), &RetroStyle).unwrap();
+                    &ColorScheme::default(), &RetroStyle, false).unwrap();
         assert!(!buf.is_empty());
     }
 }

@@ -3,6 +3,8 @@
 // Detects typed key sequences for easter eggs.
 // Maintains a rolling buffer of the last N lowercase chars;
 // after each push, checks for any registered sequence.
+//
+// Also tracks the Konami Code (↑↑↓↓←→←→) via directional inputs.
 
 use std::collections::VecDeque;
 
@@ -23,15 +25,35 @@ pub enum EasterEgg {
     Help,
     /// `42`    — Life, the Universe, and Everything.
     FortyTwo,
+    /// ↑↑↓↓←→←→ — Konami Code: visual grid animation.
+    KonamiCode,
+    /// `matrix` — toggle Matrix Mode (green digit rendering).
+    MatrixMode,
 }
 
+/// Arrow-key direction, used for Konami Code detection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction { Up, Down, Left, Right }
+
+/// Konami Code sequence: ↑↑↓↓←→←→
+const KONAMI: [Direction; 8] = [
+    Direction::Up,    Direction::Up,
+    Direction::Down,  Direction::Down,
+    Direction::Left,  Direction::Right,
+    Direction::Left,  Direction::Right,
+];
+
 pub struct SeqDetector {
-    buf: VecDeque<char>,
+    buf:          VecDeque<char>,
+    konami_pos:   usize,    // progress through KONAMI sequence (0..=8)
 }
 
 impl Default for SeqDetector {
     fn default() -> Self {
-        Self { buf: VecDeque::with_capacity(BUF_SIZE) }
+        Self {
+            buf:        VecDeque::with_capacity(BUF_SIZE),
+            konami_pos: 0,
+        }
     }
 }
 
@@ -42,7 +64,29 @@ impl SeqDetector {
         if self.buf.len() > BUF_SIZE {
             self.buf.pop_front();
         }
+        // Any char keystroke resets Konami progress (Konami is arrow-keys only).
+        self.konami_pos = 0;
         self.check()
+    }
+
+    /// Push a directional key and return any triggered easter egg.
+    ///
+    /// Char-based sequences are not checked here — only the Konami Code.
+    pub fn push_direction(&mut self, dir: Direction) -> Option<EasterEgg> {
+        if KONAMI[self.konami_pos] == dir {
+            self.konami_pos += 1;
+            if self.konami_pos == KONAMI.len() {
+                self.konami_pos = 0;
+                return Some(EasterEgg::KonamiCode);
+            }
+        } else {
+            // Wrong key — restart from 0, but still check if this key starts the sequence.
+            self.konami_pos = 0;
+            if KONAMI[0] == dir {
+                self.konami_pos = 1;
+            }
+        }
+        None
     }
 
     fn tail_matches(&self, seq: &str) -> bool {
@@ -53,14 +97,15 @@ impl SeqDetector {
     }
 
     fn check(&mut self) -> Option<EasterEgg> {
-        let egg = if      self.tail_matches("iddqd")          { Some(EasterEgg::GodMode)  }
-                  else if self.tail_matches("idkfa")          { Some(EasterEgg::FillNotes) }
-                  else if self.tail_matches("xyzzy")          { Some(EasterEgg::Xyzzy)    }
-                  else if self.tail_matches("sudo")           { Some(EasterEgg::Sudo)      }
-                  else if self.tail_matches("help")           { Some(EasterEgg::Help)      }
-                  else if self.tail_matches("fortytwo")       { Some(EasterEgg::FortyTwo)  }
-                  else if self.tail_matches("zweiundvierzig") { Some(EasterEgg::FortyTwo)  }
-                  else                                        { None                       };
+        let egg = if      self.tail_matches("iddqd")          { Some(EasterEgg::GodMode)   }
+                  else if self.tail_matches("idkfa")          { Some(EasterEgg::FillNotes)  }
+                  else if self.tail_matches("xyzzy")          { Some(EasterEgg::Xyzzy)      }
+                  else if self.tail_matches("sudo")           { Some(EasterEgg::Sudo)        }
+                  else if self.tail_matches("help")           { Some(EasterEgg::Help)        }
+                  else if self.tail_matches("fortytwo")       { Some(EasterEgg::FortyTwo)   }
+                  else if self.tail_matches("zweiundvierzig") { Some(EasterEgg::FortyTwo)   }
+                  else if self.tail_matches("matrix")         { Some(EasterEgg::MatrixMode) }
+                  else                                        { None                        };
         if egg.is_some() { self.buf.clear(); }
         egg
     }
@@ -77,6 +122,13 @@ mod tests {
         result
     }
 
+    fn detect_dirs(dirs: &[Direction]) -> Option<EasterEgg> {
+        let mut d = SeqDetector::default();
+        let mut result = None;
+        for &dir in dirs { result = d.push_direction(dir); }
+        result
+    }
+
     #[test] fn iddqd()   { assert_eq!(detect("iddqd"), Some(EasterEgg::GodMode));   }
     #[test] fn idkfa()   { assert_eq!(detect("idkfa"), Some(EasterEgg::FillNotes)); }
     #[test] fn xyzzy()   { assert_eq!(detect("xyzzy"), Some(EasterEgg::Xyzzy));     }
@@ -84,6 +136,47 @@ mod tests {
     #[test] fn help()    { assert_eq!(detect("help"),  Some(EasterEgg::Help));       }
     #[test] fn fortytwo_en() { assert_eq!(detect("fortytwo"),       Some(EasterEgg::FortyTwo)); }
     #[test] fn fortytwo_de() { assert_eq!(detect("zweiundvierzig"), Some(EasterEgg::FortyTwo)); }
+    #[test] fn matrix()  { assert_eq!(detect("matrix"), Some(EasterEgg::MatrixMode)); }
+
+    #[test]
+    fn konami_full_sequence() {
+        use Direction::*;
+        assert_eq!(
+            detect_dirs(&[Up, Up, Down, Down, Left, Right, Left, Right]),
+            Some(EasterEgg::KonamiCode)
+        );
+    }
+
+    #[test]
+    fn konami_wrong_key_resets() {
+        use Direction::*;
+        // Interrupt after 3 correct keys, then complete from scratch
+        let mut d = SeqDetector::default();
+        for dir in [Up, Up, Down, Left] { d.push_direction(dir); }
+        // Now start over correctly
+        let mut result = None;
+        for dir in [Up, Up, Down, Down, Left, Right, Left, Right] {
+            result = d.push_direction(dir);
+        }
+        assert_eq!(result, Some(EasterEgg::KonamiCode));
+    }
+
+    #[test]
+    fn konami_char_resets_progress() {
+        use Direction::*;
+        let mut d = SeqDetector::default();
+        // Start Konami
+        d.push_direction(Up);
+        d.push_direction(Up);
+        // Type a char — should reset konami progress
+        d.push('a');
+        // Complete sequence from scratch
+        let mut result = None;
+        for dir in [Up, Up, Down, Down, Left, Right, Left, Right] {
+            result = d.push_direction(dir);
+        }
+        assert_eq!(result, Some(EasterEgg::KonamiCode));
+    }
 
     #[test]
     fn no_false_positive() {

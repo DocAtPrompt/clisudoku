@@ -101,6 +101,8 @@ pub struct App {
     pub paused: bool,
     /// Boss Key active — game hidden behind a fake terminal.
     pub boss_mode: bool,
+    /// Matrix Mode active — all digits rendered in Matrix green.
+    pub matrix_mode: bool,
     pub confirm_pending: Option<ConfirmAction>,
     pub should_quit: bool,
     /// Set whenever the screen variant changes so the next render clears first.
@@ -146,6 +148,7 @@ impl App {
             revealed_errors: std::collections::HashSet::new(),
             paused: false,
             boss_mode: false,
+            matrix_mode: false,
             confirm_pending: None,
             should_quit: false,
             needs_clear: false,
@@ -749,6 +752,20 @@ impl App {
             ),
             EasterEgg::Help     => self.set_overlay("This is not a text adventure."),
             EasterEgg::FortyTwo => self.set_overlay("42 — Life, the Universe, and Everything."),
+            EasterEgg::KonamiCode => {
+                self.set_overlay("↑↑↓↓←→←→  Cheat code activated!");
+                self.needs_clear = true;
+            }
+            EasterEgg::MatrixMode => {
+                self.matrix_mode = !self.matrix_mode;
+                let msg = if self.matrix_mode {
+                    "Wake up, Neo... The Matrix has you."
+                } else {
+                    "You took the blue pill."
+                };
+                self.set_overlay(msg);
+                self.needs_clear = true;
+            }
         }
     }
 
@@ -1007,11 +1024,21 @@ impl App {
                             self.info_overlay = None;
                             self.needs_clear = true;
                         } else {
-                            // Feed raw char to sequence detector (easter eggs).
-                            if let crossterm::event::KeyCode::Char(c) = key.code {
-                                if let Some(egg) = self.seq.push(c) {
-                                    self.handle_easter_egg(egg);
-                                }
+                            // Feed raw char/direction to sequence detector (easter eggs).
+                            let egg = match key.code {
+                                crossterm::event::KeyCode::Char(c) => self.seq.push(c),
+                                crossterm::event::KeyCode::Up    =>
+                                    self.seq.push_direction(crate::tui::seq_detect::Direction::Up),
+                                crossterm::event::KeyCode::Down  =>
+                                    self.seq.push_direction(crate::tui::seq_detect::Direction::Down),
+                                crossterm::event::KeyCode::Left  =>
+                                    self.seq.push_direction(crate::tui::seq_detect::Direction::Left),
+                                crossterm::event::KeyCode::Right =>
+                                    self.seq.push_direction(crate::tui::seq_detect::Direction::Right),
+                                _ => None,
+                            };
+                            if let Some(egg) = egg {
+                                self.handle_easter_egg(egg);
                             }
                             let action = map_key_to_action(key, &self.nav_state);
                             self.handle_action(action);
@@ -1147,6 +1174,7 @@ impl App {
                         hint: self.active_hint.as_ref(),
                         hint_warning: self.hint_warning,
                         hint_count: self.stats.hint_count,
+                        matrix_mode: self.matrix_mode,
                     };
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::QuitGame) => Screen::Confirm {

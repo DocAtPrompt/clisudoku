@@ -52,6 +52,8 @@ pub enum Screen<'a> {
         hint_warning: Option<(&'a str, &'a str)>,
         /// Number of hints requested this game (for panel display).
         hint_count: u32,
+        /// Matrix Mode active — digits rendered in Matrix green.
+        matrix_mode: bool,
     },
     PatternSelect { selected: usize },
     Generating {
@@ -101,8 +103,8 @@ pub fn render_frame(
                 out, verb, *countdown, *show_new_seed, strings, colors,
             )?;
         }
-        Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count } => {
-            grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, anim, *scan_digit, *error_mode, *solution, *hint, colors, style)?;
+        Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count, matrix_mode } => {
+            grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, anim, *scan_digit, *error_mode, *solution, *hint, colors, style, *matrix_mode)?;
             // Count filled cells and per-digit placements for the panel display.
             let mut digit_counts = [0u8; 10];
             let mut filled_count = 0u8;

@@ -35,6 +35,7 @@ fn render_game_screen_does_not_panic() {
             hint: None,
             hint_warning: None,
             hint_count: 0,
+            matrix_mode: false,
         },
         &ColorScheme::default(),
         &RetroStyle,
