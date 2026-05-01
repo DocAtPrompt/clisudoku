@@ -392,7 +392,7 @@ In `src/tui/mod.rs`, `start_game()` calls `PuzzleGenerator::new(seed).generate(d
 
 - [ ] **Step 6: Write the generator integration test**
 
-Add to `src/generator/mod.rs` `tests` module:
+Add to `src/generator/mod.rs` `tests` module. Note: `Solver` is not yet imported in the test module — add `use crate::solver::Solver;` at the top of the `tests` mod (the existing tests already import `use super::*` and `use crate::solver::Solver;` — check with `grep "use crate::solver" src/generator/mod.rs`; add the import if missing):
 
 ```rust
     #[test]
@@ -503,13 +503,27 @@ Replace with:
     ];
 ```
 
-- [ ] **Step 5: Run the start screen test**
+- [ ] **Step 4b: Fix the pre-existing `difficulty_screen_shows_designer_option` test**
 
-```bash
-cargo test difficulty_screen_shows_extreme_option 2>&1 | grep -E "FAILED|ok|test result"
+After inserting Extreme at index 3, Designer moves to index 4. The existing test `difficulty_screen_shows_designer_option` in `src/tui/render/start_screen.rs` still passes `selected: 3` — this will now highlight Extreme, not Designer. Update it:
+
+```rust
+    #[test]
+    fn difficulty_screen_shows_designer_option() {
+        let mut buf = Vec::new();
+        render_difficulty(&mut buf, (0, 0), 4, false, true, &EN, &ColorScheme::default()).unwrap();  // was 3
+        let s = String::from_utf8_lossy(&buf);
+        assert!(s.contains("Designer"), "Expected Designer option");
+    }
 ```
 
-Expected: `test result: ok. 1 passed; 0 failed`.
+- [ ] **Step 5: Run the start screen tests**
+
+```bash
+cargo test difficulty_screen 2>&1 | grep -E "FAILED|ok|test result"
+```
+
+Expected: all pass, including `difficulty_screen_shows_extreme_option` and the updated `difficulty_screen_shows_designer_option`.
 
 - [ ] **Step 6: Update navigation in `src/tui/mod.rs`**
 
