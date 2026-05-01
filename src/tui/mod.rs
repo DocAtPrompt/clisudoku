@@ -261,7 +261,7 @@ impl App {
     }
 
     fn handle_difficulty_action(&mut self, action: AppAction, selected: usize, sym_focused: bool) {
-        const DIFFICULTY_COUNT: usize = 4;
+        const DIFFICULTY_COUNT: usize = 5;
         match action {
             // ── Navigation between columns ───────────────────────────────────
             AppAction::MoveRight if !sym_focused => {
@@ -295,10 +295,11 @@ impl App {
             // ── Confirm: start game ──────────────────────────────────────────
             AppAction::Enter if !sym_focused => {
                 match selected {
-                    0 => { self.start_game(Difficulty::Easy); self.needs_clear = true; }
-                    1 => { self.start_game(Difficulty::Medium); self.needs_clear = true; }
-                    2 => { self.start_game(Difficulty::Hard); self.needs_clear = true; }
-                    3 => {
+                    0 => { self.start_game(Difficulty::Easy);    self.needs_clear = true; }
+                    1 => { self.start_game(Difficulty::Medium);  self.needs_clear = true; }
+                    2 => { self.start_game(Difficulty::Hard);    self.needs_clear = true; }
+                    3 => { self.start_game(Difficulty::Extreme); self.needs_clear = true; }
+                    4 => {
                         self.screen = AppScreen::PatternSelect { selected: 0 };
                         self.needs_clear = true;
                     }
@@ -391,7 +392,7 @@ impl App {
                 self.start_generating(pattern, false);
             }
             AppAction::Back => {
-                self.screen = AppScreen::DifficultySelect { selected: 3, sym_focused: false };
+                self.screen = AppScreen::DifficultySelect { selected: 4, sym_focused: false };
                 self.needs_clear = true;
             }
             _ => {}
@@ -409,7 +410,7 @@ impl App {
                 (false, 0)
             };
             self.screen = if from_cli {
-                AppScreen::DifficultySelect { selected: 3, sym_focused: false }
+                AppScreen::DifficultySelect { selected: 4, sym_focused: false }
             } else {
                 AppScreen::PatternSelect { selected: pat_selected }
             };
@@ -1385,7 +1386,7 @@ mod tests {
         use crate::timer::SystemClock;
         let mut app = App::new(Box::new(SystemClock));
         app.screen = AppScreen::DifficultySelect { selected: 0, sym_focused: false };
-        for _ in 0..3 {
+        for _ in 0..4 {
             app.handle_action(AppAction::MoveDown);
         }
         app.handle_action(AppAction::Enter);

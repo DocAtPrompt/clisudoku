@@ -99,6 +99,7 @@ pub fn render_difficulty(
         strings.difficulty_easy,
         strings.difficulty_medium,
         strings.difficulty_hard,
+        strings.difficulty_extreme,
         strings.difficulty_designer,
     ];
     for (i, item) in items.iter().enumerate() {
@@ -210,9 +211,17 @@ mod tests {
     #[test]
     fn difficulty_screen_shows_designer_option() {
         let mut buf = Vec::new();
-        render_difficulty(&mut buf, (0, 0), 3, false, true, &EN, &ColorScheme::default()).unwrap();
+        render_difficulty(&mut buf, (0, 0), 4, false, true, &EN, &ColorScheme::default()).unwrap();  // was 3
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("Designer"), "Expected Designer option");
+    }
+
+    #[test]
+    fn difficulty_screen_shows_extreme_option() {
+        let mut buf = Vec::new();
+        render_difficulty(&mut buf, (0, 0), 3, false, true, &EN, &ColorScheme::default()).unwrap();
+        let s = String::from_utf8_lossy(&buf);
+        assert!(s.contains("Extreme"), "Expected Extreme option in difficulty screen");
     }
 
     #[test]
