@@ -51,11 +51,7 @@ pub fn render_pattern_select(
     )?;
 
     // ── Pattern name ─────────────────────────────────────────────────────────
-    let name = if std::ptr::eq(strings, &crate::i18n::DE) {
-        pattern.name_de
-    } else {
-        pattern.name_en
-    };
+    let name = pattern.name_en;
     let name_col = (TERMINAL_WIDTH.saturating_sub(name.chars().count() as u16)) / 2;
     queue!(out,
         MoveTo(name_col, 4),
