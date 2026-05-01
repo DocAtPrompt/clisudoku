@@ -1,6 +1,7 @@
 pub mod anim;
 pub mod colors;
 pub mod digit_style;
+pub mod generating;
 pub mod input;
 pub mod render;
 pub mod seq_detect;
