@@ -16,10 +16,10 @@ impl Pattern {
     ///   '1' or '*' → pattern cell (may be given)
     ///   '.' or '0' → always empty
     pub fn from_cli_str(s: &str) -> Result<Self, String> {
-        if s.len() != 81 {
+        if s.chars().count() != 81 {
             return Err(format!(
                 "Pattern must be exactly 81 characters, got {}",
-                s.len()
+                s.chars().count()
             ));
         }
         let mut mask = [false; 81];
@@ -162,9 +162,13 @@ mod tests {
     }
 
     #[test]
-    fn all_masks_have_81_cells() {
+    fn all_patterns_have_at_least_17_cells() {
         for p in PATTERNS {
-            assert_eq!(p.mask.len(), 81, "Pattern '{}' mask wrong length", p.name_en);
+            assert!(
+                p.cell_count >= 17,
+                "Pattern '{}' has only {} cells — below the minimum of 17",
+                p.name_en, p.cell_count
+            );
         }
     }
 
