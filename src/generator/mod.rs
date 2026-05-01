@@ -340,6 +340,13 @@ mod tests {
     }
 
     #[test]
+    fn generates_solvable_extreme_puzzle() {
+        let grid = PuzzleGenerator::new(7).generate(Difficulty::Extreme, false);
+        let result = Solver::new().solve(grid);
+        assert!(result.grid.is_solved(), "Extreme puzzle must be solvable");
+    }
+
+    #[test]
     fn pattern_puzzle_difficulty_is_classified() {
         use crate::pattern::PATTERNS;
         let result = PuzzleGenerator::new(99).generate_with_pattern(&PATTERNS[1]); // Checker
