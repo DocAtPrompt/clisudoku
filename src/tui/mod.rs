@@ -50,6 +50,14 @@ pub enum ConfirmAction {
     QuitGame,
 }
 
+/// Category of a completed game, for future database integration.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum GameCategory {
+    #[default]
+    Classic,
+    Design,
+}
+
 /// Per-game statistics tracked for database / post-game summary.
 #[derive(Debug, Clone, Default)]
 pub struct GameStats {
@@ -63,6 +71,10 @@ pub struct GameStats {
     pub scan_used: bool,
     /// Number of hints requested during this game.
     pub hint_count: u32,
+    /// Category for DB storage.
+    pub category:     GameCategory,
+    /// Pattern name for designer games; None for classic games.
+    pub pattern_name: Option<String>,
 }
 
 pub struct App {
@@ -959,8 +971,8 @@ impl App {
                     String::new()
                 };
                 self.enter_game(grid);
-                // TODO Task 10: self.stats.pattern_name = Some(pattern_name);
-                let _ = pattern_name; // suppress unused warning until Task 10
+                self.stats.category = GameCategory::Design;
+                self.stats.pattern_name = Some(pattern_name);
             }
 
             // Shorten poll timeout when an animation is running or generating so frames advance.
@@ -1182,6 +1194,13 @@ mod tests {
 
     fn make_app() -> App {
         App::new(Box::new(FakeClock { ms: 1000 }))
+    }
+
+    #[test]
+    fn game_stats_has_category_fields() {
+        let stats = GameStats::default();
+        assert!(matches!(stats.category, GameCategory::Classic));
+        assert!(stats.pattern_name.is_none());
     }
 
     #[test]
