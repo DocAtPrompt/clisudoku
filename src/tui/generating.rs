@@ -84,6 +84,17 @@ impl GeneratingState {
         3u64.saturating_sub(elapsed) as u8
     }
 
+    /// Clear `show_new_seed` once it has been visible for 1 second.
+    /// Call this on every UI tick while in the Generating screen.
+    pub fn tick_new_seed_expiry(&mut self) {
+        if let Some(at) = self.new_seed_at {
+            if at.elapsed().as_secs() >= 1 {
+                self.show_new_seed = false;
+                self.new_seed_at = None;
+            }
+        }
+    }
+
     /// Advance to a new seed attempt after timeout.
     pub fn try_new_seed(&mut self) {
         self.seed = self.seed.wrapping_add(0x9e3779b97f4a7c15);
