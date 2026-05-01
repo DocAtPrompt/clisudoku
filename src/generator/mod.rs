@@ -7,6 +7,14 @@ pub struct PuzzleGenerator {
     seed: u64,
 }
 
+/// Result of a pattern-constrained generation.
+pub struct GeneratorResult {
+    pub grid:             Grid,
+    pub difficulty:       Difficulty,
+    /// True when cells outside the pattern were added to reach unique solvability.
+    pub used_extra_cells: bool,
+}
+
 impl PuzzleGenerator {
     pub fn new(seed: u64) -> Self { Self { seed } }
 
@@ -115,56 +123,7 @@ impl PuzzleGenerator {
         let solver = crate::solver::Solver::for_difficulty(&difficulty);
         solver.solve(grid.clone()).grid.is_solved()
     }
-}
 
-fn is_valid_placement(grid: &Grid, row: usize, col: usize, digit: u8) -> bool {
-    for c in 0..9 { if grid.get(row, c).value() == Some(digit) { return false; } }
-    for r in 0..9 { if grid.get(r, col).value() == Some(digit) { return false; } }
-    let (br, bc) = Grid::box_start(Grid::box_idx(row, col));
-    for dr in 0..3 { for dc in 0..3 {
-        if grid.get(br+dr, bc+dc).value() == Some(digit) { return false; }
-    }}
-    true
-}
-
-/// Minimal LCG RNG for deterministic seeds — no external deps.
-struct LcgRng { state: u64 }
-impl LcgRng {
-    fn new(seed: u64) -> Self { Self { state: seed ^ 0x12345678 } }
-    fn next_u64(&mut self) -> u64 {
-        self.state = self.state
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        self.state
-    }
-    fn next_usize(&mut self, n: usize) -> usize {
-        (self.next_u64() % n as u64) as usize
-    }
-}
-
-fn shuffle(v: &mut Vec<usize>, rng: &mut LcgRng) {
-    for i in (1..v.len()).rev() {
-        let j = rng.next_usize(i + 1);
-        v.swap(i, j);
-    }
-}
-
-fn shuffle_u8(v: &mut Vec<u8>, rng: &mut LcgRng) {
-    for i in (1..v.len()).rev() {
-        let j = rng.next_usize(i + 1);
-        v.swap(i, j);
-    }
-}
-
-/// Result of a pattern-constrained generation.
-pub struct GeneratorResult {
-    pub grid:             Grid,
-    pub difficulty:       Difficulty,
-    /// True when cells outside the pattern were added to reach unique solvability.
-    pub used_extra_cells: bool,
-}
-
-impl PuzzleGenerator {
     /// Generate a uniquely-solvable puzzle whose given cells lie within `pattern.mask`.
     ///
     /// Strategy:
@@ -247,9 +206,73 @@ impl PuzzleGenerator {
         GeneratorResult { grid: result, difficulty, used_extra_cells }
     }
 
-    /// Check uniqueness with the full solver (no difficulty cap, backtracking allowed).
+    /// Check uniqueness by counting solutions via backtracking, short-circuiting at 2.
     fn is_uniquely_solvable_full(&self, grid: &Grid) -> bool {
-        crate::solver::Solver::new().solve(grid.clone()).grid.is_solved()
+        let mut count = 0u8;
+        let mut working = grid.clone();
+        Self::count_solutions(&mut working, &mut count);
+        count == 1
+    }
+
+    fn count_solutions(grid: &mut Grid, count: &mut u8) {
+        if *count > 1 { return; } // short-circuit
+        let empty = (0..9)
+            .flat_map(|r| (0..9).map(move |c| (r, c)))
+            .find(|&(r, c)| grid.get(r, c).is_empty());
+        match empty {
+            None => {
+                *count += 1;
+            }
+            Some((row, col)) => {
+                for digit in 1u8..=9 {
+                    if is_valid_placement(grid, row, col, digit) {
+                        grid.set_filled(row, col, digit);
+                        Self::count_solutions(grid, count);
+                        grid.clear(row, col);
+                        if *count > 1 { return; }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn is_valid_placement(grid: &Grid, row: usize, col: usize, digit: u8) -> bool {
+    for c in 0..9 { if grid.get(row, c).value() == Some(digit) { return false; } }
+    for r in 0..9 { if grid.get(r, col).value() == Some(digit) { return false; } }
+    let (br, bc) = Grid::box_start(Grid::box_idx(row, col));
+    for dr in 0..3 { for dc in 0..3 {
+        if grid.get(br+dr, bc+dc).value() == Some(digit) { return false; }
+    }}
+    true
+}
+
+/// Minimal LCG RNG for deterministic seeds — no external deps.
+struct LcgRng { state: u64 }
+impl LcgRng {
+    fn new(seed: u64) -> Self { Self { state: seed ^ 0x12345678 } }
+    fn next_u64(&mut self) -> u64 {
+        self.state = self.state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        self.state
+    }
+    fn next_usize(&mut self, n: usize) -> usize {
+        (self.next_u64() % n as u64) as usize
+    }
+}
+
+fn shuffle(v: &mut Vec<usize>, rng: &mut LcgRng) {
+    for i in (1..v.len()).rev() {
+        let j = rng.next_usize(i + 1);
+        v.swap(i, j);
+    }
+}
+
+fn shuffle_u8(v: &mut Vec<u8>, rng: &mut LcgRng) {
+    for i in (1..v.len()).rev() {
+        let j = rng.next_usize(i + 1);
+        v.swap(i, j);
     }
 }
 
@@ -296,10 +319,10 @@ mod tests {
     #[test]
     fn pattern_puzzle_only_has_givens_in_pattern() {
         use crate::pattern::PATTERNS;
-        // Use the Border pattern (index 12, 32 cells) — reliable test case
-        let pattern = PATTERNS[11].clone(); // Border
+        // Use the Asterisk pattern (index 10, 33 cells) — interior-heavy, faster than Border
+        let pattern = PATTERNS[10].clone();
         let result = PuzzleGenerator::new(42).generate_with_pattern(&pattern);
-        // Every given cell must be in the pattern mask
+        // Every given cell must be in the pattern mask (unless extra cells were needed)
         for r in 0..9 {
             for c in 0..9 {
                 if result.grid.get(r, c).is_given() {

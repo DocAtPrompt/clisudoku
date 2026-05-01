@@ -9,7 +9,7 @@ use crate::solver::Strategy;
 
 pub fn classify(used: &[Strategy]) -> Difficulty {
     let needs = |s: Strategy| used.contains(&s);
-    if needs(Strategy::XWing) || needs(Strategy::HiddenPair)
+    if needs(Strategy::Backtracking) || needs(Strategy::XWing) || needs(Strategy::HiddenPair)
         || needs(Strategy::NakedTriple) || needs(Strategy::BoxLineReduction) {
         Difficulty::Hard
     } else if needs(Strategy::NakedPair) || needs(Strategy::PointingPair) {
