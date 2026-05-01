@@ -275,15 +275,23 @@ pub const RAIN_ROWS: usize = 37;
 
 const MATRIX_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$&*?!<>|+-=";
 
+/// What the renderer should draw at a given (col, row) position.
+pub enum RainCell {
+    /// Head has settled here — skip writing; the game screen beneath shows through.
+    Settled,
+    /// Not yet reached or column not started — cover with background colour.
+    Blank,
+    /// Falling rain character. Level: 0 = head (White), 1 = near trail (Green), 2 = far (DarkGreen).
+    Rain(char, u8),
+}
+
 pub struct RainColumn {
     pub start_delay: u32,
     /// Advance head by 1 every `speed` ticks.
     pub speed:       u8,
     frame_tick:      u8,
-    /// Current head row. Starts at -(trail_len); done when >= RAIN_ROWS + trail_len.
     pub head:        i16,
     pub trail_len:   u8,
-    /// Pre-generated characters for each visible position.
     pub chars:       Vec<char>,
 }
 
@@ -309,43 +317,73 @@ impl MatrixRainAnim {
         Self { columns, tick: 0 }
     }
 
+    /// All columns have fully settled (entire grid visible again).
     pub fn done(&self) -> bool {
-        self.columns.iter().all(|c| c.head >= RAIN_ROWS as i16 + c.trail_len as i16)
+        self.columns.iter().all(|c| {
+            if self.tick <= c.start_delay { return false; }
+            Self::settled_from_bottom(c) >= RAIN_ROWS
+        })
     }
 
     pub fn advance(&mut self) {
         self.tick += 1;
         for col in &mut self.columns {
-            if col.head >= RAIN_ROWS as i16 + col.trail_len as i16 { continue; }
             if self.tick <= col.start_delay { continue; }
-            col.frame_tick += 1;
-            if col.frame_tick >= col.speed {
-                col.frame_tick = 0;
-                col.head += 1;
+            // Keep advancing until all rows of this column have settled.
+            if Self::settled_from_bottom(col) < RAIN_ROWS {
+                col.frame_tick += 1;
+                if col.frame_tick >= col.speed {
+                    col.frame_tick = 0;
+                    col.head += 1;
+                }
             }
         }
     }
 
-    /// Character and brightness level for a grid cell.
-    /// Returns `None` for empty, `Some((ch, level))` where:
-    /// `level` 0 = head (White), 1 = near trail (Green), 2 = far trail (DarkGreen).
-    pub fn cell_at(&self, col: usize, row: usize) -> Option<(char, u8)> {
+    /// How many rows (counting from the bottom) have crystallised in this column.
+    /// Grows from 0 once the head exits the grid, reaching RAIN_ROWS when done.
+    fn settled_from_bottom(c: &RainColumn) -> usize {
+        (c.head - (RAIN_ROWS as i16 - 1)).max(0) as usize
+    }
+
+    /// What to render at grid position `(col, row)`.
+    ///
+    /// - `Settled`  → don't write; the game screen beneath shows through
+    /// - `Blank`    → overdraw with background colour
+    /// - `Rain`     → coloured falling character
+    pub fn cell_at(&self, col: usize, row: usize) -> RainCell {
         let c = &self.columns[col];
-        if self.tick <= c.start_delay { return None; }
+
+        // Column not yet started → blank the whole column (hides game content).
+        if self.tick <= c.start_delay {
+            return RainCell::Blank;
+        }
+
+        // Settled zone grows upward from the bottom row.
+        // When settled_from_bottom = k, the bottom k rows show the real grid.
+        let sfb       = Self::settled_from_bottom(c);
+        let settle_row = RAIN_ROWS.saturating_sub(sfb); // 0-based: rows [settle_row..] are settled
+        if row >= settle_row {
+            return RainCell::Settled;
+        }
+
+        // Rain: head and trailing glow (only within the visible grid area).
         let row_i = row as i16;
         let head  = c.head;
-        if row_i < 0 || row_i >= RAIN_ROWS as i16 { return None; }
-        if row_i == head {
-            let idx = row as usize % c.chars.len();
-            Some((c.chars[idx], 0))
-        } else if row_i < head && row_i >= head - c.trail_len as i16 {
-            let dist  = (head - row_i) as usize;
-            let level = if dist <= c.trail_len as usize / 2 { 1u8 } else { 2u8 };
-            let idx   = row as usize % c.chars.len();
-            Some((c.chars[idx], level))
-        } else {
-            None
+        if row_i >= 0 && row_i < RAIN_ROWS as i16 {
+            if row_i == head {
+                let idx = row % c.chars.len();
+                return RainCell::Rain(c.chars[idx], 0);
+            }
+            if row_i < head && row_i >= head - c.trail_len as i16 {
+                let dist  = (head - row_i) as usize;
+                let level = if dist <= c.trail_len as usize / 2 { 1u8 } else { 2u8 };
+                let idx   = row % c.chars.len();
+                return RainCell::Rain(c.chars[idx], level);
+            }
         }
+
+        RainCell::Blank
     }
 }
 
