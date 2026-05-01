@@ -4,6 +4,7 @@ pub mod cell;
 pub mod confirm;
 pub mod firework;
 pub mod grid;
+pub mod pattern_select;
 pub mod start_screen;
 pub mod status_bar;
 
@@ -51,6 +52,7 @@ pub enum Screen<'a> {
         /// Number of hints requested this game (for panel display).
         hint_count: u32,
     },
+    PatternSelect { selected: usize },
     Confirm {
         /// Screen rendered underneath the overlay.
         underneath: Box<Screen<'a>>,
@@ -84,6 +86,9 @@ pub fn render_frame(
         }
         Screen::ThemeSelect { selected } => {
             start_screen::render_theme(out, (2, 4), *selected, strings, colors)?;
+        }
+        Screen::PatternSelect { selected } => {
+            pattern_select::render_pattern_select(out, *selected, strings, colors)?;
         }
         Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count } => {
             grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, anim, *scan_digit, *error_mode, *solution, *hint, colors, style)?;

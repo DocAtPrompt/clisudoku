@@ -1087,9 +1087,14 @@ impl App {
                     strings,
                 )
             }
-            AppScreen::PatternSelect { .. } => {
-                // TODO: render PatternSelect — Task 7
-                Ok(())
+            AppScreen::PatternSelect { selected } => {
+                render_frame(
+                    out,
+                    &Screen::PatternSelect { selected: *selected },
+                    &self.colors,
+                    self.style.as_ref(),
+                    strings,
+                )
             }
             AppScreen::Generating(_) => {
                 // TODO: render Generating — Task 8
