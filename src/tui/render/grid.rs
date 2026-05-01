@@ -169,9 +169,9 @@ fn cell_bg(
 }
 
 /// Matrix Mode green palette — used when `matrix_mode` is active.
-const MATRIX_BRIGHT:  Color = Color::Rgb { r:   0, g: 255, b:  65 }; // #00FF41 classic green
-const MATRIX_MID:     Color = Color::Rgb { r:   0, g: 200, b:  40 };
-const MATRIX_DIM:     Color = Color::Rgb { r:   0, g: 100, b:  20 };
+const MATRIX_BRIGHT: Color = Color::Green;       // standard ANSI bright green — given digits
+const MATRIX_MID:    Color = Color::DarkGreen;   // user-filled digits
+const MATRIX_DIM:    Color = Color::DarkGreen;   // notes
 
 /// Render the full 73×37 Sudoku grid at terminal position `(row_off, col_off)`.
 pub fn render_grid(
