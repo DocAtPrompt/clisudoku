@@ -363,9 +363,18 @@ impl MatrixRainAnim {
     /// What to render at grid position `(col, row)`.
     ///
     /// - `Settled`  → skip; the game screen rendered beneath shows through
-    /// - `Blank`    → overdraw with background colour (column not started)
-    /// - `Rain`     → dense scrolling character with brightness level
-    ///               0 = bright head (White), 1 = near (Green), 2 = far (DarkGreen)
+    /// - `Blank`    → dark (column not started, or below the head on first pass)
+    /// - `Rain`     → dense character; level 0=White head, 1=Green trail, 2=DarkGreen body
+    ///
+    /// # Layout
+    ///
+    /// On the **first pass** (`!first_pass_done`):
+    ///   rows ABOVE head → dense green (rain already fallen)
+    ///   row  AT    head → White (the falling bright character)
+    ///   rows BELOW head → Blank  ← no green leaks below the head
+    ///
+    /// After the first pass the entire unsettled zone stays dense while the
+    /// settled zone grows from the bottom upward.
     pub fn cell_at(&self, col: usize, row: usize) -> RainCell {
         let c = &self.columns[col];
 
@@ -379,18 +388,24 @@ impl MatrixRainAnim {
             return RainCell::Settled;
         }
 
-        // Dense rain: every unsettled row has a scrolling character.
-        let char_idx = (row.wrapping_add(c.scroll_off)) % c.chars.len();
-        let ch       = c.chars[char_idx];
-
-        // Bright "head" band: the row currently pointed at by scroll_off.
+        // Virtual head: where in the column the bright leading char is.
         let virtual_head = c.scroll_off % RAIN_ROWS;
+
+        // During the first pass, rows below the head are still dark.
+        if !c.first_pass_done && row > virtual_head {
+            return RainCell::Blank;
+        }
+
+        // Dense scrolling character (shimmers as scroll_off advances).
+        let ch = c.chars[(row.wrapping_add(c.scroll_off)) % c.chars.len()];
+
+        // Brightness: head brightest, short trail above fades to dark body.
         let level = if row == virtual_head {
-            0 // White — leading bright character
+            0 // White — the falling head
         } else if row < virtual_head && virtual_head - row <= 3 {
-            1 // Green — short bright trail just above the head
+            1 // Green — close trail above the head
         } else {
-            2 // DarkGreen — dense background rain
+            2 // DarkGreen — dense rain body
         };
 
         RainCell::Rain(ch, level)
