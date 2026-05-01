@@ -44,7 +44,9 @@ pub fn find_swordfish(candidates: &CandidateGrid) -> Vec<Elimination>
 
 Both the row and column directions are checked in a single call.
 
-**Registration:** Inserted between `XWing` and `Backtracking` in `Solver::strategy_order()`.
+**Registration — two required edits in `src/solver/mod.rs`:**
+1. Add `Strategy::Swordfish` to the `strategy_order()` array between `XWing` and `Backtracking`.
+2. Add an `apply_elims!(swordfish::find_swordfish, Strategy::Swordfish)` call in the `solve()` loop body, between the `x_wing` and backtracking invocations. Without this second edit the strategy is correctly ordered and gated but is never actually invoked — the puzzle appears unsolvable at the Swordfish level.
 
 **`Strategy` enum update** (`src/solver/candidates.rs`):
 ```rust
@@ -88,9 +90,9 @@ Extreme is inserted as the 4th difficulty item, between Hard and Designer ▶:
 Easy  Medium  Hard  Extreme  Designer ▶
 ```
 
-**`DIFFICULTY_COUNT`** (`src/tui/mod.rs`): updated from 4 → 5.
+**`DIFFICULTY_COUNT`** (`src/tui/mod.rs`): Note — this is a local `const` declared *inside* `handle_difficulty_action()`, not a module-level constant. Search for `const DIFFICULTY_COUNT` within that function and change the value from `4` to `5`.
 
-**DifficultySelect Enter handler** (`src/tui/mod.rs`): new arm for `selected == 3` → `start_game(Difficulty::Extreme)`. Designer ▶ moves to `selected == 4`.
+**DifficultySelect Enter handler** (`src/tui/mod.rs`): The current Enter arms are `0` → Easy, `1` → Medium, `2` → Hard, `3` → PatternSelect (Designer). Insert a new arm `3` → `start_game(Difficulty::Extreme)` and shift the old `3` arm (PatternSelect) to `4`.
 
 **i18n** (`src/i18n/mod.rs`): new field `difficulty_extreme` added after `difficulty_hard` in the `Strings` struct and in all 13 language statics. Value: `"Extreme"` in all languages (the word is internationally understood; German "Extrem" would drop the final e which looks odd in context).
 
@@ -108,7 +110,7 @@ Easy  Medium  Hard  Extreme  Designer ▶
 |---|---|---|
 | `src/solver/swordfish.rs` | **Create** | `find_swordfish()` — row and column variants |
 | `src/solver/candidates.rs` | Modify | Add `Strategy::Swordfish` between XWing and Backtracking |
-| `src/solver/mod.rs` | Modify | Register swordfish in `strategy_order()`; add `Difficulty::Extreme` config |
+| `src/solver/mod.rs` | Modify | (1) Add `Strategy::Swordfish` to `strategy_order()`; (2) add `apply_elims!(swordfish::find_swordfish, Strategy::Swordfish)` in `solve()` loop; (3) add `Difficulty::Extreme` config in `for_difficulty()` |
 | `src/generator/difficulty.rs` | Modify | Add `Difficulty::Extreme`; update `classify()` |
 | `src/i18n/mod.rs` | Modify | Add `difficulty_extreme` field to all 13 language statics |
 | `src/tui/render/start_screen.rs` | Modify | Insert Extreme as 4th difficulty option |
