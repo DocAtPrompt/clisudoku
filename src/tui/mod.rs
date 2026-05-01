@@ -34,13 +34,14 @@ const MIN_ROWS: u16 = 39;
 use std::io::{self, BufWriter, Write};
 use std::time::Duration;
 
-#[derive(Debug, PartialEq)]
 pub enum AppScreen {
     Start { selected: usize },
     DifficultySelect { selected: usize, sym_focused: bool },
     LanguageSelect { selected: usize },
     ThemeSelect { selected: usize },
     Game,
+    PatternSelect { selected: usize },
+    Generating(crate::tui::generating::GeneratingState),
 }
 
 /// Pending confirmation action.
@@ -154,22 +155,7 @@ impl App {
     fn start_game(&mut self, difficulty: Difficulty) {
         let seed = self.clock.now_ms();
         let puzzle = PuzzleGenerator::new(seed).generate(difficulty, self.symmetry);
-        // Pre-compute the unique solution once; used for error detection.
-        self.solution = solve_backtracking(puzzle.clone());
-        self.game_state = Some(GameState::new(puzzle));
-        self.cursor = (0, 0);
-        self.nav_state = NavState::default();
-        self.note_mode = false;
-        self.scan_mode = false;
-        self.error_mode = false;
-        self.anim.error_blink = false;
-        self.stats = GameStats::default();
-        self.revealed_errors.clear();
-        self.paused = false;
-        self.hint_warning = None;
-        self.game_start_ms = self.clock.now_ms();
-        self.screen = AppScreen::Game;
-        self.drain_input = true;
+        self.enter_game(puzzle);
     }
 
     /// Elapsed game time in milliseconds, frozen while paused or in boss mode.
@@ -218,6 +204,11 @@ impl App {
             AppScreen::LanguageSelect { selected }  => self.handle_language_action(action, *selected),
             AppScreen::ThemeSelect { selected }     => self.handle_theme_action(action, *selected),
             AppScreen::Game                         => self.handle_game_action(action),
+            AppScreen::PatternSelect { selected } => {
+                let s = *selected;
+                self.handle_pattern_action(action, s);
+            }
+            AppScreen::Generating(_) => self.handle_generating_action(action),
         }
     }
 
@@ -258,7 +249,7 @@ impl App {
     }
 
     fn handle_difficulty_action(&mut self, action: AppAction, selected: usize, sym_focused: bool) {
-        const DIFFICULTY_COUNT: usize = 3;
+        const DIFFICULTY_COUNT: usize = 4;
         match action {
             // ── Navigation between columns ───────────────────────────────────
             AppAction::MoveRight if !sym_focused => {
@@ -291,13 +282,16 @@ impl App {
 
             // ── Confirm: start game ──────────────────────────────────────────
             AppAction::Enter if !sym_focused => {
-                let difficulty = match selected {
-                    0 => Difficulty::Easy,
-                    1 => Difficulty::Medium,
-                    _ => Difficulty::Hard,
-                };
-                self.start_game(difficulty);
-                self.needs_clear = true;
+                match selected {
+                    0 => { self.start_game(Difficulty::Easy); self.needs_clear = true; }
+                    1 => { self.start_game(Difficulty::Medium); self.needs_clear = true; }
+                    2 => { self.start_game(Difficulty::Hard); self.needs_clear = true; }
+                    3 => {
+                        self.screen = AppScreen::PatternSelect { selected: 0 };
+                        self.needs_clear = true;
+                    }
+                    _ => {}
+                }
             }
 
             // ── Back always goes to Start ────────────────────────────────────
@@ -365,6 +359,76 @@ impl App {
             }
             _ => {}
         }
+    }
+
+    fn handle_pattern_action(&mut self, action: AppAction, selected: usize) {
+        const COUNT: usize = crate::pattern::PATTERNS.len();
+        match action {
+            AppAction::MoveRight => {
+                self.screen = AppScreen::PatternSelect { selected: (selected + 1) % COUNT };
+            }
+            AppAction::MoveLeft => {
+                self.screen = AppScreen::PatternSelect {
+                    selected: selected.checked_sub(1).unwrap_or(COUNT - 1),
+                };
+            }
+            AppAction::Enter => {
+                let pattern = crate::pattern::PATTERNS[selected].clone();
+                self.start_generating(pattern, false);
+            }
+            AppAction::Back => {
+                self.screen = AppScreen::DifficultySelect { selected: 3, sym_focused: false };
+                self.needs_clear = true;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_generating_action(&mut self, action: AppAction) {
+        if matches!(action, AppAction::Back) {
+            let (from_cli, pat_selected) = if let AppScreen::Generating(ref s) = self.screen {
+                let idx = crate::pattern::PATTERNS.iter()
+                    .position(|p| p.name_en == s.pattern.name_en)
+                    .unwrap_or(0);
+                (s.from_cli, idx)
+            } else {
+                (false, 0)
+            };
+            self.screen = if from_cli {
+                AppScreen::DifficultySelect { selected: 3, sym_focused: false }
+            } else {
+                AppScreen::PatternSelect { selected: pat_selected }
+            };
+            self.needs_clear = true;
+        }
+    }
+
+    pub fn start_generating(&mut self, pattern: crate::pattern::Pattern, from_cli: bool) {
+        let state = crate::tui::generating::GeneratingState::new(pattern, from_cli);
+        self.screen = AppScreen::Generating(state);
+        self.needs_clear = true;
+    }
+
+    fn enter_game(&mut self, puzzle: Grid) {
+        self.solution = solve_backtracking(puzzle.clone());
+        self.game_state = Some(GameState::new(puzzle));
+        self.stats = GameStats::default();
+        self.cursor = (0, 0);
+        self.nav_state = NavState::default();
+        self.note_mode = false;
+        self.scan_mode = false;
+        self.error_mode = false;
+        self.anim.error_blink = false;
+        self.revealed_errors.clear();
+        self.paused = false;
+        self.active_hint = None;
+        self.hint_warning = None;
+        self.anim.hint_blink = false;
+        self.anim.hint_blink_tick = 0;
+        self.game_start_ms = self.clock.now_ms();
+        self.drain_input = true;
+        self.screen = AppScreen::Game;
+        self.needs_clear = true;
     }
 
     fn handle_game_action(&mut self, action: AppAction) {
@@ -867,8 +931,43 @@ impl App {
             self.render_current(&mut out)?;
             out.flush()?;
 
-            // Shorten poll timeout when an animation is running so frames advance.
-            let poll_ms = if self.anim.is_active() { 80 } else { 500 };
+            // ── Poll background generator ────────────────────────────────────
+            // First: tick and check timeouts with the mutable borrow
+            if let AppScreen::Generating(ref mut gs) = self.screen {
+                gs.tick_new_seed_expiry();
+                if !gs.show_new_seed && gs.started_at.elapsed().as_secs() >= 3 {
+                    gs.try_new_seed();
+                }
+            }
+            // Then: try_recv WITHOUT holding the mutable borrow
+            let gen_result = if let AppScreen::Generating(ref mut gs) = self.screen {
+                match gs.rx.try_recv() {
+                    Ok(msg) => Some(msg),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
+            // Finally: handle completion outside the borrow
+            if let Some(crate::tui::generating::GenMsg::Done(grid, _)) = gen_result {
+                let pattern_name = if let AppScreen::Generating(ref gs) = self.screen {
+                    gs.pattern.name_en.to_string()
+                } else {
+                    String::new()
+                };
+                self.enter_game(grid);
+                // TODO Task 10: self.stats.pattern_name = Some(pattern_name);
+                let _ = pattern_name; // suppress unused warning until Task 10
+            }
+
+            // Shorten poll timeout when an animation is running or generating so frames advance.
+            let poll_ms = if matches!(self.screen, AppScreen::Generating(_)) {
+                50
+            } else if self.anim.is_active() {
+                80
+            } else {
+                500
+            };
 
             if event::poll(Duration::from_millis(poll_ms))? {
                 match event::read()? {
@@ -984,6 +1083,14 @@ impl App {
                     self.style.as_ref(),
                     strings,
                 )
+            }
+            AppScreen::PatternSelect { .. } => {
+                // TODO: render PatternSelect — Task 7
+                Ok(())
+            }
+            AppScreen::Generating(_) => {
+                // TODO: render Generating — Task 8
+                Ok(())
             }
             AppScreen::Game => {
                 if let Some(state) = &self.game_state {
@@ -1238,5 +1345,35 @@ mod tests {
         app.hint_warning = Some(("Warning", "Test warning"));
         app.handle_action(crate::tui::input::AppAction::MoveRight);
         assert!(app.hint_warning.is_none());
+    }
+
+    #[test]
+    fn selecting_designer_from_difficulty_goes_to_pattern_select() {
+        use crate::timer::SystemClock;
+        let mut app = App::new(Box::new(SystemClock));
+        app.screen = AppScreen::DifficultySelect { selected: 0, sym_focused: false };
+        for _ in 0..3 {
+            app.handle_action(AppAction::MoveDown);
+        }
+        app.handle_action(AppAction::Enter);
+        assert!(matches!(app.screen, AppScreen::PatternSelect { .. }));
+    }
+
+    #[test]
+    fn pattern_select_wraps_around() {
+        use crate::timer::SystemClock;
+        let mut app = App::new(Box::new(SystemClock));
+        app.screen = AppScreen::PatternSelect { selected: 0 };
+        app.handle_action(AppAction::MoveLeft);
+        assert!(matches!(app.screen, AppScreen::PatternSelect { selected: 27 }));
+    }
+
+    #[test]
+    fn pattern_select_back_goes_to_difficulty() {
+        use crate::timer::SystemClock;
+        let mut app = App::new(Box::new(SystemClock));
+        app.screen = AppScreen::PatternSelect { selected: 0 };
+        app.handle_action(AppAction::Back);
+        assert!(matches!(app.screen, AppScreen::DifficultySelect { .. }));
     }
 }
