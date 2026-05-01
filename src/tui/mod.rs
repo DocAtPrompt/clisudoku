@@ -560,7 +560,6 @@ impl App {
         // ── Pre-check 2: incorrect notes ────────────────────────────────────────
         let has_wrong_notes = {
             let state = match &self.game_state { Some(s) => s, None => return };
-            let solution = match &self.solution { Some(sol) => sol, None => return };
             let grid = state.grid();
             let mut found = false;
             'outer2: for r in 0..9 {
@@ -582,13 +581,6 @@ impl App {
                                 for dc in 0..3 {
                                     if grid.get(br+dr, bc+dc).value() == Some(d) { conflict = true; break 'box_check; }
                                 }
-                            }
-                        }
-                        // Also flag if the note digit doesn't match the solution
-                        if !conflict {
-                            if solution.get(r, c).value() != Some(d) {
-                                // The note digit is wrong against the solution
-                                conflict = true;
                             }
                         }
                         if conflict { found = true; break 'outer2; }
