@@ -286,13 +286,19 @@ pub enum RainCell {
 }
 
 pub struct RainColumn {
-    pub start_delay: u32,
-    /// Advance head by 1 every `speed` ticks.
-    pub speed:       u8,
-    frame_tick:      u8,
-    pub head:        i16,
-    pub trail_len:   u8,
-    pub chars:       Vec<char>,
+    pub start_delay:     u32,
+    /// Rain head advances 1 row every `speed` ticks.
+    pub speed:           u8,
+    frame_tick:          u8,
+    /// Looping head position. Resets to -(trail_len) after exiting the bottom.
+    pub head:            i16,
+    pub trail_len:       u8,
+    /// True after the head has completed its first full pass through the grid.
+    first_pass_done:     bool,
+    /// Rows settled from the bottom (0 → RAIN_ROWS). Grows after first_pass_done.
+    pub settled_rows:    usize,
+    settle_tick:         u8,
+    pub chars:           Vec<char>,
 }
 
 pub struct MatrixRainAnim {
@@ -312,16 +318,21 @@ impl MatrixRainAnim {
                 let idx = (rng_next(&mut s) * MATRIX_CHARS.len() as f32) as usize;
                 MATRIX_CHARS[idx % MATRIX_CHARS.len()] as char
             }).collect();
-            RainColumn { start_delay, speed, frame_tick: 0, head: -(trail_len as i16), trail_len, chars }
+            RainColumn {
+                start_delay, speed, frame_tick: 0,
+                head: -(trail_len as i16), trail_len,
+                first_pass_done: false, settled_rows: 0, settle_tick: 0,
+                chars,
+            }
         }).collect();
         Self { columns, tick: 0 }
     }
 
-    /// All columns have fully settled (entire grid visible again).
+    /// All columns have fully settled — the whole grid is visible again.
     pub fn done(&self) -> bool {
         self.columns.iter().all(|c| {
             if self.tick <= c.start_delay { return false; }
-            Self::settled_from_bottom(c) >= RAIN_ROWS
+            c.settled_rows >= RAIN_ROWS
         })
     }
 
@@ -329,57 +340,60 @@ impl MatrixRainAnim {
         self.tick += 1;
         for col in &mut self.columns {
             if self.tick <= col.start_delay { continue; }
-            // Keep advancing until all rows of this column have settled.
-            if Self::settled_from_bottom(col) < RAIN_ROWS {
-                col.frame_tick += 1;
-                if col.frame_tick >= col.speed {
-                    col.frame_tick = 0;
-                    col.head += 1;
+
+            // ── Rain head: advances and loops back to the top ──────────────
+            col.frame_tick += 1;
+            if col.frame_tick >= col.speed {
+                col.frame_tick = 0;
+                col.head += 1;
+                // When head exits the bottom, loop back and mark first pass done.
+                if col.head >= RAIN_ROWS as i16 {
+                    col.head = -(col.trail_len as i16);
+                    col.first_pass_done = true;
+                }
+            }
+
+            // ── Settled zone: grows upward after the first full pass ───────
+            // One row settles per tick so the build-up takes ~RAIN_ROWS ticks.
+            if col.first_pass_done && col.settled_rows < RAIN_ROWS {
+                col.settle_tick += 1;
+                if col.settle_tick >= col.speed {
+                    col.settle_tick = 0;
+                    col.settled_rows += 1;
                 }
             }
         }
     }
 
-    /// How many rows (counting from the bottom) have crystallised in this column.
-    /// Grows from 0 once the head exits the grid, reaching RAIN_ROWS when done.
-    fn settled_from_bottom(c: &RainColumn) -> usize {
-        (c.head - (RAIN_ROWS as i16 - 1)).max(0) as usize
-    }
-
     /// What to render at grid position `(col, row)`.
     ///
-    /// - `Settled`  → don't write; the game screen beneath shows through
+    /// - `Settled`  → skip; the game screen rendered beneath shows through
     /// - `Blank`    → overdraw with background colour
     /// - `Rain`     → coloured falling character
     pub fn cell_at(&self, col: usize, row: usize) -> RainCell {
         let c = &self.columns[col];
 
-        // Column not yet started → blank the whole column (hides game content).
         if self.tick <= c.start_delay {
             return RainCell::Blank;
         }
 
-        // Settled zone grows upward from the bottom row.
-        // When settled_from_bottom = k, the bottom k rows show the real grid.
-        let sfb       = Self::settled_from_bottom(c);
-        let settle_row = RAIN_ROWS.saturating_sub(sfb); // 0-based: rows [settle_row..] are settled
+        // Settled zone: bottom `settled_rows` rows reveal the real grid.
+        let settle_row = RAIN_ROWS.saturating_sub(c.settled_rows);
         if row >= settle_row {
             return RainCell::Settled;
         }
 
-        // Rain: head and trailing glow (only within the visible grid area).
+        // Falling rain — head and fading trail.
         let row_i = row as i16;
         let head  = c.head;
         if row_i >= 0 && row_i < RAIN_ROWS as i16 {
             if row_i == head {
-                let idx = row % c.chars.len();
-                return RainCell::Rain(c.chars[idx], 0);
+                return RainCell::Rain(c.chars[row % c.chars.len()], 0);
             }
             if row_i < head && row_i >= head - c.trail_len as i16 {
                 let dist  = (head - row_i) as usize;
                 let level = if dist <= c.trail_len as usize / 2 { 1u8 } else { 2u8 };
-                let idx   = row % c.chars.len();
-                return RainCell::Rain(c.chars[idx], level);
+                return RainCell::Rain(c.chars[row % c.chars.len()], level);
             }
         }
 
