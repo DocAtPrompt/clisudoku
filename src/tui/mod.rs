@@ -378,11 +378,13 @@ impl App {
         match action {
             AppAction::MoveRight => {
                 self.screen = AppScreen::PatternSelect { selected: (selected + 1) % COUNT };
+                self.needs_clear = true;
             }
             AppAction::MoveLeft => {
                 self.screen = AppScreen::PatternSelect {
                     selected: selected.checked_sub(1).unwrap_or(COUNT - 1),
                 };
+                self.needs_clear = true;
             }
             AppAction::Enter => {
                 let pattern = crate::pattern::PATTERNS[selected].clone();
