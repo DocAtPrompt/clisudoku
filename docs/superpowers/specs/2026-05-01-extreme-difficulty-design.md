@@ -94,6 +94,8 @@ Easy  Medium  Hard  Extreme  Designer ▶
 
 **DifficultySelect Enter handler** (`src/tui/mod.rs`): The current Enter arms are `0` → Easy, `1` → Medium, `2` → Hard, `3` → PatternSelect (Designer). Insert a new arm `3` → `start_game(Difficulty::Extreme)` and shift the old `3` arm (PatternSelect) to `4`.
 
+**PatternSelect back-navigation** (`src/tui/mod.rs`): There are two places that return to `DifficultySelect { selected: 3, … }` when coming back from PatternSelect — one in `handle_pattern_action` (Back arm) and one in `handle_generating_action`. Both must be updated to `selected: 4` so the cursor lands on Designer ▶ after the user presses Esc, not on Extreme.
+
 **i18n** (`src/i18n/mod.rs`): new field `difficulty_extreme` added after `difficulty_hard` in the `Strings` struct and in all 13 language statics. Value: `"Extreme"` in all languages (the word is internationally understood; German "Extrem" would drop the final e which looks odd in context).
 
 ### 4. Out of Scope
