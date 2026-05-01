@@ -192,7 +192,7 @@ pub fn render_grid(
     matrix_mode: bool,
 ) -> io::Result<()> {
     let _ = note_mode; // reserved for future cursor highlight differentiation
-    let overlay_bg = Color::Rgb { r: 35, g: 35, b: 35 };
+    let overlay_bg = Color::DarkGrey;
 
     // ── Top border ──────────────────────────────────────────────────────────
     queue!(out,

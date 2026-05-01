@@ -105,8 +105,8 @@ impl ColorScheme {
 
             cell_normal_bg:       Color::Black,
             cell_active_bg:       Color::DarkBlue,
-            cell_active_box_bg:   Color::Rgb { r: 20, g: 20, b: 60 },
-            cell_active_cross_bg: Color::Rgb { r: 10, g: 10, b: 35 },
+            cell_active_box_bg:   Color::DarkBlue,
+            cell_active_cross_bg: Color::Black,
 
             digit_given:          Color::White,
             digit_user:           Color::Cyan,
@@ -177,9 +177,9 @@ impl ColorScheme {
             grid_cell:            Color::Grey,
 
             cell_normal_bg:       Color::Black,
-            cell_active_bg:       Color::Rgb { r: 60, g: 55, b: 0 },
-            cell_active_box_bg:   Color::Rgb { r: 30, g: 28, b: 0 },
-            cell_active_cross_bg: Color::Rgb { r: 18, g: 16, b: 0 },
+            cell_active_bg:       Color::DarkYellow,
+            cell_active_box_bg:   Color::DarkYellow,
+            cell_active_cross_bg: Color::Black,
 
             digit_given:          Color::White,
             digit_user:           Color::Yellow,
@@ -193,7 +193,7 @@ impl ColorScheme {
 
             ui_text:              Color::White,
             ui_text_dim:          Color::Grey,
-            ui_cursor_bg:         Color::Rgb { r: 60, g: 55, b: 0 },
+            ui_cursor_bg:         Color::DarkYellow,
             ui_cursor_fg:         Color::Black,
 
             hint_cause_border:    Color::Cyan,

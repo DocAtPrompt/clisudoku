@@ -28,5 +28,4 @@ Color::AnsiValue(n)       // 256-Farben — unnötige Komplexität
 wodurch die Vordergrundfarbe auf dem letzten gesetzten Wert bleibt — oft unsichtbarer
 Text auf gleichfarbigem Hintergrund. Dieses Problem ist mehrfach aufgetreten.
 
-**Ausnahmen:** Keine. Bestehende Ausnahmen in `colors.rs` (z. B. `cell_active_box_bg`)
-werden beim nächsten Refactoring bereinigt.
+**Ausnahmen:** Keine.
