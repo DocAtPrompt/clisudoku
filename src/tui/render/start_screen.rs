@@ -95,7 +95,12 @@ pub fn render_difficulty(
     // ── Difficulty items (left column) ───────────────────────────────────────
     // When symmetry column has focus, the selected difficulty item is dimmed
     // so both the selected difficulty AND the toggle are simultaneously visible.
-    let items = [strings.difficulty_easy, strings.difficulty_medium, strings.difficulty_hard];
+    let items = [
+        strings.difficulty_easy,
+        strings.difficulty_medium,
+        strings.difficulty_hard,
+        strings.difficulty_designer,
+    ];
     for (i, item) in items.iter().enumerate() {
         let (fg, bg) = if i == selected && !sym_focused {
             (colors.ui_cursor_fg, colors.ui_cursor_bg)
@@ -200,6 +205,14 @@ mod tests {
         assert!(s.contains("Easy"));
         assert!(s.contains("Medium"));
         assert!(s.contains("Hard"));
+    }
+
+    #[test]
+    fn difficulty_screen_shows_designer_option() {
+        let mut buf = Vec::new();
+        render_difficulty(&mut buf, (0, 0), 3, false, true, &EN, &ColorScheme::default()).unwrap();
+        let s = String::from_utf8_lossy(&buf);
+        assert!(s.contains("Designer"), "Expected Designer option");
     }
 
     #[test]
