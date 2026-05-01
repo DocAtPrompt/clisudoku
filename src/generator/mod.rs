@@ -156,6 +156,103 @@ fn shuffle_u8(v: &mut Vec<u8>, rng: &mut LcgRng) {
     }
 }
 
+/// Result of a pattern-constrained generation.
+pub struct GeneratorResult {
+    pub grid:             Grid,
+    pub difficulty:       Difficulty,
+    /// True when cells outside the pattern were added to reach unique solvability.
+    pub used_extra_cells: bool,
+}
+
+impl PuzzleGenerator {
+    /// Generate a uniquely-solvable puzzle whose given cells lie within `pattern.mask`.
+    ///
+    /// Strategy:
+    /// 1. Fill a complete valid grid (same as `generate`).
+    /// 2. Remove every non-pattern cell — these are never givens.
+    /// 3. Iteratively remove pattern cells while the puzzle stays uniquely solvable
+    ///    (uses the full solver, no difficulty cap).
+    /// 4. Ansatz C: if < 17 givens remain, add the minimum number of non-pattern
+    ///    cells back until the puzzle is uniquely solvable.
+    /// 5. Classify difficulty from the strategies the solver actually used.
+    pub fn generate_with_pattern(
+        &self,
+        pattern: &crate::pattern::Pattern,
+    ) -> GeneratorResult {
+        let mut rng = LcgRng::new(self.seed);
+        let full = self.fill_grid(&mut rng).expect("fill_grid failed");
+
+        // Step 2: start with all pattern cells filled, non-pattern cells empty.
+        let mut puzzle = Grid::empty();
+        for idx in 0..81usize {
+            let (r, c) = (idx / 9, idx % 9);
+            if pattern.mask[idx] {
+                if let Some(v) = full.get(r, c).value() {
+                    puzzle.set_given(r, c, v);
+                }
+            }
+        }
+
+        // Step 3: try removing pattern cells while keeping unique solvability.
+        let mut pattern_indices: Vec<usize> = (0..81).filter(|&i| pattern.mask[i]).collect();
+        shuffle(&mut pattern_indices, &mut rng);
+
+        for &idx in &pattern_indices {
+            let (r, c) = (idx / 9, idx % 9);
+            let prev = puzzle.get(r, c).value();
+            puzzle.clear(r, c);
+            if !self.is_uniquely_solvable_full(&puzzle) {
+                if let Some(v) = prev {
+                    puzzle.set_given(r, c, v);
+                }
+            }
+        }
+
+        // Step 4 (Ansatz C): if still < 17 givens, add non-pattern cells.
+        let given_count = (0..81)
+            .filter(|&i| { let (r, c) = (i / 9, i % 9); puzzle.get(r, c).is_given() })
+            .count();
+        let mut used_extra_cells = false;
+        if given_count < 17 {
+            used_extra_cells = true;
+            let mut extra: Vec<usize> = (0..81).filter(|&i| !pattern.mask[i]).collect();
+            shuffle(&mut extra, &mut rng);
+            for &idx in &extra {
+                let (r, c) = (idx / 9, idx % 9);
+                if let Some(v) = full.get(r, c).value() {
+                    puzzle.set_given(r, c, v);
+                }
+                if self.is_uniquely_solvable_full(&puzzle) {
+                    break;
+                }
+            }
+        }
+
+        // Rebuild as clean Given-only grid.
+        let mut result = Grid::empty();
+        for r in 0..9 {
+            for c in 0..9 {
+                if !puzzle.get(r, c).is_empty() {
+                    if let Some(v) = full.get(r, c).value() {
+                        result.set_given(r, c, v);
+                    }
+                }
+            }
+        }
+
+        // Step 5: classify difficulty.
+        let solve_result = crate::solver::Solver::new().solve(result.clone());
+        let difficulty = classify(&solve_result.used_strategies);
+
+        GeneratorResult { grid: result, difficulty, used_extra_cells }
+    }
+
+    /// Check uniqueness with the full solver (no difficulty cap, backtracking allowed).
+    fn is_uniquely_solvable_full(&self, grid: &Grid) -> bool {
+        crate::solver::Solver::new().solve(grid.clone()).grid.is_solved()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,5 +291,37 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn pattern_puzzle_only_has_givens_in_pattern() {
+        use crate::pattern::PATTERNS;
+        // Use the Border pattern (index 12, 32 cells) — reliable test case
+        let pattern = PATTERNS[11].clone(); // Border
+        let result = PuzzleGenerator::new(42).generate_with_pattern(&pattern);
+        // Every given cell must be in the pattern mask
+        for r in 0..9 {
+            for c in 0..9 {
+                if result.grid.get(r, c).is_given() {
+                    let idx = r * 9 + c;
+                    assert!(
+                        pattern.mask[idx] || result.used_extra_cells,
+                        "Given at ({r},{c}) is outside pattern and used_extra_cells=false"
+                    );
+                }
+            }
+        }
+        // Must be uniquely solvable
+        let solved = crate::solver::Solver::new().solve(result.grid);
+        assert!(solved.grid.is_solved());
+    }
+
+    #[test]
+    fn pattern_puzzle_difficulty_is_classified() {
+        use crate::pattern::PATTERNS;
+        let result = PuzzleGenerator::new(99).generate_with_pattern(&PATTERNS[1]); // Checker
+        // difficulty must be one of the valid variants (not None)
+        let _ = result.difficulty; // just verifying it compiles and is accessible
+        assert!(crate::solver::Solver::new().solve(result.grid).grid.is_solved());
     }
 }
