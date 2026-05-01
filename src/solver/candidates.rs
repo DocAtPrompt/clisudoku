@@ -12,6 +12,7 @@ pub enum Strategy {
     HiddenPair,
     BoxLineReduction,
     XWing,
+    Swordfish,
     Backtracking,
 }
 

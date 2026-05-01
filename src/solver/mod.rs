@@ -7,6 +7,7 @@ pub mod naked_pair;
 pub mod naked_single;
 pub mod naked_triple;
 pub mod pointing_pair;
+pub mod swordfish;
 pub mod x_wing;
 
 pub use candidates::{CandidateGrid, Elimination, SolveStep, Strategy};
@@ -49,6 +50,7 @@ impl Solver {
             Strategy::HiddenPair,
             Strategy::BoxLineReduction,
             Strategy::XWing,
+            Strategy::Swordfish,
             Strategy::Backtracking,
         ]
     }
@@ -121,6 +123,7 @@ impl Solver {
             apply_elims!(hidden_pair::find_hidden_pairs,             Strategy::HiddenPair);
             apply_elims!(box_line_reduction::find_box_line_reductions, Strategy::BoxLineReduction);
             apply_elims!(x_wing::find_x_wings,                      Strategy::XWing);
+            apply_elims!(swordfish::find_swordfish,                  Strategy::Swordfish);
 
             // Backtracking fallback
             if self.use_backtracking && !grid.is_solved() {
