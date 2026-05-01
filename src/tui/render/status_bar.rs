@@ -33,6 +33,7 @@ pub fn render_panel(
     scan_digit:   Option<u8>,
     colors:       &ColorScheme,
     strings:      &'static Strings,
+    hint_count:   u32,
     // When `Some((name, explanation))`, replaces the controls section with hint text.
     hint_text:    Option<(&str, &str)>,
 ) -> io::Result<()> {
@@ -73,6 +74,8 @@ pub fn render_panel(
         (String::new(), t, false),
         (String::new(), t, false),
         (String::new(), t, false),
+        // hint count
+        (format!("  h: {}", hint_count),        t, false),
         // divider
         (String::new(),                        b, true),
     ];
@@ -282,7 +285,7 @@ mod tests {
     fn call_render_panel(buf: &mut Vec<u8>, elapsed_ms: u64, note_mode: bool) {
         render_panel(
             buf, (0, 0), elapsed_ms, note_mode, false, false, 0, 0,
-            [0u8; 10], None, &ColorScheme::default(), &EN, None,
+            [0u8; 10], None, &ColorScheme::default(), &EN, 0, None,
         ).unwrap();
     }
 
@@ -336,7 +339,7 @@ mod tests {
         counts[5] = 7;
         render_panel(
             &mut buf, (0, 0), 0, false, false, false, 0, 0,
-            counts, None, &ColorScheme::default(), &EN, None,
+            counts, None, &ColorScheme::default(), &EN, 0, None,
         ).unwrap();
         let s = String::from_utf8_lossy(&buf);
         // Digit 5 header char '5' and count '2' should appear
@@ -349,7 +352,7 @@ mod tests {
         let mut buf = Vec::new();
         render_panel(
             &mut buf, (0, 0), 0, false, false, false, 0, 0,
-            [0u8; 10], None, &ColorScheme::default(), &EN,
+            [0u8; 10], None, &ColorScheme::default(), &EN, 0,
             Some(("Naked Single", "Only 5 fits in this cell.")),
         ).unwrap();
         let s = String::from_utf8_lossy(&buf);
@@ -375,7 +378,7 @@ mod tests {
         counts[3] = 9; // digit 3 fully placed
         render_panel(
             &mut buf, (0, 0), 0, false, false, false, 0, 0,
-            counts, None, &ColorScheme::default(), &EN, None,
+            counts, None, &ColorScheme::default(), &EN, 0, None,
         ).unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('\u{00b7}')); // · for completed digit

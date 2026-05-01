@@ -33,6 +33,8 @@ fn render_game_screen_does_not_panic() {
             anim: &AnimState::default(),
             scan_digit: None,
             hint: None,
+            hint_warning: None,
+            hint_count: 0,
         },
         &ColorScheme::default(),
         &RetroStyle,

@@ -106,6 +106,9 @@ pub struct App {
     pub info_overlay: Option<(String, Option<String>, bool, std::time::Instant)>,
     /// Currently displayed hint, if any. Cleared on any keypress.
     pub active_hint: Option<crate::hint::Hint>,
+    /// Warning text shown in the hint panel when the pre-check fails.
+    /// `(name, explanation)` in the current language.
+    pub hint_warning: Option<(&'static str, &'static str)>,
     /// When true, drain all buffered input events at the top of the next run() loop iteration.
     /// Set after start_game() so key presses made during puzzle generation are discarded.
     drain_input: bool,
@@ -141,6 +144,7 @@ impl App {
             anim: AnimState::default(),
             info_overlay: None,
             active_hint: None,
+            hint_warning: None,
             drain_input: false,
         }
     }
@@ -161,6 +165,7 @@ impl App {
         self.stats = GameStats::default();
         self.revealed_errors.clear();
         self.paused = false;
+        self.hint_warning = None;
         self.game_start_ms = self.clock.now_ms();
         self.screen = AppScreen::Game;
         self.drain_input = true;
@@ -177,6 +182,12 @@ impl App {
 
     /// Handle a single `AppAction`, updating all state.
     pub fn handle_action(&mut self, action: AppAction) {
+        // Any action dismisses a hint warning panel.
+        if self.hint_warning.is_some() {
+            self.hint_warning = None;
+            self.needs_clear = true;
+        }
+
         // Confirm dialog takes priority
         if self.confirm_pending.is_some() {
             match action {
@@ -520,6 +531,79 @@ impl App {
         self.active_hint = None;
         self.anim.hint_blink = false;
 
+        let strings = self.language.strings();
+
+        // ── Pre-check 1: incorrect filled digits ────────────────────────────────
+        let has_errors = {
+            let state = match &self.game_state { Some(s) => s, None => return };
+            let solution = match &self.solution { Some(sol) => sol, None => return };
+            let grid = state.grid();
+            let mut found = false;
+            'outer1: for r in 0..9 {
+                for c in 0..9 {
+                    if let crate::puzzle::CellKind::Filled(d) = grid.get(r, c) {
+                        if solution.get(r, c).value() != Some(d) {
+                            found = true;
+                            break 'outer1;
+                        }
+                    }
+                }
+            }
+            found
+        };
+        if has_errors {
+            self.stats.hint_count += 1;
+            self.hint_warning = Some((strings.hint_has_errors, strings.hint_has_errors));
+            return;
+        }
+
+        // ── Pre-check 2: incorrect notes ────────────────────────────────────────
+        let has_wrong_notes = {
+            let state = match &self.game_state { Some(s) => s, None => return };
+            let solution = match &self.solution { Some(sol) => sol, None => return };
+            let grid = state.grid();
+            let mut found = false;
+            'outer2: for r in 0..9 {
+                for c in 0..9 {
+                    if !matches!(grid.get(r, c), crate::puzzle::CellKind::Empty) { continue; }
+                    let notes = state.notes_mask(r, c);
+                    for d in 1u8..=9 {
+                        if notes & (1 << d) == 0 { continue; }
+                        // A note is wrong if d already appears in the same row, col, or box
+                        // (i.e., d conflicts with an already-placed value).
+                        let mut conflict = false;
+                        for cc in 0..9 { if grid.get(r, cc).value() == Some(d) { conflict = true; break; } }
+                        if !conflict {
+                            for rr in 0..9 { if grid.get(rr, c).value() == Some(d) { conflict = true; break; } }
+                        }
+                        if !conflict {
+                            let (br, bc) = (r / 3 * 3, c / 3 * 3);
+                            'box_check: for dr in 0..3 {
+                                for dc in 0..3 {
+                                    if grid.get(br+dr, bc+dc).value() == Some(d) { conflict = true; break 'box_check; }
+                                }
+                            }
+                        }
+                        // Also flag if the note digit doesn't match the solution
+                        if !conflict {
+                            if solution.get(r, c).value() != Some(d) {
+                                // The note digit is wrong against the solution
+                                conflict = true;
+                            }
+                        }
+                        if conflict { found = true; break 'outer2; }
+                    }
+                }
+            }
+            found
+        };
+        if has_wrong_notes {
+            self.stats.hint_count += 1;
+            self.hint_warning = Some((strings.hint_has_wrong_notes, strings.hint_has_wrong_notes));
+            return;
+        }
+
+        // ── All clear: proceed with hint ────────────────────────────────────────
         let (state, solution) = match (&self.game_state, &self.solution) {
             (Some(s), Some(sol)) => (s, sol),
             _ => return,
@@ -535,7 +619,8 @@ impl App {
         let h = match hint::find_hint(state, solution) {
             Some(h) => h,
             None => {
-                self.perform_reveal(solution.clone());
+                let sol_clone = solution.clone();
+                self.perform_reveal(sol_clone);
                 return;
             }
         };
@@ -803,6 +888,10 @@ impl App {
                             self.active_hint = None;
                             self.anim.hint_blink = false;
                             self.needs_clear = true;
+                        // Hint warning: any key dismisses it (key is consumed, not forwarded).
+                        } else if self.hint_warning.is_some() {
+                            self.hint_warning = None;
+                            self.needs_clear = true;
                         // Info-overlay: any key dismisses it early.
                         } else if self.info_overlay.is_some() {
                             self.info_overlay = None;
@@ -929,6 +1018,8 @@ impl App {
                         anim: &self.anim,
                         scan_digit,
                         hint: self.active_hint.as_ref(),
+                        hint_warning: self.hint_warning,
+                        hint_count: self.stats.hint_count,
                     };
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::QuitGame) => Screen::Confirm {
@@ -1105,5 +1196,54 @@ mod tests {
         app.handle_action(AppAction::NumpadCell(8));
         let (r, c) = app.cursor;
         assert!(r < 9 && c < 9, "cursor out of bounds: ({}, {})", r, c);
+    }
+
+    #[test]
+    fn hint_request_with_wrong_digit_sets_warning_not_hint() {
+        use crate::puzzle::CellKind;
+        use crate::timer::SystemClock;
+
+        let mut app = App::new(Box::new(SystemClock));
+        app.start_game(crate::generator::Difficulty::Easy);
+
+        // Find an empty cell and fill it with the WRONG digit
+        let (wrong_r, wrong_c, wrong_digit) = {
+            let state = app.game_state.as_ref().unwrap();
+            let sol = app.solution.as_ref().unwrap();
+            let mut found = None;
+            'outer: for r in 0..9 {
+                for c in 0..9 {
+                    if matches!(state.grid().get(r, c), CellKind::Empty) {
+                        let correct = sol.get(r, c).value().unwrap();
+                        let wrong = if correct == 9 { 1 } else { correct + 1 };
+                        found = Some((r, c, wrong));
+                        break 'outer;
+                    }
+                }
+            }
+            found.expect("no empty cell found")
+        };
+
+        app.game_state.as_mut().unwrap().apply(
+            crate::puzzle::event::GameEvent::SetDigit {
+                row: wrong_r, col: wrong_c, digit: wrong_digit,
+            }
+        );
+
+        let hint_count_before = app.stats.hint_count;
+        app.handle_action(crate::tui::input::AppAction::RequestHint);
+
+        assert!(app.hint_warning.is_some(), "hint_warning should be set");
+        assert!(app.active_hint.is_none(), "active_hint should NOT be set");
+        assert_eq!(app.stats.hint_count, hint_count_before + 1, "hint_count should increment");
+    }
+
+    #[test]
+    fn hint_warning_dismissed_by_any_key() {
+        use crate::timer::SystemClock;
+        let mut app = App::new(Box::new(SystemClock));
+        app.hint_warning = Some(("Warning", "Test warning"));
+        app.handle_action(crate::tui::input::AppAction::MoveRight);
+        assert!(app.hint_warning.is_none());
     }
 }

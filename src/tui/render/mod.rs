@@ -46,6 +46,10 @@ pub enum Screen<'a> {
         scan_digit: Option<u8>,
         /// Active hint to highlight (cause/elim/target cells).
         hint: Option<&'a crate::hint::Hint>,
+        /// Warning text when hint pre-check failed: (name, explanation).
+        hint_warning: Option<(&'a str, &'a str)>,
+        /// Number of hints requested this game (for panel display).
+        hint_count: u32,
     },
     Confirm {
         /// Screen rendered underneath the overlay.
@@ -81,7 +85,7 @@ pub fn render_frame(
         Screen::ThemeSelect { selected } => {
             start_screen::render_theme(out, (2, 4), *selected, strings, colors)?;
         }
-        Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint } => {
+        Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count } => {
             grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, anim, *scan_digit, *error_mode, *solution, *hint, colors, style)?;
             // Count filled cells and per-digit placements for the panel display.
             let mut digit_counts = [0u8; 10];
@@ -95,14 +99,19 @@ pub fn render_frame(
                 }
             }
             // Panel to the right of the grid: col 2 + 73 (grid) + 2 (gap) = 77
-            let hint_text = hint.map(|h| {
-                if std::ptr::eq(strings, &crate::i18n::DE) {
-                    (h.name_de, h.explanation_de.as_str())
-                } else {
-                    (h.name_en, h.explanation_en.as_str())
-                }
-            });
-            status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, *scan_mode, *error_mode, *errors_shown, filled_count, digit_counts, *scan_digit, colors, strings, hint_text)?;
+            // hint_warning takes priority over active hint text
+            let hint_text: Option<(&str, &str)> = if let Some((name, expl)) = hint_warning {
+                Some((name, expl))
+            } else {
+                hint.map(|h| {
+                    if std::ptr::eq(strings, &crate::i18n::DE) {
+                        (h.name_de, h.explanation_de.as_str())
+                    } else {
+                        (h.name_en, h.explanation_en.as_str())
+                    }
+                })
+            };
+            status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, *scan_mode, *error_mode, *errors_shown, filled_count, digit_counts, *scan_digit, colors, strings, *hint_count, hint_text)?;
             if *paused {
                 render_paused_overlay(out, strings.resume_hint, colors)?;
             }
