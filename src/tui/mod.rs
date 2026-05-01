@@ -753,7 +753,8 @@ impl App {
             EasterEgg::Help     => self.set_overlay("This is not a text adventure."),
             EasterEgg::FortyTwo => self.set_overlay("42 — Life, the Universe, and Everything."),
             EasterEgg::KonamiCode => {
-                self.set_overlay("↑↑↓↓←→←→  Cheat code activated!");
+                let seed = self.clock.now_ms();
+                self.anim.matrix_rain = Some(crate::tui::anim::MatrixRainAnim::new(seed));
                 self.needs_clear = true;
             }
             EasterEgg::MatrixMode => {
@@ -996,7 +997,9 @@ impl App {
             }
 
             // Shorten poll timeout when an animation is running or generating so frames advance.
-            let poll_ms = if matches!(self.screen, AppScreen::Generating(_)) {
+            let poll_ms = if matches!(self.screen, AppScreen::Generating(_))
+                || self.anim.matrix_rain.is_some()
+            {
                 50
             } else if self.anim.is_active() {
                 80
@@ -1064,6 +1067,14 @@ impl App {
 
             // Advance animations every poll cycle (≈80 ms when active).
             self.anim.advance();
+
+            // Matrix rain finished → activate matrix mode and show the Neo message.
+            if matches!(&self.anim.matrix_rain, Some(r) if r.done()) {
+                self.anim.matrix_rain = None;
+                self.matrix_mode = true;
+                self.set_overlay("Wake up, Neo... The Matrix has you.");
+                self.needs_clear = true;
+            }
 
             // Auto-dismiss info overlay after 3 seconds (only when auto_dismiss=true).
             if let Some((_, _, auto_dismiss, shown_at)) = &self.info_overlay {
@@ -1191,6 +1202,15 @@ impl App {
                 }
             }
         }?;
+
+        // Matrix rain overlay — drawn over the grid area when active.
+        if matches!(self.screen, AppScreen::Game) {
+            if let Some(rain) = &self.anim.matrix_rain {
+                crate::tui::render::matrix_rain::render_matrix_rain(
+                    out, (1, 2), rain, self.colors.ui_background,
+                )?;
+            }
+        }
 
         // Info overlay is drawn on top of every screen (start, game, difficulty, …).
         if let Some((msg, subtitle, _, _)) = &self.info_overlay {

@@ -268,6 +268,87 @@ impl FireworkAnim {
     }
 }
 
+// ── Matrix Rain ───────────────────────────────────────────────────────────────
+
+pub const RAIN_COLS: usize = 73;
+pub const RAIN_ROWS: usize = 37;
+
+const MATRIX_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$&*?!<>|+-=";
+
+pub struct RainColumn {
+    pub start_delay: u32,
+    /// Advance head by 1 every `speed` ticks.
+    pub speed:       u8,
+    frame_tick:      u8,
+    /// Current head row. Starts at -(trail_len); done when >= RAIN_ROWS + trail_len.
+    pub head:        i16,
+    pub trail_len:   u8,
+    /// Pre-generated characters for each visible position.
+    pub chars:       Vec<char>,
+}
+
+pub struct MatrixRainAnim {
+    pub columns: Vec<RainColumn>,
+    tick:        u32,
+}
+
+impl MatrixRainAnim {
+    pub fn new(seed: u64) -> Self {
+        let mut s = seed;
+        let columns = (0..RAIN_COLS).map(|_| {
+            let start_delay = (rng_next(&mut s) * 18.0) as u32;
+            let speed       = if rng_next(&mut s) < 0.45 { 1u8 } else { 2u8 };
+            let trail_len   = 5 + (rng_next(&mut s) * 9.0) as u8; // 5 ..= 13
+            let char_count  = (RAIN_ROWS + trail_len as usize + 4).max(60);
+            let chars = (0..char_count).map(|_| {
+                let idx = (rng_next(&mut s) * MATRIX_CHARS.len() as f32) as usize;
+                MATRIX_CHARS[idx % MATRIX_CHARS.len()] as char
+            }).collect();
+            RainColumn { start_delay, speed, frame_tick: 0, head: -(trail_len as i16), trail_len, chars }
+        }).collect();
+        Self { columns, tick: 0 }
+    }
+
+    pub fn done(&self) -> bool {
+        self.columns.iter().all(|c| c.head >= RAIN_ROWS as i16 + c.trail_len as i16)
+    }
+
+    pub fn advance(&mut self) {
+        self.tick += 1;
+        for col in &mut self.columns {
+            if col.head >= RAIN_ROWS as i16 + col.trail_len as i16 { continue; }
+            if self.tick <= col.start_delay { continue; }
+            col.frame_tick += 1;
+            if col.frame_tick >= col.speed {
+                col.frame_tick = 0;
+                col.head += 1;
+            }
+        }
+    }
+
+    /// Character and brightness level for a grid cell.
+    /// Returns `None` for empty, `Some((ch, level))` where:
+    /// `level` 0 = head (White), 1 = near trail (Green), 2 = far trail (DarkGreen).
+    pub fn cell_at(&self, col: usize, row: usize) -> Option<(char, u8)> {
+        let c = &self.columns[col];
+        if self.tick <= c.start_delay { return None; }
+        let row_i = row as i16;
+        let head  = c.head;
+        if row_i < 0 || row_i >= RAIN_ROWS as i16 { return None; }
+        if row_i == head {
+            let idx = row as usize % c.chars.len();
+            Some((c.chars[idx], 0))
+        } else if row_i < head && row_i >= head - c.trail_len as i16 {
+            let dist  = (head - row_i) as usize;
+            let level = if dist <= c.trail_len as usize / 2 { 1u8 } else { 2u8 };
+            let idx   = row as usize % c.chars.len();
+            Some((c.chars[idx], level))
+        } else {
+            None
+        }
+    }
+}
+
 // ── Combined state ────────────────────────────────────────────────────────────
 
 /// Blink rhythm for error cells: 4 ticks visible (320 ms), 4 ticks hidden (320 ms).
@@ -278,6 +359,8 @@ const HINT_BLINK_TICKS: u32 = 4;
 pub struct AnimState {
     pub sweeps:   Vec<SweepAnim>,
     pub firework: Option<FireworkAnim>,
+    /// Konami Code Matrix rain animation.
+    pub matrix_rain: Option<MatrixRainAnim>,
     /// When true the error-cell software blink is running (error_mode is ON).
     pub error_blink: bool,
     /// Tick counter driving the error blink; incremented every advance().
@@ -293,6 +376,7 @@ impl Default for AnimState {
         Self {
             sweeps:           Vec::new(),
             firework:         None,
+            matrix_rain:      None,
             error_blink:      false,
             error_blink_tick: 0,
             hint_blink:       false,
@@ -303,7 +387,11 @@ impl Default for AnimState {
 
 impl AnimState {
     pub fn is_active(&self) -> bool {
-        !self.sweeps.is_empty() || self.firework.is_some() || self.error_blink || self.hint_blink
+        !self.sweeps.is_empty()
+            || self.firework.is_some()
+            || self.matrix_rain.is_some()
+            || self.error_blink
+            || self.hint_blink
     }
 
     /// Advance all active animations by one tick; discard finished ones.
@@ -312,6 +400,9 @@ impl AnimState {
         if let Some(fw) = &mut self.firework {
             fw.advance();
             if fw.done() { self.firework = None; }
+        }
+        if let Some(rain) = &mut self.matrix_rain {
+            rain.advance();
         }
         if self.error_blink {
             self.error_blink_tick = self.error_blink_tick.wrapping_add(1);

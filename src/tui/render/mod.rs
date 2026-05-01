@@ -5,6 +5,7 @@ pub mod confirm;
 pub mod firework;
 pub mod generating;
 pub mod grid;
+pub mod matrix_rain;
 pub mod pattern_select;
 pub mod start_screen;
 pub mod status_bar;
