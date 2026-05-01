@@ -427,6 +427,9 @@ impl App {
         self.anim.hint_blink_tick = 0;
         self.game_start_ms = self.clock.now_ms();
         self.drain_input = true;
+        self.confirm_pending = None;
+        self.boss_mode = false;
+        self.info_overlay = None;
         self.screen = AppScreen::Game;
         self.needs_clear = true;
     }
