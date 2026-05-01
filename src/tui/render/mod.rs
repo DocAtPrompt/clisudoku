@@ -3,6 +3,7 @@ pub mod boss;
 pub mod cell;
 pub mod confirm;
 pub mod firework;
+pub mod generating;
 pub mod grid;
 pub mod pattern_select;
 pub mod start_screen;
@@ -53,6 +54,11 @@ pub enum Screen<'a> {
         hint_count: u32,
     },
     PatternSelect { selected: usize },
+    Generating {
+        verb:          &'a str,
+        countdown:     u8,
+        show_new_seed: bool,
+    },
     Confirm {
         /// Screen rendered underneath the overlay.
         underneath: Box<Screen<'a>>,
@@ -89,6 +95,11 @@ pub fn render_frame(
         }
         Screen::PatternSelect { selected } => {
             pattern_select::render_pattern_select(out, *selected, strings, colors)?;
+        }
+        Screen::Generating { verb, countdown, show_new_seed } => {
+            crate::tui::render::generating::render_generating(
+                out, verb, *countdown, *show_new_seed, strings, colors,
+            )?;
         }
         Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count } => {
             grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, anim, *scan_digit, *error_mode, *solution, *hint, colors, style)?;

@@ -1096,9 +1096,13 @@ impl App {
                     strings,
                 )
             }
-            AppScreen::Generating(_) => {
-                // TODO: render Generating — Task 8
-                Ok(())
+            AppScreen::Generating(ref gs) => {
+                let screen = Screen::Generating {
+                    verb:          gs.current_verb(),
+                    countdown:     gs.countdown_secs(),
+                    show_new_seed: gs.show_new_seed,
+                };
+                render_frame(out, &screen, &self.colors, self.style.as_ref(), strings)
             }
             AppScreen::Game => {
                 if let Some(state) = &self.game_state {
