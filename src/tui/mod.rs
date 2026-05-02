@@ -17,13 +17,18 @@ use crate::tui::anim::{AnimState, FireworkAnim, SweepAnim};
 use crate::tui::colors::{ColorScheme, Theme};
 use crate::tui::digit_style::{DigitStyle, RetroStyle};
 use crate::tui::input::{map_key_to_action, AppAction, NavMode, NavState};
-use crate::tui::render::{render_frame, render_info_overlay, Screen};
-use crate::tui::render::{box_cells, box_cells_serpentine, col_cells, row_cells};
 use crate::tui::render::start_screen::START_ITEM_COUNT;
+use crate::tui::render::{box_cells, box_cells_serpentine, col_cells, row_cells};
+use crate::tui::render::{render_frame, render_info_overlay, Screen};
 use crate::tui::seq_detect::{EasterEgg, SeqDetector};
 use crate::tui::terminal::Terminal;
 use crossterm::event::{self, Event};
-use crossterm::{cursor::MoveTo, queue, style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor}, terminal::{Clear, ClearType}};
+use crossterm::{
+    cursor::MoveTo,
+    queue,
+    style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
+    terminal::{Clear, ClearType},
+};
 
 /// Minimum terminal dimensions required to render the full game layout.
 /// Grid (73 wide × 37 tall) at col 2 + panel (38 wide) at col 77
@@ -73,7 +78,7 @@ pub struct GameStats {
     /// Number of hints requested during this game.
     pub hint_count: u32,
     /// Category for DB storage.
-    pub category:     GameCategory,
+    pub category: GameCategory,
     /// Pattern name for designer games; None for classic games.
     pub pattern_name: Option<String>,
 }
@@ -129,6 +134,10 @@ pub struct App {
     /// When true, drain all buffered input events at the top of the next run() loop iteration.
     /// Set after start_game() so key presses made during puzzle generation are discarded.
     drain_input: bool,
+    /// Whether mouse capture mode is active.
+    pub mouse_mode: bool,
+    /// Grid cell currently under the mouse cursor; `None` when not hovering a cell.
+    pub hover_cell: Option<(usize, usize)>,
 }
 
 impl App {
@@ -164,6 +173,8 @@ impl App {
             active_hint: None,
             hint_warning: None,
             drain_input: false,
+            mouse_mode: false,
+            hover_cell: None,
         }
     }
 
@@ -221,13 +232,16 @@ impl App {
         }
 
         match &self.screen {
-            AppScreen::Start { selected }           => self.handle_start_action(action, *selected),
-            AppScreen::DifficultySelect { selected, sym_focused } => {
-                self.handle_difficulty_action(action, *selected, *sym_focused)
+            AppScreen::Start { selected } => self.handle_start_action(action, *selected),
+            AppScreen::DifficultySelect {
+                selected,
+                sym_focused,
+            } => self.handle_difficulty_action(action, *selected, *sym_focused),
+            AppScreen::LanguageSelect { selected } => {
+                self.handle_language_action(action, *selected)
             }
-            AppScreen::LanguageSelect { selected }  => self.handle_language_action(action, *selected),
-            AppScreen::ThemeSelect { selected }     => self.handle_theme_action(action, *selected),
-            AppScreen::Game                         => self.handle_game_action(action),
+            AppScreen::ThemeSelect { selected } => self.handle_theme_action(action, *selected),
+            AppScreen::Game => self.handle_game_action(action),
             AppScreen::PatternSelect { selected } => {
                 let s = *selected;
                 self.handle_pattern_action(action, s);
@@ -250,7 +264,10 @@ impl App {
             }
             AppAction::Enter => match selected {
                 0 => {
-                    self.screen = AppScreen::DifficultySelect { selected: 0, sym_focused: false };
+                    self.screen = AppScreen::DifficultySelect {
+                        selected: 0,
+                        sym_focused: false,
+                    };
                     self.needs_clear = true;
                 }
                 1 => {
@@ -277,17 +294,26 @@ impl App {
         match action {
             // ── Navigation between columns ───────────────────────────────────
             AppAction::MoveRight if !sym_focused => {
-                self.screen = AppScreen::DifficultySelect { selected, sym_focused: true };
+                self.screen = AppScreen::DifficultySelect {
+                    selected,
+                    sym_focused: true,
+                };
             }
             AppAction::MoveLeft if sym_focused => {
-                self.screen = AppScreen::DifficultySelect { selected, sym_focused: false };
+                self.screen = AppScreen::DifficultySelect {
+                    selected,
+                    sym_focused: false,
+                };
             }
 
             // ── Symmetry column: toggle with Enter or Space (Pause), then
             //    jump back to difficulty column so the user can confirm quickly.
             AppAction::Enter | AppAction::Pause if sym_focused => {
                 self.symmetry = !self.symmetry;
-                self.screen = AppScreen::DifficultySelect { selected, sym_focused: false };
+                self.screen = AppScreen::DifficultySelect {
+                    selected,
+                    sym_focused: false,
+                };
             }
 
             // ── Difficulty column: move selection ────────────────────────────
@@ -305,20 +331,33 @@ impl App {
             }
 
             // ── Confirm: start game ──────────────────────────────────────────
-            AppAction::Enter if !sym_focused => {
-                match selected {
-                    0 => { self.start_game(Difficulty::Easy);        self.needs_clear = true; }
-                    1 => { self.start_game(Difficulty::Medium);      self.needs_clear = true; }
-                    2 => { self.start_game(Difficulty::Hard);        self.needs_clear = true; }
-                    3 => { self.start_game(Difficulty::Extreme);     self.needs_clear = true; }
-                    4 => { self.start_game(Difficulty::BareMinimum); self.needs_clear = true; }
-                    5 => {
-                        self.screen = AppScreen::PatternSelect { selected: 0 };
-                        self.needs_clear = true;
-                    }
-                    _ => {}
+            AppAction::Enter if !sym_focused => match selected {
+                0 => {
+                    self.start_game(Difficulty::Easy);
+                    self.needs_clear = true;
                 }
-            }
+                1 => {
+                    self.start_game(Difficulty::Medium);
+                    self.needs_clear = true;
+                }
+                2 => {
+                    self.start_game(Difficulty::Hard);
+                    self.needs_clear = true;
+                }
+                3 => {
+                    self.start_game(Difficulty::Extreme);
+                    self.needs_clear = true;
+                }
+                4 => {
+                    self.start_game(Difficulty::BareMinimum);
+                    self.needs_clear = true;
+                }
+                5 => {
+                    self.screen = AppScreen::PatternSelect { selected: 0 };
+                    self.needs_clear = true;
+                }
+                _ => {}
+            },
 
             // ── Back always goes to Start ────────────────────────────────────
             AppAction::Back => {
@@ -391,7 +430,9 @@ impl App {
         const COUNT: usize = crate::pattern::PATTERNS.len();
         match action {
             AppAction::MoveRight => {
-                self.screen = AppScreen::PatternSelect { selected: (selected + 1) % COUNT };
+                self.screen = AppScreen::PatternSelect {
+                    selected: (selected + 1) % COUNT,
+                };
                 self.needs_clear = true;
             }
             AppAction::MoveLeft => {
@@ -405,7 +446,10 @@ impl App {
                 self.start_generating(pattern, false);
             }
             AppAction::Back => {
-                self.screen = AppScreen::DifficultySelect { selected: 5, sym_focused: false };
+                self.screen = AppScreen::DifficultySelect {
+                    selected: 5,
+                    sym_focused: false,
+                };
                 self.needs_clear = true;
             }
             _ => {}
@@ -416,7 +460,8 @@ impl App {
         if matches!(action, AppAction::Back) {
             let (bare_minimum, from_cli, pat_selected) =
                 if let AppScreen::Generating(ref s) = self.screen {
-                    let idx = crate::pattern::PATTERNS.iter()
+                    let idx = crate::pattern::PATTERNS
+                        .iter()
                         .position(|p| p.name_en == s.pattern.name_en)
                         .unwrap_or(0);
                     (s.bare_minimum, s.from_cli, idx)
@@ -425,11 +470,19 @@ impl App {
                 };
             self.screen = if bare_minimum {
                 // BareMinimum: always go back to DifficultySelect at its index.
-                AppScreen::DifficultySelect { selected: 4, sym_focused: false }
+                AppScreen::DifficultySelect {
+                    selected: 4,
+                    sym_focused: false,
+                }
             } else if from_cli {
-                AppScreen::DifficultySelect { selected: 5, sym_focused: false }
+                AppScreen::DifficultySelect {
+                    selected: 5,
+                    sym_focused: false,
+                }
             } else {
-                AppScreen::PatternSelect { selected: pat_selected }
+                AppScreen::PatternSelect {
+                    selected: pat_selected,
+                }
             };
             self.needs_clear = true;
         }
@@ -461,6 +514,12 @@ impl App {
         self.drain_input = true;
         self.confirm_pending = None;
         self.boss_mode = false;
+        // Always disable mouse capture when starting a new game.
+        if self.mouse_mode {
+            let _ = crate::tui::terminal::disable_mouse_capture();
+        }
+        self.mouse_mode = false;
+        self.hover_cell = None;
         self.info_overlay = None;
         self.screen = AppScreen::Game;
         self.needs_clear = true;
@@ -534,8 +593,11 @@ impl App {
             AppAction::Enter => {
                 // Toggle between modes; clear any partial box selection on exit.
                 self.nav_state.mode = match self.nav_state.mode {
-                    NavMode::Input      => NavMode::Navigation,
-                    NavMode::Navigation => { self.nav_state.box_idx = None; NavMode::Input }
+                    NavMode::Input => NavMode::Navigation,
+                    NavMode::Navigation => {
+                        self.nav_state.box_idx = None;
+                        NavMode::Input
+                    }
                 };
             }
             AppAction::ToggleMode => {
@@ -543,14 +605,16 @@ impl App {
             }
             AppAction::ToggleScan => {
                 self.scan_mode = !self.scan_mode;
-                if self.scan_mode { self.stats.scan_used = true; }
+                if self.scan_mode {
+                    self.stats.scan_used = true;
+                }
             }
             AppAction::RequestHint => {
                 self.handle_hint_request();
             }
             AppAction::ToggleErrors => {
                 self.error_mode = !self.error_mode;
-                self.anim.error_blink      = self.error_mode;
+                self.anim.error_blink = self.error_mode;
                 self.anim.error_blink_tick = 0; // start in "visible" phase immediately
                 if self.error_mode {
                     // Switching ON: count all currently wrong filled cells not yet counted.
@@ -558,7 +622,9 @@ impl App {
                         for r in 0..9 {
                             for c in 0..9 {
                                 if let CellKind::Filled(d) = state.grid().get(r, c) {
-                                    let wrong = sol.get(r, c).value()
+                                    let wrong = sol
+                                        .get(r, c)
+                                        .value()
                                         .map(|correct| correct != d)
                                         .unwrap_or(false);
                                     if wrong && !self.revealed_errors.contains(&(r, c)) {
@@ -621,6 +687,34 @@ impl App {
                     state.redo();
                 }
             }
+            AppAction::ToggleMouseMode => {
+                self.mouse_mode = !self.mouse_mode;
+                self.hover_cell = None;
+                let _ = if self.mouse_mode {
+                    crate::tui::terminal::enable_mouse_capture()
+                } else {
+                    crate::tui::terminal::disable_mouse_capture()
+                };
+            }
+            AppAction::MouseHover(r, c) => {
+                self.hover_cell = Some((r, c));
+            }
+            AppAction::MouseSelectCell(r, c) => {
+                self.cursor = (r, c);
+                self.nav_state.mode = crate::tui::input::NavMode::Input;
+                self.nav_state.box_idx = None;
+            }
+            AppAction::MouseButton(btn) => {
+                use crate::tui::input::MousePanelButton;
+                let action = match btn {
+                    MousePanelButton::NotesSolToggle => AppAction::ToggleMode,
+                    MousePanelButton::Undo           => AppAction::Undo,
+                    MousePanelButton::Redo           => AppAction::Redo,
+                    MousePanelButton::Clear          => AppAction::ClearCell,
+                    MousePanelButton::Digit(d)       => AppAction::Digit(d),
+                };
+                self.handle_game_action(action);
+            }
             _ => {}
         }
     }
@@ -636,8 +730,14 @@ impl App {
 
         // ── Pre-check 1: incorrect filled digits ────────────────────────────────
         let has_errors = {
-            let state = match &self.game_state { Some(s) => s, None => return };
-            let solution = match &self.solution { Some(sol) => sol, None => return };
+            let state = match &self.game_state {
+                Some(s) => s,
+                None => return,
+            };
+            let solution = match &self.solution {
+                Some(sol) => sol,
+                None => return,
+            };
             let grid = state.grid();
             let mut found = false;
             'outer1: for r in 0..9 {
@@ -660,31 +760,54 @@ impl App {
 
         // ── Pre-check 2: incorrect notes ────────────────────────────────────────
         let has_wrong_notes = {
-            let state = match &self.game_state { Some(s) => s, None => return };
+            let state = match &self.game_state {
+                Some(s) => s,
+                None => return,
+            };
             let grid = state.grid();
             let mut found = false;
             'outer2: for r in 0..9 {
                 for c in 0..9 {
-                    if !matches!(grid.get(r, c), crate::puzzle::CellKind::Empty) { continue; }
+                    if !matches!(grid.get(r, c), crate::puzzle::CellKind::Empty) {
+                        continue;
+                    }
                     let notes = state.notes_mask(r, c);
                     for d in 1u8..=9 {
-                        if notes & (1 << d) == 0 { continue; }
+                        if notes & (1 << d) == 0 {
+                            continue;
+                        }
                         // A note is wrong if d already appears in the same row, col, or box
                         // (i.e., d conflicts with an already-placed value).
                         let mut conflict = false;
-                        for cc in 0..9 { if grid.get(r, cc).value() == Some(d) { conflict = true; break; } }
+                        for cc in 0..9 {
+                            if grid.get(r, cc).value() == Some(d) {
+                                conflict = true;
+                                break;
+                            }
+                        }
                         if !conflict {
-                            for rr in 0..9 { if grid.get(rr, c).value() == Some(d) { conflict = true; break; } }
+                            for rr in 0..9 {
+                                if grid.get(rr, c).value() == Some(d) {
+                                    conflict = true;
+                                    break;
+                                }
+                            }
                         }
                         if !conflict {
                             let (br, bc) = (r / 3 * 3, c / 3 * 3);
                             'box_check: for dr in 0..3 {
                                 for dc in 0..3 {
-                                    if grid.get(br+dr, bc+dc).value() == Some(d) { conflict = true; break 'box_check; }
+                                    if grid.get(br + dr, bc + dc).value() == Some(d) {
+                                        conflict = true;
+                                        break 'box_check;
+                                    }
                                 }
                             }
                         }
-                        if conflict { found = true; break 'outer2; }
+                        if conflict {
+                            found = true;
+                            break 'outer2;
+                        }
                     }
                 }
             }
@@ -703,7 +826,9 @@ impl App {
         };
 
         // Puzzle already solved — no hint needed.
-        if state.grid().is_solved() { return; }
+        if state.grid().is_solved() {
+            return;
+        }
 
         // NotesHint is part of the registry, so find_hint() already handles the
         // "missing notes" case. If find_hint returns None, no strategy fired at all
@@ -728,7 +853,10 @@ impl App {
         use crate::hint;
         use crate::puzzle::GameEvent;
 
-        let state = match &self.game_state { Some(s) => s, None => return };
+        let state = match &self.game_state {
+            Some(s) => s,
+            None => return,
+        };
         let (row, col) = match hint::most_constrained_cell(state) {
             Some(c) => c,
             None => return,
@@ -759,13 +887,19 @@ impl App {
 
     fn handle_easter_egg(&mut self, egg: EasterEgg) {
         match egg {
-            EasterEgg::GodMode  => { self.stats.cheat_god_mode  = true; self.easter_god_mode();  }
-            EasterEgg::FillNotes => { self.stats.cheat_fill_notes = true; self.easter_fill_notes(); }
-            EasterEgg::Xyzzy    => self.set_overlay("Nothing happens."),
-            EasterEgg::Sudo     => self.set_overlay(
-                "user is not in the sudoers file. This incident will be reported."
-            ),
-            EasterEgg::Help     => self.set_overlay("This is not a text adventure."),
+            EasterEgg::GodMode => {
+                self.stats.cheat_god_mode = true;
+                self.easter_god_mode();
+            }
+            EasterEgg::FillNotes => {
+                self.stats.cheat_fill_notes = true;
+                self.easter_fill_notes();
+            }
+            EasterEgg::Xyzzy => self.set_overlay("Nothing happens."),
+            EasterEgg::Sudo => {
+                self.set_overlay("user is not in the sudoers file. This incident will be reported.")
+            }
+            EasterEgg::Help => self.set_overlay("This is not a text adventure."),
             EasterEgg::FortyTwo => self.set_overlay("42 — Life, the Universe, and Everything."),
             EasterEgg::KonamiCode => {
                 let seed = self.clock.now_ms();
@@ -810,53 +944,76 @@ impl App {
 
     /// `iddqd` — fill every non-given cell with the correct solution value.
     fn easter_god_mode(&mut self) {
-        let state = match &mut self.game_state { Some(s) => s, None => return };
+        let state = match &mut self.game_state {
+            Some(s) => s,
+            None => return,
+        };
         // Build a givens-only grid and solve it.
         use crate::puzzle::Grid;
         let mut given_grid = Grid::empty();
-        for r in 0..9 { for c in 0..9 {
-            if let CellKind::Given(v) = state.grid().get(r, c) {
-                given_grid.set_given(r, c, v);
+        for r in 0..9 {
+            for c in 0..9 {
+                if let CellKind::Given(v) = state.grid().get(r, c) {
+                    given_grid.set_given(r, c, v);
+                }
             }
-        }}
+        }
         if let Some(solution) = solve_backtracking(given_grid) {
             use crate::puzzle::GameEvent;
-            for r in 0..9 { for c in 0..9 {
-                if !matches!(state.grid().get(r, c), CellKind::Given(_)) {
-                    if let Some(v) = solution.get(r, c).value() {
-                        state.apply(GameEvent::SetDigit { row: r, col: c, digit: v });
+            for r in 0..9 {
+                for c in 0..9 {
+                    if !matches!(state.grid().get(r, c), CellKind::Given(_)) {
+                        if let Some(v) = solution.get(r, c).value() {
+                            state.apply(GameEvent::SetDigit {
+                                row: r,
+                                col: c,
+                                digit: v,
+                            });
+                        }
                     }
                 }
-            }}
+            }
         }
     }
 
     /// `idkfa` — set a single correct note in every empty cell.
     fn easter_fill_notes(&mut self) {
-        let state = match &mut self.game_state { Some(s) => s, None => return };
+        let state = match &mut self.game_state {
+            Some(s) => s,
+            None => return,
+        };
         // Compute all valid candidates for every empty cell using constraint propagation.
         let candidates = CandidateGrid::from_grid(state.grid());
         use crate::puzzle::GameEvent;
-        for r in 0..9 { for c in 0..9 {
-            if matches!(state.grid().get(r, c), CellKind::Empty) {
-                let mask = candidates.mask(r, c);
-                for digit in 1u8..=9 {
-                    if mask & (1 << digit) != 0 {
-                        // Only toggle on if not already set.
-                        if state.notes_mask(r, c) & (1 << digit) == 0 {
-                            state.apply(GameEvent::ToggleNote { row: r, col: c, digit });
+        for r in 0..9 {
+            for c in 0..9 {
+                if matches!(state.grid().get(r, c), CellKind::Empty) {
+                    let mask = candidates.mask(r, c);
+                    for digit in 1u8..=9 {
+                        if mask & (1 << digit) != 0 {
+                            // Only toggle on if not already set.
+                            if state.notes_mask(r, c) & (1 << digit) == 0 {
+                                state.apply(GameEvent::ToggleNote {
+                                    row: r,
+                                    col: c,
+                                    digit,
+                                });
+                            }
                         }
                     }
                 }
             }
-        }}
+        }
     }
 
     // ── Completion detection ──────────────────────────────────────────────────
 
     /// Call after every SetDigit to detect newly completed groups and trigger sweeps.
     fn check_completion(&mut self, changed_row: usize, changed_col: usize) {
-        let state = match &self.game_state { Some(s) => s, None => return };
+        let state = match &self.game_state {
+            Some(s) => s,
+            None => return,
+        };
         let grid = state.grid();
 
         let group_complete = |cells: &Vec<(usize, usize)>| -> bool {
@@ -864,7 +1021,9 @@ impl App {
             for &(r, c) in cells {
                 match grid.get(r, c).value() {
                     Some(v) if v >= 1 && v <= 9 => {
-                        if seen[v as usize] { return false; }
+                        if seen[v as usize] {
+                            return false;
+                        }
                         seen[v as usize] = true;
                     }
                     _ => return false,
@@ -876,9 +1035,9 @@ impl App {
         let box_idx = (changed_row / 3) * 3 + changed_col / 3;
         // Completion check uses reading-order cells; sweep uses direction-specific ordering.
         let groups = [
-            (row_cells(changed_row),        row_cells(changed_row)),
-            (col_cells(changed_col),        col_cells(changed_col)),
-            (box_cells(box_idx),            box_cells_serpentine(box_idx)),
+            (row_cells(changed_row), row_cells(changed_row)),
+            (col_cells(changed_col), col_cells(changed_col)),
+            (box_cells(box_idx), box_cells_serpentine(box_idx)),
         ];
         for (check_cells, sweep_cells) in &groups {
             if group_complete(check_cells) {
@@ -891,9 +1050,8 @@ impl App {
             self.anim.firework = Some(FireworkAnim::new());
         } else {
             // All cells filled but solution wrong → hint overlay (shown at most once).
-            let all_filled = (0..9).all(|r| {
-                (0..9).all(|c| !matches!(grid.get(r, c), CellKind::Empty))
-            });
+            let all_filled =
+                (0..9).all(|r| (0..9).all(|c| !matches!(grid.get(r, c), CellKind::Empty)));
             if all_filled && self.info_overlay.is_none() && !self.error_mode {
                 self.set_puzzle_error_overlay();
             }
@@ -915,20 +1073,30 @@ impl App {
             queue!(out, SetBackgroundColor(Color::Black), Clear(ClearType::All))?;
 
             let strings = self.language.strings();
-            let line1 = strings.resize_too_small
+            let line1 = strings
+                .resize_too_small
                 .replacen("{}", &cols.to_string(), 1)
                 .replacen("{}", &rows.to_string(), 1);
-            let line2 = strings.resize_required
+            let line2 = strings
+                .resize_required
                 .replacen("{}", &MIN_COLS.to_string(), 1)
                 .replacen("{}", &MIN_ROWS.to_string(), 1);
             let line3 = strings.resize_hint;
 
-            for (i, line) in [line1.as_str(), line2.as_str(), "", line3].iter().enumerate() {
+            for (i, line) in [line1.as_str(), line2.as_str(), "", line3]
+                .iter()
+                .enumerate()
+            {
                 let col = cols.saturating_sub(line.chars().count() as u16) / 2;
                 let row = rows.saturating_sub(4) / 2 + i as u16;
-                queue!(out,
+                queue!(
+                    out,
                     MoveTo(col, row),
-                    SetForegroundColor(if i == 3 { Color::DarkGrey } else { Color::White }),
+                    SetForegroundColor(if i == 3 {
+                        Color::DarkGrey
+                    } else {
+                        Color::White
+                    }),
                     Print(line)
                 )?;
             }
@@ -939,8 +1107,8 @@ impl App {
             match event::read()? {
                 Event::Key(key)
                     if key.kind == crossterm::event::KeyEventKind::Press
-                    && (key.code == crossterm::event::KeyCode::Esc
-                        || key.code == crossterm::event::KeyCode::Char('q')) =>
+                        && (key.code == crossterm::event::KeyCode::Esc
+                            || key.code == crossterm::event::KeyCode::Char('q')) =>
                 {
                     // Allow quitting even from the resize-wait screen.
                     // Propagate by returning an io::Error so run() exits cleanly.
@@ -966,7 +1134,11 @@ impl App {
         // Fill the entire screen with the background colour once at startup.
         // Subsequent frames overwrite content in place (no Clear per frame)
         // so there is no flicker, but unused terminal space stays black.
-        queue!(out, SetBackgroundColor(self.colors.ui_background), Clear(ClearType::All))?;
+        queue!(
+            out,
+            SetBackgroundColor(self.colors.ui_background),
+            Clear(ClearType::All)
+        )?;
         out.flush()?;
 
         loop {
@@ -1004,12 +1176,16 @@ impl App {
             };
             // Handle incoming messages.
             match gen_result {
-                Some(crate::tui::generating::GenMsg::BareMinimumProgress { done, total, best_count }) => {
+                Some(crate::tui::generating::GenMsg::BareMinimumProgress {
+                    done,
+                    total,
+                    best_count,
+                }) => {
                     if let AppScreen::Generating(ref mut gs) = self.screen {
-                        gs.bm_done       = done;
-                        gs.bm_total      = total;
+                        gs.bm_done = done;
+                        gs.bm_total = total;
                         gs.bm_best_count = best_count;
-                        gs.verb_pos      = done; // cycle verb with each attempt
+                        gs.verb_pos = done; // cycle verb with each attempt
                     }
                 }
                 Some(crate::tui::generating::GenMsg::Done(grid, difficulty)) => {
@@ -1035,7 +1211,7 @@ impl App {
                 50
             } else if matches!(self.screen, AppScreen::Generating(_)) {
                 50
-            } else if self.anim.is_active() {
+            } else if self.anim.is_active() || self.mouse_mode {
                 80
             } else {
                 500
@@ -1045,7 +1221,7 @@ impl App {
                 match event::read()? {
                     Event::Key(key)
                         if key.kind == crossterm::event::KeyEventKind::Press
-                        || key.kind == crossterm::event::KeyEventKind::Repeat =>
+                            || key.kind == crossterm::event::KeyEventKind::Repeat =>
                     {
                         // Active hint: any key dismisses it (key is consumed, not forwarded).
                         if self.active_hint.is_some() {
@@ -1064,14 +1240,18 @@ impl App {
                             // Feed raw char/direction to sequence detector (easter eggs).
                             let egg = match key.code {
                                 crossterm::event::KeyCode::Char(c) => self.seq.push(c),
-                                crossterm::event::KeyCode::Up    =>
-                                    self.seq.push_direction(crate::tui::seq_detect::Direction::Up),
-                                crossterm::event::KeyCode::Down  =>
-                                    self.seq.push_direction(crate::tui::seq_detect::Direction::Down),
-                                crossterm::event::KeyCode::Left  =>
-                                    self.seq.push_direction(crate::tui::seq_detect::Direction::Left),
-                                crossterm::event::KeyCode::Right =>
-                                    self.seq.push_direction(crate::tui::seq_detect::Direction::Right),
+                                crossterm::event::KeyCode::Up => self
+                                    .seq
+                                    .push_direction(crate::tui::seq_detect::Direction::Up),
+                                crossterm::event::KeyCode::Down => self
+                                    .seq
+                                    .push_direction(crate::tui::seq_detect::Direction::Down),
+                                crossterm::event::KeyCode::Left => self
+                                    .seq
+                                    .push_direction(crate::tui::seq_detect::Direction::Left),
+                                crossterm::event::KeyCode::Right => self
+                                    .seq
+                                    .push_direction(crate::tui::seq_detect::Direction::Right),
                                 _ => None,
                             };
                             if let Some(egg) = egg {
@@ -1079,6 +1259,35 @@ impl App {
                             }
                             let action = map_key_to_action(key, &self.nav_state);
                             self.handle_action(action);
+                        }
+                    }
+                    Event::Mouse(mouse_event)
+                        if matches!(self.screen, AppScreen::Game) && self.mouse_mode =>
+                    {
+                        use crate::tui::input::map_mouse_to_action;
+                        let action = map_mouse_to_action(mouse_event, true);
+                        match action {
+                            AppAction::MouseHover(r, c) => {
+                                // Pure hover: update position, no hint/warning dismissal.
+                                self.hover_cell = Some((r, c));
+                            }
+                            AppAction::MouseSelectCell(..) | AppAction::MouseButton(_) => {
+                                // Clicks behave like key presses for hint/overlay dismissal.
+                                if self.active_hint.is_some() {
+                                    self.active_hint = None;
+                                    self.anim.hint_blink = false;
+                                    self.needs_clear = true;
+                                } else if self.hint_warning.is_some() {
+                                    self.hint_warning = None;
+                                    self.needs_clear = true;
+                                } else if self.info_overlay.is_some() {
+                                    self.info_overlay = None;
+                                    self.needs_clear = true;
+                                } else {
+                                    self.handle_action(action);
+                                }
+                            }
+                            _ => {}
                         }
                     }
                     Event::Resize(cols, rows) => {
@@ -1127,7 +1336,11 @@ impl App {
 
     fn render_current(&mut self, out: &mut impl Write) -> io::Result<()> {
         if self.needs_clear {
-            queue!(out, SetBackgroundColor(self.colors.ui_background), Clear(ClearType::All))?;
+            queue!(
+                out,
+                SetBackgroundColor(self.colors.ui_background),
+                Clear(ClearType::All)
+            )?;
             self.needs_clear = false;
         }
 
@@ -1139,49 +1352,56 @@ impl App {
         let strings = self.language.strings();
 
         match &self.screen {
-            AppScreen::Start { selected } => {
-                render_frame(out, &Screen::Start { selected: *selected }, &self.colors, self.style.as_ref(), strings)
-            }
-            AppScreen::DifficultySelect { selected, sym_focused } => {
-                render_frame(
-                    out,
-                    &Screen::DifficultySelect {
-                        selected: *selected,
-                        sym_focused: *sym_focused,
-                        symmetry: self.symmetry,
-                    },
-                    &self.colors,
-                    self.style.as_ref(),
-                    strings,
-                )
-            }
-            AppScreen::LanguageSelect { selected } => {
-                render_frame(
-                    out,
-                    &Screen::LanguageSelect { selected: *selected },
-                    &self.colors,
-                    self.style.as_ref(),
-                    strings,
-                )
-            }
-            AppScreen::ThemeSelect { selected } => {
-                render_frame(
-                    out,
-                    &Screen::ThemeSelect { selected: *selected },
-                    &self.colors,
-                    self.style.as_ref(),
-                    strings,
-                )
-            }
-            AppScreen::PatternSelect { selected } => {
-                render_frame(
-                    out,
-                    &Screen::PatternSelect { selected: *selected },
-                    &self.colors,
-                    self.style.as_ref(),
-                    strings,
-                )
-            }
+            AppScreen::Start { selected } => render_frame(
+                out,
+                &Screen::Start {
+                    selected: *selected,
+                },
+                &self.colors,
+                self.style.as_ref(),
+                strings,
+            ),
+            AppScreen::DifficultySelect {
+                selected,
+                sym_focused,
+            } => render_frame(
+                out,
+                &Screen::DifficultySelect {
+                    selected: *selected,
+                    sym_focused: *sym_focused,
+                    symmetry: self.symmetry,
+                },
+                &self.colors,
+                self.style.as_ref(),
+                strings,
+            ),
+            AppScreen::LanguageSelect { selected } => render_frame(
+                out,
+                &Screen::LanguageSelect {
+                    selected: *selected,
+                },
+                &self.colors,
+                self.style.as_ref(),
+                strings,
+            ),
+            AppScreen::ThemeSelect { selected } => render_frame(
+                out,
+                &Screen::ThemeSelect {
+                    selected: *selected,
+                },
+                &self.colors,
+                self.style.as_ref(),
+                strings,
+            ),
+            AppScreen::PatternSelect { selected } => render_frame(
+                out,
+                &Screen::PatternSelect {
+                    selected: *selected,
+                },
+                &self.colors,
+                self.style.as_ref(),
+                strings,
+            ),
             AppScreen::Generating(ref gs) => {
                 let bare_minimum = if gs.bare_minimum {
                     Some((gs.bm_done, gs.bm_total, gs.bm_best_count))
@@ -1189,8 +1409,8 @@ impl App {
                     None
                 };
                 let screen = Screen::Generating {
-                    verb:          gs.current_verb(),
-                    countdown:     gs.countdown_secs(),
+                    verb: gs.current_verb(),
+                    countdown: gs.countdown_secs(),
                     show_new_seed: gs.show_new_seed,
                     bare_minimum,
                 };
@@ -1225,13 +1445,13 @@ impl App {
                         hint_warning: self.hint_warning,
                         hint_count: self.stats.hint_count,
                         matrix_mode: self.matrix_mode,
-                        mouse_mode: false,    // placeholder — replaced in Task 5
-                        hover_cell: None,     // placeholder — replaced in Task 5
+                        mouse_mode: self.mouse_mode,
+                        hover_cell: self.hover_cell,
                     };
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::QuitGame) => Screen::Confirm {
                             underneath: Box::new(game_screen()),
-                            title:   strings.confirm_quit_title.into(),
+                            title: strings.confirm_quit_title.into(),
                             options: strings.confirm_quit_options.into(),
                         },
                         None => game_screen(),
@@ -1248,7 +1468,10 @@ impl App {
         if matches!(self.screen, AppScreen::Game) {
             if let Some(rain) = &self.anim.matrix_rain {
                 crate::tui::render::matrix_rain::render_matrix_rain(
-                    out, (1, 2), rain, self.colors.ui_background,
+                    out,
+                    (1, 2),
+                    rain,
+                    self.colors.ui_background,
                 )?;
             }
         }
@@ -1334,7 +1557,7 @@ mod tests {
         let mut app = make_app();
         app.handle_action(AppAction::Enter);
         app.handle_action(AppAction::Enter);
-        app.handle_action(AppAction::Back);       // open confirm
+        app.handle_action(AppAction::Back); // open confirm
         app.handle_action(AppAction::ConfirmYes); // confirm → Start
         assert!(matches!(app.screen, AppScreen::Start { .. }));
         assert!(app.confirm_pending.is_none());
@@ -1345,8 +1568,8 @@ mod tests {
         let mut app = make_app();
         app.handle_action(AppAction::Enter);
         app.handle_action(AppAction::Enter);
-        app.handle_action(AppAction::Back);       // open confirm
-        app.handle_action(AppAction::ConfirmNo);  // dismiss → stay in game
+        app.handle_action(AppAction::Back); // open confirm
+        app.handle_action(AppAction::ConfirmNo); // dismiss → stay in game
         assert!(matches!(app.screen, AppScreen::Game));
         assert!(app.confirm_pending.is_none());
     }
@@ -1403,8 +1626,10 @@ mod tests {
         app.screen = AppScreen::Game;
         app.handle_action(AppAction::RequestHint);
         // Either a hint was found, or reveal was performed (hint_count > 0 either way)
-        assert!(app.stats.hint_count > 0 || app.active_hint.is_some(),
-                "RequestHint should produce some response");
+        assert!(
+            app.stats.hint_count > 0 || app.active_hint.is_some(),
+            "RequestHint should produce some response"
+        );
     }
 
     #[test]
@@ -1447,18 +1672,25 @@ mod tests {
             found.expect("no empty cell found")
         };
 
-        app.game_state.as_mut().unwrap().apply(
-            crate::puzzle::event::GameEvent::SetDigit {
-                row: wrong_r, col: wrong_c, digit: wrong_digit,
-            }
-        );
+        app.game_state
+            .as_mut()
+            .unwrap()
+            .apply(crate::puzzle::event::GameEvent::SetDigit {
+                row: wrong_r,
+                col: wrong_c,
+                digit: wrong_digit,
+            });
 
         let hint_count_before = app.stats.hint_count;
         app.handle_action(crate::tui::input::AppAction::RequestHint);
 
         assert!(app.hint_warning.is_some(), "hint_warning should be set");
         assert!(app.active_hint.is_none(), "active_hint should NOT be set");
-        assert_eq!(app.stats.hint_count, hint_count_before + 1, "hint_count should increment");
+        assert_eq!(
+            app.stats.hint_count,
+            hint_count_before + 1,
+            "hint_count should increment"
+        );
     }
 
     #[test]
@@ -1471,10 +1703,68 @@ mod tests {
     }
 
     #[test]
+    fn m_key_toggles_mouse_mode() {
+        let mut app = make_app();
+        // Navigate to game
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        assert!(matches!(app.screen, AppScreen::Game));
+        assert!(!app.mouse_mode);
+        // Toggle on
+        app.handle_action(AppAction::ToggleMouseMode);
+        assert!(app.mouse_mode);
+        assert!(app.hover_cell.is_none());
+        // Toggle off
+        app.handle_action(AppAction::ToggleMouseMode);
+        assert!(!app.mouse_mode);
+        assert!(app.hover_cell.is_none());
+    }
+
+    #[test]
+    fn mouse_hover_updates_hover_cell() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::ToggleMouseMode);
+        app.handle_action(AppAction::MouseHover(3, 5));
+        assert_eq!(app.hover_cell, Some((3, 5)));
+        // Hover elsewhere
+        app.handle_action(AppAction::MouseHover(0, 0));
+        assert_eq!(app.hover_cell, Some((0, 0)));
+    }
+
+    #[test]
+    fn mouse_select_moves_cursor() {
+        let mut app = make_app();
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::ToggleMouseMode);
+        app.handle_action(AppAction::MouseSelectCell(4, 7));
+        assert_eq!(app.cursor, (4, 7));
+    }
+
+    #[test]
+    fn enter_game_resets_mouse_mode() {
+        use crate::timer::FakeClock;
+        let mut app = App::new(Box::new(FakeClock { ms: 1000 }));
+        // Manually force mouse_mode true without IO (simulates prior activation)
+        app.mouse_mode = true;
+        app.hover_cell = Some((2, 3));
+        // Start a game — should reset mouse state
+        app.handle_action(AppAction::Enter);
+        app.handle_action(AppAction::Enter);
+        assert!(!app.mouse_mode);
+        assert!(app.hover_cell.is_none());
+    }
+
+    #[test]
     fn selecting_designer_from_difficulty_goes_to_pattern_select() {
         use crate::timer::SystemClock;
         let mut app = App::new(Box::new(SystemClock));
-        app.screen = AppScreen::DifficultySelect { selected: 0, sym_focused: false };
+        app.screen = AppScreen::DifficultySelect {
+            selected: 0,
+            sym_focused: false,
+        };
         for _ in 0..5 {
             app.handle_action(AppAction::MoveDown);
         }
@@ -1488,7 +1778,10 @@ mod tests {
         let mut app = App::new(Box::new(SystemClock));
         app.screen = AppScreen::PatternSelect { selected: 0 };
         app.handle_action(AppAction::MoveLeft);
-        assert!(matches!(app.screen, AppScreen::PatternSelect { selected: 29 }));
+        assert!(matches!(
+            app.screen,
+            AppScreen::PatternSelect { selected: 29 }
+        ));
     }
 
     #[test]
