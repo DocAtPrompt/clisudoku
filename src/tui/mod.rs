@@ -570,7 +570,8 @@ impl App {
                         // Count errors when error display is active and digit is wrong.
                         if self.error_mode && !self.note_mode {
                             if let Some(sol) = &self.solution {
-                                if matches!(state.grid().get(row, col), CellKind::Empty)
+                                if !matches!(state.grid().get(row, col), CellKind::Given(_))
+                                    && !self.revealed_errors.contains(&(row, col))
                                     && sol.get(row, col).value() != Some(d)
                                 {
                                     self.stats.errors_shown += 1;

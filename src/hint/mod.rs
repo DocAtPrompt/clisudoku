@@ -44,15 +44,33 @@ pub trait Strategy: Send + Sync {
 /// or `None` if no strategy applies (Reveal is handled by the caller).
 pub fn find_hint(state: &GameState, solution: &Grid) -> Option<Hint> {
     use strategies::tier1::*;
+    use strategies::tier2::*;
     let strategies: &[&dyn Strategy] = &[
+        // Tier 1 — basic logic
         &FullHouse,
         &NakedSingle,
         &HiddenSingle,
         &NotesHint,
+        &NotesValidator,
         &NakedPairs,
         &HiddenPairs,
         &PointingPairs,
         &BoxLineReduction,
+        // Tier 2 — advanced eliminations
+        &NakedTriples,
+        &HiddenTriples,
+        &NakedQuads,
+        &HiddenQuads,
+        &XWing,
+        &Swordfish,
+        &Jellyfish,
+        &Skyscraper,
+        &TwoStringKite,
+        &YWing,
+        &XYZWing,
+        &WWing,
+        &UniqueRectangle,
+        &BugPlusOne,
     ];
     for s in strategies {
         if let Some(h) = s.find(state, solution) {
