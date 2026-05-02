@@ -63,6 +63,8 @@ pub struct Strings {
     pub ctrl_quit:             &'static str,
     /// Hint key control label.
     pub ctrl_hint: &'static str,
+    /// Mouse mode toggle control label (≤ 34 chars).
+    pub ctrl_mouse: &'static str,
 
     /// Fourth option on the difficulty select screen.
     pub difficulty_designer:   &'static str,
@@ -291,6 +293,7 @@ pub static EN: Strings = Strings {
     ctrl_boss:            "  b      boss key",
     ctrl_quit:            "  Esc    quit",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      mouse on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -370,6 +373,7 @@ pub static DE: Strings = Strings {
     ctrl_boss:            "  b      Tarnmodus",
     ctrl_quit:            "  Esc    Beenden",
     ctrl_hint:                   "  h      Hinweis",
+    ctrl_mouse:           "  m      Maus an/aus",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Zuerst Fehler korrigieren.",
@@ -449,6 +453,7 @@ pub static ES: Strings = Strings {
     ctrl_boss:            "  b      pantalla",
     ctrl_quit:            "  Esc    salir",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      ratón on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -528,6 +533,7 @@ pub static IT: Strings = Strings {
     ctrl_boss:            "  b      schermo",
     ctrl_quit:            "  Esc    esci",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      mouse on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -607,6 +613,7 @@ pub static FR: Strings = Strings {
     ctrl_boss:            "  b      patron",
     ctrl_quit:            "  Esc    quitter",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      souris on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -686,6 +693,7 @@ pub static SL: Strings = Strings {
     ctrl_boss:            "  b      \u{161}ef",
     ctrl_quit:            "  Esc    izhod",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      miška on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -765,6 +773,7 @@ pub static EO: Strings = Strings {
     ctrl_boss:            "  b      ka\u{15d}modo",
     ctrl_quit:            "  Esc    eliri",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      muso on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -844,6 +853,7 @@ pub static TP: Strings = Strings {
     ctrl_boss:            "  b      len",
     ctrl_quit:            "  Esc    pini",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      luka on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -923,6 +933,7 @@ pub static LEET: Strings = Strings {
     ctrl_boss:            "  b      b0ss k3y",
     ctrl_quit:            "  Esc    qu1t",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      m0u53 on/0ff",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -1002,6 +1013,7 @@ pub static SW: Strings = Strings {
     ctrl_boss:            "  b      ficha",
     ctrl_quit:            "  Esc    toka",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      panya on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -1081,6 +1093,7 @@ pub static AF: Strings = Strings {
     ctrl_boss:            "  b      baas",
     ctrl_quit:            "  Esc    verlaat",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      muis aan/af",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -1161,6 +1174,7 @@ pub static PY: Strings = Strings {
     ctrl_boss:            "  b      y\u{1d0}nc\u{e1}ng",
     ctrl_quit:            "  Esc    tu\u{ec}ch\u{16b}",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      shubiao on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -1240,6 +1254,7 @@ pub static ID: Strings = Strings {
     ctrl_boss:            "  b      kunci bos",
     ctrl_quit:            "  Esc    keluar",
     ctrl_hint:                   "  h      hint",
+    ctrl_mouse:           "  m      mouse on/off",
     difficulty_designer:  "Designer \u{25b6}",
     designer_title:       "Designer Sudoku",
     hint_has_errors:      "Fix your errors first.",
@@ -1396,6 +1411,14 @@ mod tests {
         assert!(!DE.hint_naked_single_name.is_empty());
         assert!(!DE.hint_naked_single_explain.is_empty());
         assert!(!EN.ctrl_hint.is_empty());
+    }
+
+    #[test]
+    fn ctrl_mouse_is_present_in_all_languages() {
+        let langs: &[&Strings] = &[&EN, &DE, &ES, &IT, &FR, &SL, &EO, &TP, &LEET, &SW, &AF, &PY, &ID];
+        for s in langs {
+            assert!(!s.ctrl_mouse.is_empty());
+        }
     }
 
     /// Every language index must round-trip through from_index / as_index.
