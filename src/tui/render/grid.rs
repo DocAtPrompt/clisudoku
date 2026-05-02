@@ -157,6 +157,7 @@ fn cell_bg(
     row: usize,
     col: usize,
     cursor: (usize, usize),
+    hover_cell: Option<(usize, usize)>,
     nav: &NavState,
     hint: Option<&crate::hint::Hint>,
     anim: &AnimState,
@@ -182,6 +183,15 @@ fn cell_bg(
             None => {}
         }
     }
+
+    // Hover highlight: DarkYellow, distinct from cursor (Blue).
+    // Cursor takes priority — checked after hints, before nav mode highlights.
+    if let Some(hc) = hover_cell {
+        if hc == (row, col) && cursor != (row, col) {
+            return Color::DarkYellow;
+        }
+    }
+
     match (&nav.mode, nav.box_idx) {
         (NavMode::Navigation, None) => {
             // Stage 1: whole grid is the "selection pending" hint
@@ -233,7 +243,6 @@ pub fn render_grid(
     hover_cell: Option<(usize, usize)>,
 ) -> io::Result<()> {
     let _ = note_mode; // reserved for future cursor highlight differentiation
-    let _ = hover_cell; // placeholder — implemented in Task 6
     let overlay_bg = Color::DarkGrey;
 
     // ── Top border ──────────────────────────────────────────────────────────
@@ -323,7 +332,7 @@ pub fn render_grid(
                             (CellKind::Empty, _) if notes_mask != 0 => (c_note, None, false),
                             _ => (colors.grid_cell, None, false),
                         };
-                        let bg = cell_bg(row, col, cursor, nav, hint, anim, colors);
+                        let bg = cell_bg(row, col, cursor, hover_cell, nav, hint, anim, colors);
                         // Ensure readable contrast: use dark text on the yellow hint
                         // background so digits don't disappear against the highlight.
                         let on_hint_yellow = hint.and_then(|h| hint_role(row, col, h)).is_some()
@@ -635,15 +644,15 @@ mod tests {
         let colors = ColorScheme::default();
         let anim = AnimState::default();
         assert_eq!(
-            cell_bg(0, 0, (4, 4), &nav_grid(), None, &anim, &colors),
+            cell_bg(0, 0, (4, 4), None, &nav_grid(), None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(8, 8, (4, 4), &nav_grid(), None, &anim, &colors),
+            cell_bg(8, 8, (4, 4), None, &nav_grid(), None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(4, 4, (4, 4), &nav_grid(), None, &anim, &colors),
+            cell_bg(4, 4, (4, 4), None, &nav_grid(), None, &anim, &colors),
             colors.cell_active_bg
         );
     }
@@ -656,49 +665,49 @@ mod tests {
         // Numpad '5' (idx 4) = center box → reading-order box 4 → rows 3-5, cols 3-5
         let nav = nav_box(4);
         assert_eq!(
-            cell_bg(3, 3, (0, 0), &nav, None, &anim, &colors),
+            cell_bg(3, 3, (0, 0), None, &nav, None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(5, 5, (0, 0), &nav, None, &anim, &colors),
+            cell_bg(5, 5, (0, 0), None, &nav, None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(0, 0, (0, 0), &nav, None, &anim, &colors),
+            cell_bg(0, 0, (0, 0), None, &nav, None, &anim, &colors),
             colors.cell_normal_bg
         );
         assert_eq!(
-            cell_bg(8, 8, (0, 0), &nav, None, &anim, &colors),
+            cell_bg(8, 8, (0, 0), None, &nav, None, &anim, &colors),
             colors.cell_normal_bg
         );
 
         // Numpad '9' (idx 8) → reading-order box 2 → top-right → rows 0-2, cols 6-8
         let nav9 = nav_box(8);
         assert_eq!(
-            cell_bg(0, 6, (0, 0), &nav9, None, &anim, &colors),
+            cell_bg(0, 6, (0, 0), None, &nav9, None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(2, 8, (0, 0), &nav9, None, &anim, &colors),
+            cell_bg(2, 8, (0, 0), None, &nav9, None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(6, 6, (0, 0), &nav9, None, &anim, &colors),
+            cell_bg(6, 6, (0, 0), None, &nav9, None, &anim, &colors),
             colors.cell_normal_bg
         );
 
         // Numpad '1' (idx 0) → reading-order box 6 → bottom-left → rows 6-8, cols 0-2
         let nav1 = nav_box(0);
         assert_eq!(
-            cell_bg(6, 0, (0, 0), &nav1, None, &anim, &colors),
+            cell_bg(6, 0, (0, 0), None, &nav1, None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(8, 2, (0, 0), &nav1, None, &anim, &colors),
+            cell_bg(8, 2, (0, 0), None, &nav1, None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(0, 0, (0, 0), &nav1, None, &anim, &colors),
+            cell_bg(0, 0, (0, 0), None, &nav1, None, &anim, &colors),
             colors.cell_normal_bg
         );
     }
@@ -709,11 +718,11 @@ mod tests {
         let anim = AnimState::default();
         let nav = nav_input();
         assert_eq!(
-            cell_bg(4, 4, (4, 4), &nav, None, &anim, &colors),
+            cell_bg(4, 4, (4, 4), None, &nav, None, &anim, &colors),
             colors.cell_active_bg
         );
         assert_eq!(
-            cell_bg(0, 0, (4, 4), &nav, None, &anim, &colors),
+            cell_bg(0, 0, (4, 4), None, &nav, None, &anim, &colors),
             colors.cell_normal_bg
         );
     }
