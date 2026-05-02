@@ -190,8 +190,10 @@ pub fn render_grid(
     colors: &ColorScheme,
     style: &dyn DigitStyle,
     matrix_mode: bool,
+    hover_cell: Option<(usize, usize)>,
 ) -> io::Result<()> {
     let _ = note_mode; // reserved for future cursor highlight differentiation
+    let _ = hover_cell;
     let overlay_bg = Color::DarkGrey;
 
     // ── Top border ──────────────────────────────────────────────────────────
@@ -417,7 +419,7 @@ mod tests {
     fn grid_render_contains_outer_border_chars() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false, None)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('╔'));
@@ -430,7 +432,7 @@ mod tests {
     fn grid_render_contains_box_separators() {
         let state = empty_state();
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false)
+        render_grid(&mut buf, (0, 0), &state, (0, 0), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false, None)
             .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('┃'));
@@ -445,7 +447,7 @@ mod tests {
         ).unwrap();
         let state = GameState::new(grid);
         let mut buf = Vec::new();
-        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false)
+        render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(), &AnimState::default(), None, false, None, None, &ColorScheme::default(), &RetroStyle, false, None)
             .unwrap();
         assert!(!buf.is_empty());
     }
@@ -513,7 +515,7 @@ mod tests {
         let mut buf = Vec::new();
         render_grid(&mut buf, (0, 0), &state, (4, 4), false, false, &nav_input(),
                     &AnimState::default(), None, false, None, Some(&hint),
-                    &ColorScheme::default(), &RetroStyle, false).unwrap();
+                    &ColorScheme::default(), &RetroStyle, false, None).unwrap();
         assert!(!buf.is_empty());
     }
 }

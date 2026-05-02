@@ -55,6 +55,11 @@ pub enum Screen<'a> {
         hint_count: u32,
         /// Matrix Mode active — digits rendered in Matrix green.
         matrix_mode: bool,
+        /// Whether mouse input mode is active.
+        mouse_mode: bool,
+        /// Grid cell currently under the mouse cursor; `None` when mouse mode
+        /// is off, game is paused, or no hover event received yet.
+        hover_cell: Option<(usize, usize)>,
     },
     PatternSelect { selected: usize },
     Generating {
@@ -106,8 +111,10 @@ pub fn render_frame(
                 out, verb, *countdown, *show_new_seed, *bare_minimum, strings, colors,
             )?;
         }
-        Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count, matrix_mode } => {
-            grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, anim, *scan_digit, *error_mode, *solution, *hint, colors, style, *matrix_mode)?;
+        Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count, matrix_mode, mouse_mode, hover_cell } => {
+            // Suppress hover highlight while paused.
+                let effective_hover = if *paused { None } else { *hover_cell };
+                grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, anim, *scan_digit, *error_mode, *solution, *hint, colors, style, *matrix_mode, effective_hover)?;
             // Count filled cells and per-digit placements for the panel display.
             let mut digit_counts = [0u8; 10];
             let mut filled_count = 0u8;
@@ -132,7 +139,7 @@ pub fn render_frame(
                     }
                 })
             };
-            status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, *scan_mode, *error_mode, *errors_shown, filled_count, digit_counts, *scan_digit, colors, strings, *hint_count, hint_text)?;
+            status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, *scan_mode, *error_mode, *errors_shown, filled_count, digit_counts, *scan_digit, colors, strings, *hint_count, hint_text, *mouse_mode)?;
             if *paused {
                 render_paused_overlay(out, strings.resume_hint, colors)?;
             }

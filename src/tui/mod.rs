@@ -1225,6 +1225,8 @@ impl App {
                         hint_warning: self.hint_warning,
                         hint_count: self.stats.hint_count,
                         matrix_mode: self.matrix_mode,
+                        mouse_mode: false,    // placeholder — replaced in Task 5
+                        hover_cell: None,     // placeholder — replaced in Task 5
                     };
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::QuitGame) => Screen::Confirm {
