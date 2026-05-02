@@ -1,8 +1,6 @@
 // src/hint/strategies/tier2.rs
 //
-// Tier-2 hint strategies: Naked Triples, X-Wing, Swordfish.
-// All three work exclusively from the player's notes masks — the same
-// source of truth as the Tier-1 pair strategies.
+// Tier-2 hint strategies: advanced eliminations and uniqueness techniques.
 
 use crate::hint::{Hint, Strategy};
 use crate::puzzle::{CellKind, Grid};
@@ -11,11 +9,19 @@ use crate::puzzle::game_state::GameState;
 // ── Public strategy structs ───────────────────────────────────────────────────
 
 pub struct NakedTriples;
+pub struct HiddenTriples;
+pub struct NakedQuads;
+pub struct HiddenQuads;
 pub struct XWing;
 pub struct Swordfish;
-pub struct HiddenTriples;
+pub struct Jellyfish;
+pub struct Skyscraper;
+pub struct TwoStringKite;
 pub struct YWing;
+pub struct XYZWing;
+pub struct WWing;
 pub struct UniqueRectangle;
+pub struct BugPlusOne;
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -631,6 +637,728 @@ impl Strategy for UniqueRectangle {
     }
 }
 
+// ── Naked Quads ───────────────────────────────────────────────────────────────
+
+impl Strategy for NakedQuads {
+    fn name_en(&self) -> &'static str { "Naked Quads" }
+    fn name_de(&self) -> &'static str { "Naked Quads" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for unit in all_units() {
+            let small: Vec<(usize, usize, u16)> = unit.iter()
+                .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
+                .filter_map(|&(r, c)| {
+                    let m = state.notes_mask(r, c);
+                    let n = m.count_ones();
+                    if n >= 2 && n <= 4 { Some((r, c, m)) } else { None }
+                })
+                .collect();
+
+            for i in 0..small.len() {
+                for j in (i + 1)..small.len() {
+                    for k in (j + 1)..small.len() {
+                        for l in (k + 1)..small.len() {
+                            let combined =
+                                small[i].2 | small[j].2 | small[k].2 | small[l].2;
+                            if combined.count_ones() != 4 { continue; }
+                            let quad = [
+                                (small[i].0, small[i].1),
+                                (small[j].0, small[j].1),
+                                (small[k].0, small[k].1),
+                                (small[l].0, small[l].1),
+                            ];
+                            let digits: Vec<u8> = (1u8..=9)
+                                .filter(|&d| combined & (1 << d) != 0)
+                                .collect();
+                            let elim: Vec<(usize, usize)> = unit.iter()
+                                .filter(|&&(r, c)| {
+                                    !quad.contains(&(r, c))
+                                        && matches!(grid.get(r, c), CellKind::Empty)
+                                        && (state.notes_mask(r, c) & combined) != 0
+                                })
+                                .copied()
+                                .collect();
+                            if elim.is_empty() { continue; }
+                            let (d1, d2, d3, d4) =
+                                (digits[0], digits[1], digits[2], digits[3]);
+                            return Some(Hint {
+                                cause_cells:    quad.to_vec(),
+                                elim_cells:     elim.clone(),
+                                target_cell:    elim[0],
+                                elim_digit:     Some(d1),
+                                target_digit:   None,
+                                name_en:        self.name_en(),
+                                name_de:        self.name_de(),
+                                explanation_en: format!(
+                                    "These 4 cells hold only {}/{}/{}/{}. Remove those digits from notes in highlighted cells.",
+                                    d1, d2, d3, d4
+                                ),
+                                explanation_de: format!(
+                                    "Diese 4 Zellen enthalten nur {}/{}/{}/{}. Diese Ziffern aus den markierten Zellen streichen.",
+                                    d1, d2, d3, d4
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── Hidden Quads ──────────────────────────────────────────────────────────────
+
+impl Strategy for HiddenQuads {
+    fn name_en(&self) -> &'static str { "Hidden Quads" }
+    fn name_de(&self) -> &'static str { "Hidden Quads" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for unit in all_units() {
+            let empties: Vec<(usize, usize)> = unit.iter()
+                .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
+                .copied()
+                .collect();
+            for d1 in 1u8..=9 {
+                for d2 in (d1 + 1)..=9 {
+                    for d3 in (d2 + 1)..=9 {
+                        for d4 in (d3 + 1)..=9 {
+                            let mask = (1u16 << d1) | (1u16 << d2)
+                                | (1u16 << d3) | (1u16 << d4);
+                            let quad_cells: Vec<(usize, usize)> = empties.iter()
+                                .filter(|&&(r, c)| (state.notes_mask(r, c) & mask) != 0)
+                                .copied()
+                                .collect();
+                            if quad_cells.len() != 4 { continue; }
+                            let combined: u16 = quad_cells.iter()
+                                .fold(0u16, |acc, &(r, c)| acc | state.notes_mask(r, c));
+                            if (combined & mask) != mask { continue; }
+                            let elim: Vec<(usize, usize)> = quad_cells.iter()
+                                .filter(|&&(r, c)| (state.notes_mask(r, c) & !mask) != 0)
+                                .copied()
+                                .collect();
+                            if elim.is_empty() { continue; }
+                            let target = elim[0];
+                            return Some(Hint {
+                                cause_cells:    quad_cells,
+                                elim_cells:     elim,
+                                target_cell:    target,
+                                elim_digit:     Some(d1),
+                                target_digit:   None,
+                                name_en:        self.name_en(),
+                                name_de:        self.name_de(),
+                                explanation_en: format!(
+                                    "Only these cells can hold {}/{}/{}/{}. Remove other notes from highlighted cells.",
+                                    d1, d2, d3, d4
+                                ),
+                                explanation_de: format!(
+                                    "Nur diese Zellen k\u{f6}nnen {}/{}/{}/{} halten. Andere Notizen aus den markierten Zellen streichen.",
+                                    d1, d2, d3, d4
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── Jellyfish ─────────────────────────────────────────────────────────────────
+
+impl Strategy for Jellyfish {
+    fn name_en(&self) -> &'static str { "Jellyfish" }
+    fn name_de(&self) -> &'static str { "Jellyfish" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for digit in 1u8..=9 {
+            // ── Row-based Jellyfish ───────────────────────────────────────────
+            let row_cols: Vec<Vec<usize>> = (0..9)
+                .map(|r| {
+                    (0..9)
+                        .filter(|&c| {
+                            matches!(grid.get(r, c), CellKind::Empty)
+                                && (state.notes_mask(r, c) & (1 << digit)) != 0
+                        })
+                        .collect()
+                })
+                .collect();
+            let cand_rows: Vec<usize> = (0..9)
+                .filter(|&r| { let n = row_cols[r].len(); n >= 2 && n <= 4 })
+                .collect();
+            for i in 0..cand_rows.len() {
+                for j in (i + 1)..cand_rows.len() {
+                    for k in (j + 1)..cand_rows.len() {
+                        for l in (k + 1)..cand_rows.len() {
+                            let (r1, r2, r3, r4) = (
+                                cand_rows[i], cand_rows[j], cand_rows[k], cand_rows[l],
+                            );
+                            let mut cols = std::collections::BTreeSet::new();
+                            for &c in &row_cols[r1] { cols.insert(c); }
+                            for &c in &row_cols[r2] { cols.insert(c); }
+                            for &c in &row_cols[r3] { cols.insert(c); }
+                            for &c in &row_cols[r4] { cols.insert(c); }
+                            if cols.len() != 4 { continue; }
+                            let cause: Vec<(usize, usize)> = [r1, r2, r3, r4].iter()
+                                .flat_map(|&r| row_cols[r].iter().map(move |&c| (r, c)))
+                                .collect();
+                            let elim: Vec<(usize, usize)> = cols.iter()
+                                .flat_map(|&c| (0..9).map(move |r| (r, c)))
+                                .filter(|&(r, c)| {
+                                    r != r1 && r != r2 && r != r3 && r != r4
+                                        && matches!(grid.get(r, c), CellKind::Empty)
+                                        && (state.notes_mask(r, c) & (1 << digit)) != 0
+                                })
+                                .collect();
+                            if elim.is_empty() { continue; }
+                            return Some(Hint {
+                                cause_cells:    cause,
+                                elim_cells:     elim.clone(),
+                                target_cell:    elim[0],
+                                elim_digit:     Some(digit),
+                                target_digit:   None,
+                                name_en:        self.name_en(),
+                                name_de:        self.name_de(),
+                                explanation_en: format!(
+                                    "{} is locked in 4 rows across 4 columns. Remove {} from notes in highlighted cells.",
+                                    digit, digit
+                                ),
+                                explanation_de: format!(
+                                    "{} ist in 4 Zeilen auf 4 Spalten eingeschr\u{e4}nkt. {} aus den markierten Zellen streichen.",
+                                    digit, digit
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+
+            // ── Column-based Jellyfish ────────────────────────────────────────
+            let col_rows: Vec<Vec<usize>> = (0..9)
+                .map(|c| {
+                    (0..9)
+                        .filter(|&r| {
+                            matches!(grid.get(r, c), CellKind::Empty)
+                                && (state.notes_mask(r, c) & (1 << digit)) != 0
+                        })
+                        .collect()
+                })
+                .collect();
+            let cand_cols: Vec<usize> = (0..9)
+                .filter(|&c| { let n = col_rows[c].len(); n >= 2 && n <= 4 })
+                .collect();
+            for i in 0..cand_cols.len() {
+                for j in (i + 1)..cand_cols.len() {
+                    for k in (j + 1)..cand_cols.len() {
+                        for l in (k + 1)..cand_cols.len() {
+                            let (c1, c2, c3, c4) = (
+                                cand_cols[i], cand_cols[j], cand_cols[k], cand_cols[l],
+                            );
+                            let mut rows = std::collections::BTreeSet::new();
+                            for &r in &col_rows[c1] { rows.insert(r); }
+                            for &r in &col_rows[c2] { rows.insert(r); }
+                            for &r in &col_rows[c3] { rows.insert(r); }
+                            for &r in &col_rows[c4] { rows.insert(r); }
+                            if rows.len() != 4 { continue; }
+                            let cause: Vec<(usize, usize)> = [c1, c2, c3, c4].iter()
+                                .flat_map(|&c| col_rows[c].iter().map(move |&r| (r, c)))
+                                .collect();
+                            let elim: Vec<(usize, usize)> = rows.iter()
+                                .flat_map(|&r| (0..9).map(move |c| (r, c)))
+                                .filter(|&(r, c)| {
+                                    c != c1 && c != c2 && c != c3 && c != c4
+                                        && matches!(grid.get(r, c), CellKind::Empty)
+                                        && (state.notes_mask(r, c) & (1 << digit)) != 0
+                                })
+                                .collect();
+                            if elim.is_empty() { continue; }
+                            return Some(Hint {
+                                cause_cells:    cause,
+                                elim_cells:     elim.clone(),
+                                target_cell:    elim[0],
+                                elim_digit:     Some(digit),
+                                target_digit:   None,
+                                name_en:        self.name_en(),
+                                name_de:        self.name_de(),
+                                explanation_en: format!(
+                                    "{} is locked in 4 columns across 4 rows. Remove {} from notes in highlighted cells.",
+                                    digit, digit
+                                ),
+                                explanation_de: format!(
+                                    "{} ist in 4 Spalten auf 4 Zeilen eingeschr\u{e4}nkt. {} aus den markierten Zellen streichen.",
+                                    digit, digit
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── Skyscraper ────────────────────────────────────────────────────────────────
+
+impl Strategy for Skyscraper {
+    fn name_en(&self) -> &'static str { "Skyscraper" }
+    fn name_de(&self) -> &'static str { "Skyscraper" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for digit in 1u8..=9 {
+            // ── Row-based Skyscraper ──────────────────────────────────────────
+            let row_cols: Vec<Vec<usize>> = (0..9)
+                .map(|r| {
+                    (0..9)
+                        .filter(|&c| {
+                            matches!(grid.get(r, c), CellKind::Empty)
+                                && (state.notes_mask(r, c) & (1 << digit)) != 0
+                        })
+                        .collect()
+                })
+                .collect();
+            for r1 in 0..9 {
+                if row_cols[r1].len() != 2 { continue; }
+                for r2 in (r1 + 1)..9 {
+                    if row_cols[r2].len() != 2 { continue; }
+                    let shared: Vec<usize> = row_cols[r1].iter()
+                        .filter(|c| row_cols[r2].contains(c))
+                        .copied()
+                        .collect();
+                    if shared.len() != 1 { continue; }
+                    let c_shared = shared[0];
+                    let ca = *row_cols[r1].iter().find(|&&c| c != c_shared).unwrap();
+                    let cb = *row_cols[r2].iter().find(|&&c| c != c_shared).unwrap();
+                    let cause = vec![(r1, c_shared), (r1, ca), (r2, c_shared), (r2, cb)];
+                    let elim: Vec<(usize, usize)> = (0..9)
+                        .flat_map(|r| (0..9).map(move |c| (r, c)))
+                        .filter(|&(r, c)| {
+                            (r, c) != (r1, ca) && (r, c) != (r2, cb)
+                                && sees(r, c, r1, ca) && sees(r, c, r2, cb)
+                                && matches!(grid.get(r, c), CellKind::Empty)
+                                && (state.notes_mask(r, c) & (1 << digit)) != 0
+                        })
+                        .collect();
+                    if elim.is_empty() { continue; }
+                    return Some(Hint {
+                        cause_cells:    cause,
+                        elim_cells:     elim.clone(),
+                        target_cell:    elim[0],
+                        elim_digit:     Some(digit),
+                        target_digit:   None,
+                        name_en:        self.name_en(),
+                        name_de:        self.name_de(),
+                        explanation_en: format!(
+                            "Skyscraper on {}: the two tips force out {}. Remove {} from notes in highlighted cells.",
+                            digit, digit, digit
+                        ),
+                        explanation_de: format!(
+                            "Skyscraper auf {}: die zwei Spitzen schließen {} aus. {} aus den markierten Zellen streichen.",
+                            digit, digit, digit
+                        ),
+                    });
+                }
+            }
+
+            // ── Column-based Skyscraper ───────────────────────────────────────
+            let col_rows: Vec<Vec<usize>> = (0..9)
+                .map(|c| {
+                    (0..9)
+                        .filter(|&r| {
+                            matches!(grid.get(r, c), CellKind::Empty)
+                                && (state.notes_mask(r, c) & (1 << digit)) != 0
+                        })
+                        .collect()
+                })
+                .collect();
+            for c1 in 0..9 {
+                if col_rows[c1].len() != 2 { continue; }
+                for c2 in (c1 + 1)..9 {
+                    if col_rows[c2].len() != 2 { continue; }
+                    let shared: Vec<usize> = col_rows[c1].iter()
+                        .filter(|r| col_rows[c2].contains(r))
+                        .copied()
+                        .collect();
+                    if shared.len() != 1 { continue; }
+                    let r_shared = shared[0];
+                    let ra = *col_rows[c1].iter().find(|&&r| r != r_shared).unwrap();
+                    let rb = *col_rows[c2].iter().find(|&&r| r != r_shared).unwrap();
+                    let cause = vec![(r_shared, c1), (ra, c1), (r_shared, c2), (rb, c2)];
+                    let elim: Vec<(usize, usize)> = (0..9)
+                        .flat_map(|r| (0..9).map(move |c| (r, c)))
+                        .filter(|&(r, c)| {
+                            (r, c) != (ra, c1) && (r, c) != (rb, c2)
+                                && sees(r, c, ra, c1) && sees(r, c, rb, c2)
+                                && matches!(grid.get(r, c), CellKind::Empty)
+                                && (state.notes_mask(r, c) & (1 << digit)) != 0
+                        })
+                        .collect();
+                    if elim.is_empty() { continue; }
+                    return Some(Hint {
+                        cause_cells:    cause,
+                        elim_cells:     elim.clone(),
+                        target_cell:    elim[0],
+                        elim_digit:     Some(digit),
+                        target_digit:   None,
+                        name_en:        self.name_en(),
+                        name_de:        self.name_de(),
+                        explanation_en: format!(
+                            "Skyscraper on {}: the two tips force out {}. Remove {} from notes in highlighted cells.",
+                            digit, digit, digit
+                        ),
+                        explanation_de: format!(
+                            "Skyscraper auf {}: die zwei Spitzen schließen {} aus. {} aus den markierten Zellen streichen.",
+                            digit, digit, digit
+                        ),
+                    });
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── 2-String Kite ─────────────────────────────────────────────────────────────
+
+impl Strategy for TwoStringKite {
+    fn name_en(&self) -> &'static str { "2-String Kite" }
+    fn name_de(&self) -> &'static str { "2-String Kite" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for digit in 1u8..=9 {
+            for row in 0..9usize {
+                let row_cells: Vec<usize> = (0..9)
+                    .filter(|&c| {
+                        matches!(grid.get(row, c), CellKind::Empty)
+                            && (state.notes_mask(row, c) & (1 << digit)) != 0
+                    })
+                    .collect();
+                if row_cells.len() != 2 { continue; }
+                let (rc1, rc2) = (row_cells[0], row_cells[1]);
+
+                for col in 0..9usize {
+                    let col_cells: Vec<usize> = (0..9)
+                        .filter(|&r| {
+                            matches!(grid.get(r, col), CellKind::Empty)
+                                && (state.notes_mask(r, col) & (1 << digit)) != 0
+                        })
+                        .collect();
+                    if col_cells.len() != 2 { continue; }
+                    let (cr1, cr2) = (col_cells[0], col_cells[1]);
+
+                    let row_pair = [(row, rc1), (row, rc2)];
+                    let col_pair = [(cr1, col), (cr2, col)];
+
+                    for &(r_int, c_int) in &row_pair {
+                        for &(r_col_int, c_col_int) in &col_pair {
+                            if (r_int, c_int) == (r_col_int, c_col_int) { continue; }
+                            if r_int / 3 != r_col_int / 3 || c_int / 3 != c_col_int / 3 {
+                                continue;
+                            }
+                            let tip1 = *row_pair.iter()
+                                .find(|&&rc| rc != (r_int, c_int))
+                                .unwrap();
+                            let tip2 = *col_pair.iter()
+                                .find(|&&rc| rc != (r_col_int, c_col_int))
+                                .unwrap();
+                            let cause = vec![(r_int, c_int), (r_col_int, c_col_int), tip1, tip2];
+                            let elim: Vec<(usize, usize)> = (0..9)
+                                .flat_map(|r| (0..9).map(move |c| (r, c)))
+                                .filter(|&(r, c)| {
+                                    (r, c) != tip1 && (r, c) != tip2
+                                        && sees(r, c, tip1.0, tip1.1)
+                                        && sees(r, c, tip2.0, tip2.1)
+                                        && matches!(grid.get(r, c), CellKind::Empty)
+                                        && (state.notes_mask(r, c) & (1 << digit)) != 0
+                                })
+                                .collect();
+                            if elim.is_empty() { continue; }
+                            return Some(Hint {
+                                cause_cells:    cause,
+                                elim_cells:     elim.clone(),
+                                target_cell:    elim[0],
+                                elim_digit:     Some(digit),
+                                target_digit:   None,
+                                name_en:        self.name_en(),
+                                name_de:        self.name_de(),
+                                explanation_en: format!(
+                                    "2-String Kite on {}: a row and column share a box, forcing {} out. Remove {} from notes in highlighted cells.",
+                                    digit, digit, digit
+                                ),
+                                explanation_de: format!(
+                                    "2-String Kite auf {}: Zeile und Spalte teilen eine Box und schließen {} aus. {} aus den markierten Zellen streichen.",
+                                    digit, digit, digit
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── XYZ-Wing ──────────────────────────────────────────────────────────────────
+
+impl Strategy for XYZWing {
+    fn name_en(&self) -> &'static str { "XYZ-Wing" }
+    fn name_de(&self) -> &'static str { "XYZ-Wing" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+
+        let bivalue: Vec<(usize, usize, u16)> = (0..9)
+            .flat_map(|r| (0..9).map(move |c| (r, c)))
+            .filter_map(|(r, c)| {
+                if !matches!(grid.get(r, c), CellKind::Empty) { return None; }
+                let m = state.notes_mask(r, c);
+                if m.count_ones() == 2 { Some((r, c, m)) } else { None }
+            })
+            .collect();
+
+        let trivalue: Vec<(usize, usize, u16)> = (0..9)
+            .flat_map(|r| (0..9).map(move |c| (r, c)))
+            .filter_map(|(r, c)| {
+                if !matches!(grid.get(r, c), CellKind::Empty) { return None; }
+                let m = state.notes_mask(r, c);
+                if m.count_ones() == 3 { Some((r, c, m)) } else { None }
+            })
+            .collect();
+
+        for &(pr, pc, pm) in &trivalue {
+            let digits: Vec<u8> = (1u8..=9).filter(|&d| pm & (1 << d) != 0).collect();
+            if digits.len() != 3 { continue; }
+            let (da, db, dc) = (digits[0], digits[1], digits[2]);
+
+            for &c_digit in &[da, db, dc] {
+                let others: Vec<u8> = [da, db, dc].iter()
+                    .filter(|&&d| d != c_digit)
+                    .copied()
+                    .collect();
+                let wing_masks = [
+                    (1u16 << others[0]) | (1u16 << c_digit),
+                    (1u16 << others[1]) | (1u16 << c_digit),
+                ];
+
+                let wings_for: [Vec<(usize, usize)>; 2] = [
+                    bivalue.iter()
+                        .filter(|&&(r, c, m)| {
+                            (r, c) != (pr, pc) && sees(r, c, pr, pc) && m == wing_masks[0]
+                        })
+                        .map(|&(r, c, _)| (r, c))
+                        .collect(),
+                    bivalue.iter()
+                        .filter(|&&(r, c, m)| {
+                            (r, c) != (pr, pc) && sees(r, c, pr, pc) && m == wing_masks[1]
+                        })
+                        .map(|&(r, c, _)| (r, c))
+                        .collect(),
+                ];
+
+                for &(w1r, w1c) in &wings_for[0] {
+                    for &(w2r, w2c) in &wings_for[1] {
+                        if (w1r, w1c) == (w2r, w2c) { continue; }
+                        let elim: Vec<(usize, usize)> = (0..9)
+                            .flat_map(|r| (0..9).map(move |c| (r, c)))
+                            .filter(|&(r, c)| {
+                                (r, c) != (pr, pc)
+                                    && (r, c) != (w1r, w1c)
+                                    && (r, c) != (w2r, w2c)
+                                    && sees(r, c, pr, pc)
+                                    && sees(r, c, w1r, w1c)
+                                    && sees(r, c, w2r, w2c)
+                                    && matches!(grid.get(r, c), CellKind::Empty)
+                                    && (state.notes_mask(r, c) & (1 << c_digit)) != 0
+                            })
+                            .collect();
+                        if elim.is_empty() { continue; }
+                        return Some(Hint {
+                            cause_cells:    vec![(pr, pc), (w1r, w1c), (w2r, w2c)],
+                            elim_cells:     elim.clone(),
+                            target_cell:    elim[0],
+                            elim_digit:     Some(c_digit),
+                            target_digit:   None,
+                            name_en:        self.name_en(),
+                            name_de:        self.name_de(),
+                            explanation_en: format!(
+                                "XYZ-Wing: pivot has 3 candidates, all three share {}. Remove {} from notes in highlighted cells.",
+                                c_digit, c_digit
+                            ),
+                            explanation_de: format!(
+                                "XYZ-Wing: Pivot hat 3 Kandidaten, alle drei teilen {}. {} aus den markierten Zellen streichen.",
+                                c_digit, c_digit
+                            ),
+                        });
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── W-Wing ────────────────────────────────────────────────────────────────────
+
+impl Strategy for WWing {
+    fn name_en(&self) -> &'static str { "W-Wing" }
+    fn name_de(&self) -> &'static str { "W-Wing" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+
+        let bivalue: Vec<(usize, usize, u16)> = (0..9)
+            .flat_map(|r| (0..9).map(move |c| (r, c)))
+            .filter_map(|(r, c)| {
+                if !matches!(grid.get(r, c), CellKind::Empty) { return None; }
+                let m = state.notes_mask(r, c);
+                if m.count_ones() == 2 { Some((r, c, m)) } else { None }
+            })
+            .collect();
+
+        // Iterate over all possible pair masks {a, b}
+        for pair_mask in (1u16..512).filter(|m| m.count_ones() == 2) {
+            let a = pair_mask.trailing_zeros() as u8;
+            let b = (pair_mask >> (a as u32 + 1)).trailing_zeros() as u8 + a + 1;
+
+            let pairs: Vec<(usize, usize)> = bivalue.iter()
+                .filter(|&&(_, _, m)| m == pair_mask)
+                .map(|&(r, c, _)| (r, c))
+                .collect();
+            if pairs.len() < 2 { continue; }
+
+            // For each unit with digit `a` in exactly 2 cells → strong link
+            for unit in all_units() {
+                let unit_a: Vec<(usize, usize)> = unit.iter()
+                    .filter(|&&(r, c)| {
+                        matches!(grid.get(r, c), CellKind::Empty)
+                            && (state.notes_mask(r, c) & (1 << a)) != 0
+                    })
+                    .copied()
+                    .collect();
+                if unit_a.len() != 2 { continue; }
+                let (e1, e2) = (unit_a[0], unit_a[1]);
+
+                for &p1 in &pairs {
+                    if p1 == e1 { continue; }
+                    if !sees(p1.0, p1.1, e1.0, e1.1) { continue; }
+                    for &p2 in &pairs {
+                        if p2 == p1 || p2 == e2 { continue; }
+                        if !sees(p2.0, p2.1, e2.0, e2.1) { continue; }
+                        if sees(p1.0, p1.1, p2.0, p2.1) { continue; }
+                        let elim: Vec<(usize, usize)> = (0..9)
+                            .flat_map(|r| (0..9).map(move |c| (r, c)))
+                            .filter(|&(r, c)| {
+                                (r, c) != p1 && (r, c) != p2
+                                    && sees(r, c, p1.0, p1.1)
+                                    && sees(r, c, p2.0, p2.1)
+                                    && matches!(grid.get(r, c), CellKind::Empty)
+                                    && (state.notes_mask(r, c) & (1 << b)) != 0
+                            })
+                            .collect();
+                        if elim.is_empty() { continue; }
+                        return Some(Hint {
+                            cause_cells:    vec![p1, e1, e2, p2],
+                            elim_cells:     elim.clone(),
+                            target_cell:    elim[0],
+                            elim_digit:     Some(b),
+                            target_digit:   None,
+                            name_en:        self.name_en(),
+                            name_de:        self.name_de(),
+                            explanation_en: format!(
+                                "W-Wing: two {}/{} cells linked by strong link on {}. Remove {} from notes in highlighted cells.",
+                                a, b, a, b
+                            ),
+                            explanation_de: format!(
+                                "W-Wing: Zwei {}/{}-Zellen verbunden durch starke Verbindung auf {}. {} aus den markierten Zellen streichen.",
+                                a, b, a, b
+                            ),
+                        });
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── BUG+1 ─────────────────────────────────────────────────────────────────────
+
+impl Strategy for BugPlusOne {
+    fn name_en(&self) -> &'static str { "BUG+1" }
+    fn name_de(&self) -> &'static str { "BUG+1" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        let mut trivalue_cell: Option<(usize, usize)> = None;
+        for r in 0..9 {
+            for c in 0..9 {
+                if !matches!(grid.get(r, c), CellKind::Empty) { continue; }
+                let n = state.notes_mask(r, c).count_ones();
+                if n == 0 { return None; }
+                if n == 3 {
+                    if trivalue_cell.is_some() { return None; }
+                    trivalue_cell = Some((r, c));
+                } else if n != 2 {
+                    return None;
+                }
+            }
+        }
+        let (br, bc) = trivalue_cell?;
+        let mask = state.notes_mask(br, bc);
+        let digits: Vec<u8> = (1u8..=9).filter(|&d| mask & (1 << d) != 0).collect();
+        if digits.len() != 3 { return None; }
+
+        for &d in &digits {
+            let row_count = (0..9)
+                .filter(|&c| c != bc
+                    && matches!(grid.get(br, c), CellKind::Empty)
+                    && (state.notes_mask(br, c) & (1 << d)) != 0)
+                .count();
+            let col_count = (0..9)
+                .filter(|&r| r != br
+                    && matches!(grid.get(r, bc), CellKind::Empty)
+                    && (state.notes_mask(r, bc) & (1 << d)) != 0)
+                .count();
+            let box_br = (br / 3) * 3;
+            let box_bc = (bc / 3) * 3;
+            let box_count = (0..3)
+                .flat_map(|dr| (0..3).map(move |dc| (box_br + dr, box_bc + dc)))
+                .filter(|&(r, c)| (r, c) != (br, bc)
+                    && matches!(grid.get(r, c), CellKind::Empty)
+                    && (state.notes_mask(r, c) & (1 << d)) != 0)
+                .count();
+
+            if row_count % 2 == 1 && col_count % 2 == 1 && box_count % 2 == 1 {
+                return Some(Hint {
+                    cause_cells:    vec![],
+                    elim_cells:     vec![],
+                    target_cell:    (br, bc),
+                    elim_digit:     None,
+                    target_digit:   Some(d),
+                    name_en:        self.name_en(),
+                    name_de:        self.name_de(),
+                    explanation_en: format!(
+                        "BUG+1: all other cells are bivalue. Place {} here to restore balance everywhere.",
+                        d
+                    ),
+                    explanation_de: format!(
+                        "BUG+1: Alle anderen Zellen sind bivalue. {} hier setzen stellt die Balance \u{fc}berall wieder her.",
+                        d
+                    ),
+                });
+            }
+        }
+        None
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -689,5 +1417,61 @@ mod tests {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
         assert!(UniqueRectangle.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn naked_quads_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(NakedQuads.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn hidden_quads_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(HiddenQuads.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn jellyfish_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(Jellyfish.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn skyscraper_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(Skyscraper.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn two_string_kite_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(TwoStringKite.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn xyz_wing_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(XYZWing.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn w_wing_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(WWing.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn bug_plus_one_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(BugPlusOne.find(&state, &sol).is_none());
     }
 }

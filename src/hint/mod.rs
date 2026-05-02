@@ -59,10 +59,18 @@ pub fn find_hint(state: &GameState, solution: &Grid) -> Option<Hint> {
         // Tier 2 — advanced eliminations
         &NakedTriples,
         &HiddenTriples,
+        &NakedQuads,
+        &HiddenQuads,
         &XWing,
         &Swordfish,
+        &Jellyfish,
+        &Skyscraper,
+        &TwoStringKite,
         &YWing,
+        &XYZWing,
+        &WWing,
         &UniqueRectangle,
+        &BugPlusOne,
     ];
     for s in strategies {
         if let Some(h) = s.find(state, solution) {
