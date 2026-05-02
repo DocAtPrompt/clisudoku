@@ -184,11 +184,11 @@ fn cell_bg(
         }
     }
 
-    // Hover highlight: DarkYellow, distinct from cursor (Blue).
+    // Hover highlight: distinct from cursor colour, routed through ColorScheme.
     // Cursor takes priority — checked after hints, before nav mode highlights.
     if let Some(hc) = hover_cell {
         if hc == (row, col) && cursor != (row, col) {
-            return Color::DarkYellow;
+            return colors.hover_bg;
         }
     }
 
@@ -725,6 +725,30 @@ mod tests {
             cell_bg(0, 0, (4, 4), None, &nav, None, &anim, &colors),
             colors.cell_normal_bg
         );
+    }
+
+    #[test]
+    fn cell_bg_hover_shows_hover_bg() {
+        // Non-cursor hover cell should show the hover_bg color.
+        use crate::tui::input::NavMode;
+        let nav = NavState { mode: NavMode::Input, box_idx: None };
+        let colors = ColorScheme::default();
+        let anim = AnimState::default();
+        // cursor at (0,0), hover at (1,1) → cell (1,1) gets hover_bg
+        let bg = cell_bg(1, 1, (0, 0), Some((1, 1)), &nav, None, &anim, &colors);
+        assert_eq!(bg, colors.hover_bg, "hovered non-cursor cell should use hover_bg");
+    }
+
+    #[test]
+    fn cell_bg_cursor_beats_hover() {
+        // When hover is on the same cell as cursor, cursor color wins.
+        use crate::tui::input::NavMode;
+        let nav = NavState { mode: NavMode::Input, box_idx: None };
+        let colors = ColorScheme::default();
+        let anim = AnimState::default();
+        // cursor and hover both at (1,1)
+        let bg = cell_bg(1, 1, (1, 1), Some((1, 1)), &nav, None, &anim, &colors);
+        assert_eq!(bg, colors.cell_active_bg, "cursor should beat hover when on same cell");
     }
 
     #[test]

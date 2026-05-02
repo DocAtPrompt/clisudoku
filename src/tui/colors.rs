@@ -23,15 +23,17 @@ impl Theme {
         }
     }
 
-    pub fn as_index(self) -> usize { self as usize }
+    pub fn as_index(self) -> usize {
+        self as usize
+    }
 
     /// Parse a CLI code: "dark", "light", "high-contrast" / "hc".
     pub fn from_code(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "dark"                    => Some(Theme::Dark),
-            "light"                   => Some(Theme::Light),
-            "high-contrast" | "hc"   => Some(Theme::HighContrast),
-            _                         => None,
+            "dark" => Some(Theme::Dark),
+            "light" => Some(Theme::Light),
+            "high-contrast" | "hc" => Some(Theme::HighContrast),
+            _ => None,
         }
     }
 }
@@ -42,55 +44,60 @@ impl Theme {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ColorScheme {
     // Frame 1 — background & grid lines
-    pub ui_background:    Color,
-    pub grid_border:      Color,
-    pub grid_box:         Color,
-    pub grid_cell:        Color,
+    pub ui_background: Color,
+    pub grid_border: Color,
+    pub grid_box: Color,
+    pub grid_cell: Color,
 
     // Frame 2 — cell backgrounds
-    pub cell_normal_bg:   Color,
-    pub cell_active_bg:   Color,
+    pub cell_normal_bg: Color,
+    pub cell_active_bg: Color,
     pub cell_active_box_bg: Color,
     pub cell_active_cross_bg: Color,
 
     // Frame 3 — digits (foreground)
-    pub digit_given:      Color,
-    pub digit_user:       Color,
-    pub digit_error:      Color,
-    pub digit_highlight:  Color,
+    pub digit_given: Color,
+    pub digit_user: Color,
+    pub digit_error: Color,
+    pub digit_highlight: Color,
 
     // Frame 4 — notes
-    pub note_normal:      Color,
-    pub note_highlight:   Color,
+    pub note_normal: Color,
+    pub note_highlight: Color,
 
     // Frame 5a — passive scan (same digit as cursor)
-    pub digit_scan:       Color,
+    pub digit_scan: Color,
 
     // Frame 5 — UI text
-    pub ui_text:          Color,
-    pub ui_text_dim:      Color,
-    pub ui_cursor_bg:     Color,
+    pub ui_text: Color,
+    pub ui_text_dim: Color,
+    pub ui_cursor_bg: Color,
     /// Foreground color for selected menu items (contrast against ui_cursor_bg).
-    pub ui_cursor_fg:     Color,
+    pub ui_cursor_fg: Color,
 
     // Hint system — border and target colours
     /// Border colour for cause cells (explains WHY the hint works).
     pub hint_cause_border: Color,
     /// Border colour for elimination cells (where a candidate is removed).
-    pub hint_elim_border:  Color,
+    pub hint_elim_border: Color,
     /// Background colour for the target cell (blinking).
-    pub hint_target_bg:    Color,
+    pub hint_target_bg: Color,
+
+    /// Background color for a cell under the mouse cursor (hover highlight).
+    pub hover_bg: Color,
 }
 
 impl Default for ColorScheme {
-    fn default() -> Self { Self::dark() }
+    fn default() -> Self {
+        Self::dark()
+    }
 }
 
 impl ColorScheme {
     pub fn for_theme(theme: Theme) -> Self {
         match theme {
-            Theme::Dark        => Self::dark(),
-            Theme::Light       => Self::light(),
+            Theme::Dark => Self::dark(),
+            Theme::Light => Self::light(),
             Theme::HighContrast => Self::high_contrast(),
         }
     }
@@ -98,34 +105,36 @@ impl ColorScheme {
     // ── Dark (default) ────────────────────────────────────────────────────────
     pub fn dark() -> Self {
         Self {
-            ui_background:        Color::Black,
-            grid_border:          Color::Grey,
-            grid_box:             Color::White,
-            grid_cell:            Color::DarkGrey,
+            ui_background: Color::Black,
+            grid_border: Color::Grey,
+            grid_box: Color::White,
+            grid_cell: Color::DarkGrey,
 
-            cell_normal_bg:       Color::Black,
-            cell_active_bg:       Color::DarkBlue,
-            cell_active_box_bg:   Color::DarkBlue,
+            cell_normal_bg: Color::Black,
+            cell_active_bg: Color::DarkBlue,
+            cell_active_box_bg: Color::DarkBlue,
             cell_active_cross_bg: Color::Black,
 
-            digit_given:          Color::White,
-            digit_user:           Color::Cyan,
-            digit_error:          Color::Red,
-            digit_highlight:      Color::Yellow,
+            digit_given: Color::White,
+            digit_user: Color::Cyan,
+            digit_error: Color::Red,
+            digit_highlight: Color::Yellow,
 
-            note_normal:          Color::Grey,
-            note_highlight:       Color::Yellow,
+            note_normal: Color::Grey,
+            note_highlight: Color::Yellow,
 
-            digit_scan:           Color::Magenta,
+            digit_scan: Color::Magenta,
 
-            ui_text:              Color::White,
-            ui_text_dim:          Color::Grey,
-            ui_cursor_bg:         Color::DarkBlue,
-            ui_cursor_fg:         Color::White,
+            ui_text: Color::White,
+            ui_text_dim: Color::Grey,
+            ui_cursor_bg: Color::DarkBlue,
+            ui_cursor_fg: Color::White,
 
-            hint_cause_border:    Color::Green,
-            hint_elim_border:     Color::Red,
-            hint_target_bg:       Color::Yellow,
+            hint_cause_border: Color::Green,
+            hint_elim_border: Color::Red,
+            hint_target_bg: Color::Yellow,
+
+            hover_bg: Color::DarkYellow,
         }
     }
 
@@ -134,34 +143,36 @@ impl ColorScheme {
     // Cursor is yellow (clearly visible on white), digits same palette as dark.
     pub fn light() -> Self {
         Self {
-            ui_background:        Color::White,
-            grid_border:          Color::DarkGrey,
-            grid_box:             Color::Black,
-            grid_cell:            Color::DarkGrey,
+            ui_background: Color::White,
+            grid_border: Color::DarkGrey,
+            grid_box: Color::Black,
+            grid_cell: Color::DarkGrey,
 
-            cell_normal_bg:       Color::White,
-            cell_active_bg:       Color::Yellow,
-            cell_active_box_bg:   Color::Yellow,
+            cell_normal_bg: Color::White,
+            cell_active_bg: Color::Yellow,
+            cell_active_box_bg: Color::Yellow,
             cell_active_cross_bg: Color::Yellow,
 
-            digit_given:          Color::Black,
-            digit_user:           Color::DarkBlue,
-            digit_error:          Color::Red,
-            digit_highlight:      Color::Yellow,
+            digit_given: Color::Black,
+            digit_user: Color::DarkBlue,
+            digit_error: Color::Red,
+            digit_highlight: Color::Yellow,
 
-            note_normal:          Color::DarkGrey,
-            note_highlight:       Color::Yellow,
+            note_normal: Color::DarkGrey,
+            note_highlight: Color::Yellow,
 
-            digit_scan:           Color::Magenta,
+            digit_scan: Color::Magenta,
 
-            ui_text:              Color::Black,
-            ui_text_dim:          Color::DarkGrey,
-            ui_cursor_bg:         Color::DarkBlue,
-            ui_cursor_fg:         Color::White,
+            ui_text: Color::Black,
+            ui_text_dim: Color::DarkGrey,
+            ui_cursor_bg: Color::DarkBlue,
+            ui_cursor_fg: Color::White,
 
-            hint_cause_border:    Color::Green,
-            hint_elim_border:     Color::Red,
-            hint_target_bg:       Color::Yellow,
+            hint_cause_border: Color::Green,
+            hint_elim_border: Color::Red,
+            hint_target_bg: Color::Yellow,
+
+            hover_bg: Color::DarkYellow,
         }
     }
 
@@ -171,34 +182,36 @@ impl ColorScheme {
     // Cursor uses a gold-yellow background that remains visible on black.
     pub fn high_contrast() -> Self {
         Self {
-            ui_background:        Color::Black,
-            grid_border:          Color::White,
-            grid_box:             Color::White,
-            grid_cell:            Color::Grey,
+            ui_background: Color::Black,
+            grid_border: Color::White,
+            grid_box: Color::White,
+            grid_cell: Color::Grey,
 
-            cell_normal_bg:       Color::Black,
-            cell_active_bg:       Color::DarkYellow,
-            cell_active_box_bg:   Color::DarkYellow,
+            cell_normal_bg: Color::Black,
+            cell_active_bg: Color::DarkYellow,
+            cell_active_box_bg: Color::DarkYellow,
             cell_active_cross_bg: Color::Black,
 
-            digit_given:          Color::White,
-            digit_user:           Color::Yellow,
-            digit_error:          Color::Magenta,
-            digit_highlight:      Color::Cyan,
+            digit_given: Color::White,
+            digit_user: Color::Yellow,
+            digit_error: Color::Magenta,
+            digit_highlight: Color::Cyan,
 
-            note_normal:          Color::Grey,
-            note_highlight:       Color::Cyan,
+            note_normal: Color::Grey,
+            note_highlight: Color::Cyan,
 
-            digit_scan:           Color::Cyan,
+            digit_scan: Color::Cyan,
 
-            ui_text:              Color::White,
-            ui_text_dim:          Color::Grey,
-            ui_cursor_bg:         Color::DarkYellow,
-            ui_cursor_fg:         Color::Black,
+            ui_text: Color::White,
+            ui_text_dim: Color::Grey,
+            ui_cursor_bg: Color::DarkYellow,
+            ui_cursor_fg: Color::Black,
 
-            hint_cause_border:    Color::Cyan,
-            hint_elim_border:     Color::Magenta,
-            hint_target_bg:       Color::Yellow,
+            hint_cause_border: Color::Cyan,
+            hint_elim_border: Color::Magenta,
+            hint_target_bg: Color::Yellow,
+
+            hover_bg: Color::Cyan,
         }
     }
 }
@@ -249,17 +262,17 @@ mod tests {
     fn hint_colors_defined_for_all_themes() {
         let dark = ColorScheme::dark();
         assert_eq!(dark.hint_cause_border, Color::Green);
-        assert_eq!(dark.hint_elim_border,  Color::Red);
-        assert_eq!(dark.hint_target_bg,    Color::Yellow);
+        assert_eq!(dark.hint_elim_border, Color::Red);
+        assert_eq!(dark.hint_target_bg, Color::Yellow);
 
         let light = ColorScheme::light();
         assert_eq!(light.hint_cause_border, Color::Green);
-        assert_eq!(light.hint_elim_border,  Color::Red);
-        assert_eq!(light.hint_target_bg,    Color::Yellow);
+        assert_eq!(light.hint_elim_border, Color::Red);
+        assert_eq!(light.hint_target_bg, Color::Yellow);
 
         let hc = ColorScheme::high_contrast();
         assert_eq!(hc.hint_cause_border, Color::Cyan);
-        assert_eq!(hc.hint_elim_border,  Color::Magenta);
-        assert_eq!(hc.hint_target_bg,    Color::Yellow);
+        assert_eq!(hc.hint_elim_border, Color::Magenta);
+        assert_eq!(hc.hint_target_bg, Color::Yellow);
     }
 }
