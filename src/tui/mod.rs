@@ -688,13 +688,18 @@ impl App {
                 }
             }
             AppAction::ToggleMouseMode => {
-                self.mouse_mode = !self.mouse_mode;
-                self.hover_cell = None;
-                let _ = if self.mouse_mode {
+                // Flip state only after the IO call succeeds, so terminal state
+                // and self.mouse_mode never diverge on error.
+                let target = !self.mouse_mode;
+                let ok = if target {
                     crate::tui::terminal::enable_mouse_capture()
                 } else {
                     crate::tui::terminal::disable_mouse_capture()
                 };
+                if ok.is_ok() {
+                    self.mouse_mode = target;
+                    self.hover_cell = None;
+                }
             }
             AppAction::MouseHover(r, c) => {
                 self.hover_cell = Some((r, c));
