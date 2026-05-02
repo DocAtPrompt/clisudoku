@@ -25,10 +25,20 @@ use std::io::{self, Write};
 
 /// All possible UI screens.
 pub enum Screen<'a> {
-    Start { selected: usize },
-    DifficultySelect { selected: usize, sym_focused: bool, symmetry: bool },
-    LanguageSelect { selected: usize },
-    ThemeSelect { selected: usize },
+    Start {
+        selected: usize,
+    },
+    DifficultySelect {
+        selected: usize,
+        sym_focused: bool,
+        symmetry: bool,
+    },
+    LanguageSelect {
+        selected: usize,
+    },
+    ThemeSelect {
+        selected: usize,
+    },
     Game {
         state: &'a GameState,
         cursor: (usize, usize),
@@ -61,13 +71,15 @@ pub enum Screen<'a> {
         /// is off, game is paused, or no hover event received yet.
         hover_cell: Option<(usize, usize)>,
     },
-    PatternSelect { selected: usize },
+    PatternSelect {
+        selected: usize,
+    },
     Generating {
-        verb:          &'a str,
-        countdown:     u8,
+        verb: &'a str,
+        countdown: u8,
         show_new_seed: bool,
         /// Some(done, total, best_count) while BareMinimum multi-attempt is running.
-        bare_minimum:  Option<(usize, usize, usize)>,
+        bare_minimum: Option<(usize, usize, usize)>,
     },
     Confirm {
         /// Screen rendered underneath the overlay.
@@ -94,8 +106,20 @@ pub fn render_frame(
         Screen::Start { selected } => {
             start_screen::render_start(out, (2, 4), *selected, strings, colors)?;
         }
-        Screen::DifficultySelect { selected, sym_focused, symmetry } => {
-            start_screen::render_difficulty(out, (2, 4), *selected, *sym_focused, *symmetry, strings, colors)?;
+        Screen::DifficultySelect {
+            selected,
+            sym_focused,
+            symmetry,
+        } => {
+            start_screen::render_difficulty(
+                out,
+                (2, 4),
+                *selected,
+                *sym_focused,
+                *symmetry,
+                strings,
+                colors,
+            )?;
         }
         Screen::LanguageSelect { selected } => {
             start_screen::render_language(out, (2, 4), *selected, strings, colors)?;
@@ -106,22 +130,71 @@ pub fn render_frame(
         Screen::PatternSelect { selected } => {
             pattern_select::render_pattern_select(out, *selected, strings, colors)?;
         }
-        Screen::Generating { verb, countdown, show_new_seed, bare_minimum } => {
+        Screen::Generating {
+            verb,
+            countdown,
+            show_new_seed,
+            bare_minimum,
+        } => {
             crate::tui::render::generating::render_generating(
-                out, verb, *countdown, *show_new_seed, *bare_minimum, strings, colors,
+                out,
+                verb,
+                *countdown,
+                *show_new_seed,
+                *bare_minimum,
+                strings,
+                colors,
             )?;
         }
-        Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count, matrix_mode, mouse_mode, hover_cell } => {
+        Screen::Game {
+            state,
+            cursor,
+            note_mode,
+            scan_mode,
+            error_mode,
+            solution,
+            errors_shown,
+            elapsed_ms,
+            paused,
+            nav,
+            anim,
+            scan_digit,
+            hint,
+            hint_warning,
+            hint_count,
+            matrix_mode,
+            mouse_mode,
+            hover_cell,
+        } => {
             // Suppress hover highlight while paused.
-                let effective_hover = if *paused { None } else { *hover_cell };
-                grid::render_grid(out, (1, 2), state, *cursor, *note_mode, *paused, nav, anim, *scan_digit, *error_mode, *solution, *hint, colors, style, *matrix_mode, effective_hover)?;
+            let effective_hover = if *paused { None } else { *hover_cell };
+            grid::render_grid(
+                out,
+                (1, 2),
+                state,
+                *cursor,
+                *note_mode,
+                *paused,
+                nav,
+                anim,
+                *scan_digit,
+                *error_mode,
+                *solution,
+                *hint,
+                colors,
+                style,
+                *matrix_mode,
+                effective_hover,
+            )?;
             // Count filled cells and per-digit placements for the panel display.
             let mut digit_counts = [0u8; 10];
             let mut filled_count = 0u8;
             for r in 0..9 {
                 for c in 0..9 {
                     if let Some(v) = state.grid().get(r, c).value() {
-                        if v >= 1 && v <= 9 { digit_counts[v as usize] += 1; }
+                        if v >= 1 && v <= 9 {
+                            digit_counts[v as usize] += 1;
+                        }
                         filled_count += 1;
                     }
                 }
@@ -139,7 +212,23 @@ pub fn render_frame(
                     }
                 })
             };
-            status_bar::render_panel(out, (1, 77), *elapsed_ms, *note_mode, *scan_mode, *error_mode, *errors_shown, filled_count, digit_counts, *scan_digit, colors, strings, *hint_count, hint_text, *mouse_mode)?;
+            status_bar::render_panel(
+                out,
+                (1, 77),
+                *elapsed_ms,
+                *note_mode,
+                *scan_mode,
+                *error_mode,
+                *errors_shown,
+                filled_count,
+                digit_counts,
+                *scan_digit,
+                colors,
+                strings,
+                *hint_count,
+                hint_text,
+                *mouse_mode,
+            )?;
             if *paused {
                 render_paused_overlay(out, strings.resume_hint, colors)?;
             }
@@ -148,7 +237,11 @@ pub fn render_frame(
                 firework::render_firework(out, (1, 2), fw, colors)?;
             }
         }
-        Screen::Confirm { underneath, title, options } => {
+        Screen::Confirm {
+            underneath,
+            title,
+            options,
+        } => {
             render_frame(out, underneath, colors, style, strings)?;
             confirm::render_confirm(out, (17, 20), title, options, colors)?;
         }
@@ -171,49 +264,68 @@ pub fn render_info_overlay(
     colors: &ColorScheme,
 ) -> io::Result<()> {
     // Reuse confirm colours: cyan border, dark-grey bg, white text.
-    let inner = message.chars().count()
+    let inner = message
+        .chars()
+        .count()
         .max(subtitle.map(|s| s.chars().count()).unwrap_or(0))
         .max(dismiss.chars().count())
         .max(20);
     let border_h = "─".repeat(inner + 4);
     let _ = colors;
 
-    queue!(out,
+    queue!(
+        out,
         MoveTo(col_off, row_off),
-        SetForegroundColor(Color::Cyan), SetBackgroundColor(Color::DarkGrey),
+        SetForegroundColor(Color::Cyan),
+        SetBackgroundColor(Color::DarkGrey),
         Print(format!("┌{}┐", border_h)),
-
         MoveTo(col_off, row_off + 1),
-        SetForegroundColor(Color::Cyan),  SetBackgroundColor(Color::DarkGrey), Print('│'),
-        SetForegroundColor(Color::White), SetBackgroundColor(Color::DarkGrey),
+        SetForegroundColor(Color::Cyan),
+        SetBackgroundColor(Color::DarkGrey),
+        Print('│'),
+        SetForegroundColor(Color::White),
+        SetBackgroundColor(Color::DarkGrey),
         Print(format!("  {:<inner$}  ", message, inner = inner)),
-        SetForegroundColor(Color::Cyan),  SetBackgroundColor(Color::DarkGrey), Print('│'),
+        SetForegroundColor(Color::Cyan),
+        SetBackgroundColor(Color::DarkGrey),
+        Print('│'),
     )?;
 
     let mut next_row = row_off + 2;
 
     if let Some(sub) = subtitle {
-        queue!(out,
+        queue!(
+            out,
             MoveTo(col_off, next_row),
-            SetForegroundColor(Color::Cyan),  SetBackgroundColor(Color::DarkGrey), Print('│'),
-            SetForegroundColor(Color::White), SetBackgroundColor(Color::DarkGrey),
+            SetForegroundColor(Color::Cyan),
+            SetBackgroundColor(Color::DarkGrey),
+            Print('│'),
+            SetForegroundColor(Color::White),
+            SetBackgroundColor(Color::DarkGrey),
             Print(format!("  {:<inner$}  ", sub, inner = inner)),
-            SetForegroundColor(Color::Cyan),  SetBackgroundColor(Color::DarkGrey), Print('│'),
+            SetForegroundColor(Color::Cyan),
+            SetBackgroundColor(Color::DarkGrey),
+            Print('│'),
         )?;
         next_row += 1;
     }
 
-    queue!(out,
+    queue!(
+        out,
         MoveTo(col_off, next_row),
-        SetForegroundColor(Color::Cyan),     SetBackgroundColor(Color::DarkGrey), Print('│'),
-        SetForegroundColor(Color::DarkGrey), SetBackgroundColor(Color::DarkGrey),
+        SetForegroundColor(Color::Cyan),
+        SetBackgroundColor(Color::DarkGrey),
+        Print('│'),
+        SetForegroundColor(Color::DarkGrey),
+        SetBackgroundColor(Color::DarkGrey),
         Print(format!("  {:<inner$}  ", dismiss, inner = inner)),
-        SetForegroundColor(Color::Cyan),     SetBackgroundColor(Color::DarkGrey), Print('│'),
-
+        SetForegroundColor(Color::Cyan),
+        SetBackgroundColor(Color::DarkGrey),
+        Print('│'),
         MoveTo(col_off, next_row + 1),
-        SetForegroundColor(Color::Cyan), SetBackgroundColor(Color::DarkGrey),
+        SetForegroundColor(Color::Cyan),
+        SetBackgroundColor(Color::DarkGrey),
         Print(format!("└{}┘", border_h)),
-
         ResetColor
     )
 }
@@ -222,7 +334,11 @@ pub fn render_info_overlay(
 
 /// Large ASCII-art "paused" rendered centred over the (hidden) grid.
 /// Grid occupies col 2..75, rows 1..37 (73 wide × 37 tall).
-fn render_paused_overlay(out: &mut impl Write, resume_hint: &str, colors: &ColorScheme) -> io::Result<()> {
+fn render_paused_overlay(
+    out: &mut impl Write,
+    resume_hint: &str,
+    colors: &ColorScheme,
+) -> io::Result<()> {
     // figlet "paused" (standard font) — kept in English as decorative ASCII art.
     const ART: &[&str] = &[
         "                                 _ ",
@@ -243,15 +359,16 @@ fn render_paused_overlay(out: &mut impl Write, resume_hint: &str, colors: &Color
     let art_h = ART.len() as u16;
     let total_h = art_h + 2; // art + blank + resume
 
-    let art_col    = grid_col + (grid_width.saturating_sub(art_w)) / 2;
-    let art_row    = grid_row + (grid_height.saturating_sub(total_h)) / 2;
+    let art_col = grid_col + (grid_width.saturating_sub(art_w)) / 2;
+    let art_row = grid_row + (grid_height.saturating_sub(total_h)) / 2;
     let resume_col = grid_col + (grid_width.saturating_sub(resume_hint.chars().count() as u16)) / 2;
     let resume_row = art_row + art_h + 1;
 
     let bg = colors.ui_background;
 
     for (i, line) in ART.iter().enumerate() {
-        queue!(out,
+        queue!(
+            out,
             MoveTo(art_col, art_row + i as u16),
             SetForegroundColor(colors.digit_given),
             SetBackgroundColor(bg),
@@ -259,7 +376,8 @@ fn render_paused_overlay(out: &mut impl Write, resume_hint: &str, colors: &Color
         )?;
     }
 
-    queue!(out,
+    queue!(
+        out,
         MoveTo(resume_col, resume_row),
         SetForegroundColor(colors.ui_text_dim),
         SetBackgroundColor(bg),
@@ -271,14 +389,20 @@ fn render_paused_overlay(out: &mut impl Write, resume_hint: &str, colors: &Color
 // ── Completion helper ─────────────────────────────────────────────────────────
 
 /// Cells of a grid row left→right.
-pub fn row_cells(r: usize) -> Vec<(usize, usize)> { (0..9).map(|c| (r, c)).collect() }
+pub fn row_cells(r: usize) -> Vec<(usize, usize)> {
+    (0..9).map(|c| (r, c)).collect()
+}
 /// Cells of a grid column top→bottom.
-pub fn col_cells(c: usize) -> Vec<(usize, usize)> { (0..9).map(|r| (r, c)).collect() }
+pub fn col_cells(c: usize) -> Vec<(usize, usize)> {
+    (0..9).map(|r| (r, c)).collect()
+}
 /// Cells of box `b` in reading order (used for completion checks).
 pub fn box_cells(b: usize) -> Vec<(usize, usize)> {
     let br = (b / 3) * 3;
     let bc = (b % 3) * 3;
-    (0..3).flat_map(|dr| (0..3).map(move |dc| (br + dr, bc + dc))).collect()
+    (0..3)
+        .flat_map(|dr| (0..3).map(move |dc| (br + dr, bc + dc)))
+        .collect()
 }
 /// Cells of box `b` in serpentine order for the completion sweep animation:
 /// row 0 left→right, row 1 right→left, row 2 left→right.
@@ -288,9 +412,13 @@ pub fn box_cells_serpentine(b: usize) -> Vec<(usize, usize)> {
     let mut cells = Vec::with_capacity(9);
     for dr in 0..3usize {
         if dr % 2 == 0 {
-            for dc in 0..3 { cells.push((br + dr, bc + dc)); }
+            for dc in 0..3 {
+                cells.push((br + dr, bc + dc));
+            }
         } else {
-            for dc in (0..3).rev() { cells.push((br + dr, bc + dc)); }
+            for dc in (0..3).rev() {
+                cells.push((br + dr, bc + dc));
+            }
         }
     }
     cells
