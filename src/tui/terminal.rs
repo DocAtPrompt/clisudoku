@@ -33,3 +33,14 @@ impl Drop for Terminal {
         let _ = terminal::disable_raw_mode();
     }
 }
+
+/// Send the ANSI escape to enable mouse capture in the active terminal.
+/// Best-effort — ignores errors so callers can use `let _ = enable_mouse_capture()`.
+pub fn enable_mouse_capture() -> io::Result<()> {
+    execute!(io::stdout(), crossterm::event::EnableMouseCapture)
+}
+
+/// Send the ANSI escape to disable mouse capture in the active terminal.
+pub fn disable_mouse_capture() -> io::Result<()> {
+    execute!(io::stdout(), crossterm::event::DisableMouseCapture)
+}
