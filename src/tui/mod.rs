@@ -997,9 +997,9 @@ impl App {
             }
 
             // Shorten poll timeout when an animation is running or generating so frames advance.
-            let poll_ms = if matches!(self.screen, AppScreen::Generating(_))
-                || self.anim.matrix_rain.is_some()
-            {
+            let poll_ms = if self.anim.matrix_rain.is_some() {
+                30
+            } else if matches!(self.screen, AppScreen::Generating(_)) {
                 50
             } else if self.anim.is_active() {
                 80
