@@ -71,6 +71,9 @@ pub fn find_hint(state: &GameState, solution: &Grid) -> Option<Hint> {
         &WWing,
         &UniqueRectangle,
         &BugPlusOne,
+        &EmptyRectangle,
+        &SimpleColoring,
+        &XYChain,
     ];
     for s in strategies {
         if let Some(h) = s.find(state, solution) {

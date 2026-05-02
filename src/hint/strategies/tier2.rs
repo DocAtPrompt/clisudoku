@@ -22,6 +22,9 @@ pub struct XYZWing;
 pub struct WWing;
 pub struct UniqueRectangle;
 pub struct BugPlusOne;
+pub struct EmptyRectangle;
+pub struct SimpleColoring;
+pub struct XYChain;
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -1359,6 +1362,419 @@ impl Strategy for BugPlusOne {
     }
 }
 
+// ── Empty Rectangle ───────────────────────────────────────────────────────────
+
+impl Strategy for EmptyRectangle {
+    fn name_en(&self) -> &'static str { "Empty Rectangle" }
+    fn name_de(&self) -> &'static str { "Empty Rectangle" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+
+        for digit in 1u8..=9 {
+            // Iterate all 9 boxes as possible ER boxes
+            for box_idx in 0..9usize {
+                let box_row = (box_idx / 3) * 3; // first row of box
+                let box_col = (box_idx % 3) * 3; // first col of box
+
+                // Collect cells in this box that have `digit` in notes
+                let box_cells: Vec<(usize, usize)> = (0..3)
+                    .flat_map(|dr| (0..3).map(move |dc| (box_row + dr, box_col + dc)))
+                    .filter(|&(r, c)| {
+                        matches!(grid.get(r, c), CellKind::Empty)
+                            && (state.notes_mask(r, c) & (1 << digit)) != 0
+                    })
+                    .collect();
+
+                // Need at least 2 cells (a single cell is a naked single, handled earlier)
+                if box_cells.len() < 2 { continue; }
+
+                // ── ER on a row: all box cells with digit are in the same row ──
+                let er_row = box_cells[0].0;
+                if box_cells.iter().all(|&(r, _)| r == er_row) {
+                    // Find a conjugate pair on `digit` in some column outside box B
+                    for c_conj in 0..9usize {
+                        if c_conj / 3 == box_col / 3 { continue; } // skip cols in box's band
+                        let col_cells: Vec<usize> = (0..9)
+                            .filter(|&r| {
+                                matches!(grid.get(r, c_conj), CellKind::Empty)
+                                    && (state.notes_mask(r, c_conj) & (1 << digit)) != 0
+                            })
+                            .collect();
+                        if col_cells.len() != 2 { continue; }
+                        let (r_a, r_b) = (col_cells[0], col_cells[1]);
+
+                        // Check both orientations
+                        let (r_er_end, r_other) = if r_a == er_row {
+                            (r_a, r_b)
+                        } else if r_b == er_row {
+                            (r_b, r_a)
+                        } else {
+                            continue;
+                        };
+                        let _ = r_er_end;
+
+                        // Eliminate digit from cells in row r_other that are in box B's columns
+                        for c_er in box_col..(box_col + 3) {
+                            if c_er == c_conj { continue; }
+                            if !matches!(grid.get(r_other, c_er), CellKind::Empty) { continue; }
+                            if (state.notes_mask(r_other, c_er) & (1 << digit)) == 0 { continue; }
+
+                            let mut cause = box_cells.clone();
+                            cause.push((r_a, c_conj));
+                            cause.push((r_b, c_conj));
+                            let elim = vec![(r_other, c_er)];
+                            return Some(Hint {
+                                cause_cells:    cause,
+                                elim_cells:     elim.clone(),
+                                target_cell:    elim[0],
+                                elim_digit:     Some(digit),
+                                target_digit:   None,
+                                name_en:        self.name_en(),
+                                name_de:        self.name_de(),
+                                explanation_en: format!(
+                                    "Empty Rectangle: {} in the box is confined to one row. Remove {} from notes in highlighted cells.",
+                                    digit, digit
+                                ),
+                                explanation_de: format!(
+                                    "Empty Rectangle: {} in der Box ist auf eine Zeile beschr\u{e4}nkt. {} aus den markierten Zellen streichen.",
+                                    digit, digit
+                                ),
+                            });
+                        }
+                    }
+                }
+
+                // ── ER on a column: all box cells with digit are in the same col ──
+                let er_col = box_cells[0].1;
+                if box_cells.iter().all(|&(_, c)| c == er_col) {
+                    // Find a conjugate pair on `digit` in some row outside box B
+                    for r_conj in 0..9usize {
+                        if r_conj / 3 == box_row / 3 { continue; } // skip rows in box's band
+                        let row_cells: Vec<usize> = (0..9)
+                            .filter(|&c| {
+                                matches!(grid.get(r_conj, c), CellKind::Empty)
+                                    && (state.notes_mask(r_conj, c) & (1 << digit)) != 0
+                            })
+                            .collect();
+                        if row_cells.len() != 2 { continue; }
+                        let (c_a, c_b) = (row_cells[0], row_cells[1]);
+
+                        let (c_er_end, c_other) = if c_a == er_col {
+                            (c_a, c_b)
+                        } else if c_b == er_col {
+                            (c_b, c_a)
+                        } else {
+                            continue;
+                        };
+                        let _ = c_er_end;
+
+                        // Eliminate digit from cells in col c_other that are in box B's rows
+                        for r_er in box_row..(box_row + 3) {
+                            if r_er == r_conj { continue; }
+                            if !matches!(grid.get(r_er, c_other), CellKind::Empty) { continue; }
+                            if (state.notes_mask(r_er, c_other) & (1 << digit)) == 0 { continue; }
+
+                            let mut cause = box_cells.clone();
+                            cause.push((r_conj, c_a));
+                            cause.push((r_conj, c_b));
+                            let elim = vec![(r_er, c_other)];
+                            return Some(Hint {
+                                cause_cells:    cause,
+                                elim_cells:     elim.clone(),
+                                target_cell:    elim[0],
+                                elim_digit:     Some(digit),
+                                target_digit:   None,
+                                name_en:        self.name_en(),
+                                name_de:        self.name_de(),
+                                explanation_en: format!(
+                                    "Empty Rectangle: {} in the box is confined to one column. Remove {} from notes in highlighted cells.",
+                                    digit, digit
+                                ),
+                                explanation_de: format!(
+                                    "Empty Rectangle: {} in der Box ist auf eine Spalte beschr\u{e4}nkt. {} aus den markierten Zellen streichen.",
+                                    digit, digit
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── Simple Coloring ───────────────────────────────────────────────────────────
+
+impl Strategy for SimpleColoring {
+    fn name_en(&self) -> &'static str { "Simple Coloring" }
+    fn name_de(&self) -> &'static str { "Simple Coloring" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        use std::collections::HashMap;
+
+        let grid = state.grid();
+
+        for digit in 1u8..=9 {
+            // Build strong-link adjacency list
+            let mut links: HashMap<(usize, usize), Vec<(usize, usize)>> = HashMap::new();
+            for unit in all_units() {
+                let cells_d: Vec<(usize, usize)> = unit.iter()
+                    .filter(|&&(r, c)| {
+                        matches!(grid.get(r, c), CellKind::Empty)
+                            && (state.notes_mask(r, c) & (1 << digit)) != 0
+                    })
+                    .copied()
+                    .collect();
+                if cells_d.len() == 2 {
+                    links.entry(cells_d[0]).or_default().push(cells_d[1]);
+                    links.entry(cells_d[1]).or_default().push(cells_d[0]);
+                }
+            }
+
+            if links.is_empty() { continue; }
+
+            // BFS to find connected components and 2-color them
+            let mut color_map: HashMap<(usize, usize), u8> = HashMap::new();
+
+            let all_linked_cells: Vec<(usize, usize)> = links.keys().copied().collect();
+
+            for &start in &all_linked_cells {
+                if color_map.contains_key(&start) { continue; }
+
+                // BFS
+                let mut queue = std::collections::VecDeque::new();
+                queue.push_back(start);
+                color_map.insert(start, 0);
+
+                let mut component: Vec<(usize, usize)> = vec![start];
+
+                while let Some(cell) = queue.pop_front() {
+                    let cell_color = color_map[&cell];
+                    let next_color = 1 - cell_color;
+                    if let Some(neighbors) = links.get(&cell) {
+                        for &nb in neighbors {
+                            if !color_map.contains_key(&nb) {
+                                color_map.insert(nb, next_color);
+                                component.push(nb);
+                                queue.push_back(nb);
+                            }
+                        }
+                    }
+                }
+
+                // Separate component into two colors
+                let color0: Vec<(usize, usize)> = component.iter()
+                    .filter(|&&c| color_map[&c] == 0)
+                    .copied()
+                    .collect();
+                let color1: Vec<(usize, usize)> = component.iter()
+                    .filter(|&&c| color_map[&c] == 1)
+                    .copied()
+                    .collect();
+
+                // Color Wrap: same-color cells see each other → that color is impossible
+                for col_idx in 0..2u8 {
+                    let same_color = if col_idx == 0 { &color0 } else { &color1 };
+                    'outer: for i in 0..same_color.len() {
+                        for j in (i + 1)..same_color.len() {
+                            let (r1, c1) = same_color[i];
+                            let (r2, c2) = same_color[j];
+                            if sees(r1, c1, r2, c2) {
+                                // Eliminate digit from all cells of this color
+                                let elim: Vec<(usize, usize)> = same_color.iter()
+                                    .filter(|&&(r, c)| {
+                                        matches!(grid.get(r, c), CellKind::Empty)
+                                            && (state.notes_mask(r, c) & (1 << digit)) != 0
+                                    })
+                                    .copied()
+                                    .collect();
+                                if elim.is_empty() { break 'outer; }
+                                return Some(Hint {
+                                    cause_cells:    same_color.clone(),
+                                    elim_cells:     elim.clone(),
+                                    target_cell:    elim[0],
+                                    elim_digit:     Some(digit),
+                                    target_digit:   None,
+                                    name_en:        self.name_en(),
+                                    name_de:        self.name_de(),
+                                    explanation_en: format!(
+                                        "Two same-color cells see each other \u{2014} that color is impossible. Remove {} from notes in highlighted cells.",
+                                        digit
+                                    ),
+                                    explanation_de: format!(
+                                        "Zwei gleichfarbige Zellen sehen sich \u{2014} diese Farbe ist unm\u{f6}glich. {} aus den markierten Zellen streichen.",
+                                        digit
+                                    ),
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Color Trap: a cell outside the component sees both colors
+                for r in 0..9usize {
+                    for c in 0..9usize {
+                        if color_map.contains_key(&(r, c)) { continue; }
+                        if !matches!(grid.get(r, c), CellKind::Empty) { continue; }
+                        if (state.notes_mask(r, c) & (1 << digit)) == 0 { continue; }
+
+                        let seen0 = color0.iter().find(|&&(r2, c2)| sees(r, c, r2, c2)).copied();
+                        let seen1 = color1.iter().find(|&&(r2, c2)| sees(r, c, r2, c2)).copied();
+
+                        if let (Some(s0), Some(s1)) = (seen0, seen1) {
+                            return Some(Hint {
+                                cause_cells:    vec![s0, s1],
+                                elim_cells:     vec![(r, c)],
+                                target_cell:    (r, c),
+                                elim_digit:     Some(digit),
+                                target_digit:   None,
+                                name_en:        self.name_en(),
+                                name_de:        self.name_de(),
+                                explanation_en: format!(
+                                    "This cell sees both colors of the {} chain. Remove {} from notes in highlighted cells.",
+                                    digit, digit
+                                ),
+                                explanation_de: format!(
+                                    "Diese Zelle sieht beide Farben der {}-Kette. {} aus den markierten Zellen streichen.",
+                                    digit, digit
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+// ── XY-Chain ──────────────────────────────────────────────────────────────────
+
+impl Strategy for XYChain {
+    fn name_en(&self) -> &'static str { "XY-Chain" }
+    fn name_de(&self) -> &'static str { "XY-Chain" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+
+        // Collect all bivalue cells
+        let bivalue: Vec<(usize, usize, u16)> = (0..9)
+            .flat_map(|r| (0..9).map(move |c| (r, c)))
+            .filter_map(|(r, c)| {
+                if !matches!(grid.get(r, c), CellKind::Empty) { return None; }
+                let m = state.notes_mask(r, c);
+                if m.count_ones() == 2 { Some((r, c, m)) } else { None }
+            })
+            .collect();
+
+        const MAX_DEPTH: usize = 8;
+
+        // Try each bivalue cell as chain start
+        for &(sr, sc, sm) in &bivalue {
+            // Extract the two digits: elim_d (first) and x (second link digit)
+            let elim_d = sm.trailing_zeros() as u8;
+            let x = (sm >> (elim_d as u32 + 1)).trailing_zeros() as u8 + elim_d + 1;
+
+            // DFS: chain = list of cells, incoming = digit the next cell must contain
+            // We start chain with (sr, sc), need next cell to contain `x`
+            let mut chain: Vec<(usize, usize)> = vec![(sr, sc)];
+            if let Some(h) = xy_chain_dfs(
+                &mut chain, x, elim_d, &bivalue, grid, state, MAX_DEPTH,
+                self.name_en(), self.name_de(),
+            ) {
+                return Some(h);
+            }
+        }
+        None
+    }
+}
+
+fn xy_chain_dfs(
+    chain: &mut Vec<(usize, usize)>,
+    incoming: u8,
+    elim_d: u8,
+    bivalue: &[(usize, usize, u16)],
+    grid: &crate::puzzle::Grid,
+    state: &GameState,
+    max_depth: usize,
+    name_en: &'static str,
+    name_de: &'static str,
+) -> Option<Hint> {
+    if chain.len() >= max_depth { return None; }
+
+    let &(cur_r, cur_c) = chain.last().unwrap();
+
+    for &(nr, nc, nm) in bivalue {
+        if chain.contains(&(nr, nc)) { continue; }
+        if !sees(cur_r, cur_c, nr, nc) { continue; }
+        // The new cell must contain `incoming`
+        if (nm & (1 << incoming)) == 0 { continue; }
+
+        // The "outgoing" digit of this cell (the other one)
+        let other = if nm.trailing_zeros() as u8 == incoming {
+            (nm >> (incoming as u32 + 1)).trailing_zeros() as u8 + incoming + 1
+        } else {
+            nm.trailing_zeros() as u8
+        };
+
+        chain.push((nr, nc));
+
+        // If the outgoing digit equals elim_d AND chain length >= 3 (so at least 3 cells)
+        if other == elim_d && chain.len() >= 3 {
+            let (start_r, start_c) = chain[0];
+            // Find cells that see both chain start and chain end and have elim_d in notes
+            let elim: Vec<(usize, usize)> = (0..9)
+                .flat_map(|r| (0..9).map(move |c| (r, c)))
+                .filter(|&(r, c)| {
+                    !chain.contains(&(r, c))
+                        && matches!(grid.get(r, c), CellKind::Empty)
+                        && sees(r, c, start_r, start_c)
+                        && sees(r, c, nr, nc)
+                        && (state.notes_mask(r, c) & (1 << elim_d)) != 0
+                })
+                .collect();
+
+            if !elim.is_empty() {
+                let hint = Hint {
+                    cause_cells:    chain.clone(),
+                    elim_cells:     elim.clone(),
+                    target_cell:    elim[0],
+                    elim_digit:     Some(elim_d),
+                    target_digit:   None,
+                    name_en,
+                    name_de,
+                    explanation_en: format!(
+                        "XY-Chain: {} is forced out of one chain end. Remove {} from notes in highlighted cells.",
+                        elim_d, elim_d
+                    ),
+                    explanation_de: format!(
+                        "XY-Chain: {} wird aus einem Kettenende herausgezwungen. {} aus den markierten Zellen streichen.",
+                        elim_d, elim_d
+                    ),
+                };
+                chain.pop();
+                return Some(hint);
+            }
+        }
+
+        // Continue DFS with outgoing digit as new incoming (only if outgoing != elim_d,
+        // to avoid revisiting a completed chain without eliminations)
+        if other != elim_d {
+            if let Some(h) = xy_chain_dfs(
+                chain, other, elim_d, bivalue, grid, state, max_depth, name_en, name_de,
+            ) {
+                chain.pop();
+                return Some(h);
+            }
+        }
+
+        chain.pop();
+    }
+    None
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -1473,5 +1889,26 @@ mod tests {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
         assert!(BugPlusOne.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn empty_rectangle_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(EmptyRectangle.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn simple_coloring_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(SimpleColoring.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn xy_chain_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(XYChain.find(&state, &sol).is_none());
     }
 }
