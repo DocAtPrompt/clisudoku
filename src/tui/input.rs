@@ -162,7 +162,7 @@ pub fn hit_test_grid(term_col: u16, term_row: u16) -> Option<(usize, usize)> {
 /// Digit column ranges:
 ///   Col 0 (1/4/7): 79–90, Col 1 (2/5/8): 91–101, Col 2 (3/6/9): 102–112
 pub fn hit_test_panel_button(term_col: u16, term_row: u16) -> Option<MousePanelButton> {
-    if term_col < 79 || term_col > 112 {
+    if !(79..=112).contains(&term_col) {
         return None;
     }
     let col = term_col as usize;
@@ -177,16 +177,14 @@ pub fn hit_test_panel_button(term_col: u16, term_row: u16) -> Option<MousePanelB
         },
         27 | 29 | 31 => {
             let digit_col: u8 = match col {
-                79..=90   => 0,
-                91..=101  => 1,
-                102..=112 => 2,
-                _ => return None,
+                79..=90  => 0,
+                91..=101 => 1,
+                _        => 2,  // 102..=112, guarded by outer range check
             };
             let digit_row: u8 = match term_row {
                 27 => 0,
                 29 => 1,
-                31 => 2,
-                _  => return None,
+                _  => 2,        // 31, guarded by outer pattern
             };
             Some(MousePanelButton::Digit(digit_row * 3 + digit_col + 1))
         }
@@ -431,5 +429,46 @@ mod tests {
             map_key_to_action(key(KeyCode::Char('M')), &nav),
             AppAction::ToggleMouseMode
         );
+    }
+
+    // ── map_mouse_to_action ───────────────────────────────────────────────────
+
+    fn mouse_event(kind: crossterm::event::MouseEventKind, col: u16, row: u16) -> crossterm::event::MouseEvent {
+        crossterm::event::MouseEvent { kind, column: col, row, modifiers: crossterm::event::KeyModifiers::NONE }
+    }
+
+    #[test]
+    fn map_mouse_disabled_returns_none() {
+        use crossterm::event::{MouseButton, MouseEventKind};
+        let e = mouse_event(MouseEventKind::Down(MouseButton::Left), 10, 10);
+        assert_eq!(map_mouse_to_action(e, false), AppAction::None);
+    }
+
+    #[test]
+    fn map_mouse_hover_on_grid() {
+        use crossterm::event::MouseEventKind;
+        let e = mouse_event(MouseEventKind::Moved, 3, 2);
+        assert_eq!(map_mouse_to_action(e, true), AppAction::MouseHover(0, 0));
+    }
+
+    #[test]
+    fn map_mouse_hover_off_grid_returns_none() {
+        use crossterm::event::MouseEventKind;
+        let e = mouse_event(MouseEventKind::Moved, 1, 1);
+        assert_eq!(map_mouse_to_action(e, true), AppAction::None);
+    }
+
+    #[test]
+    fn map_mouse_click_selects_cell() {
+        use crossterm::event::{MouseButton, MouseEventKind};
+        let e = mouse_event(MouseEventKind::Down(MouseButton::Left), 3, 2);
+        assert_eq!(map_mouse_to_action(e, true), AppAction::MouseSelectCell(0, 0));
+    }
+
+    #[test]
+    fn map_mouse_click_panel_button() {
+        use crossterm::event::{MouseButton, MouseEventKind};
+        let e = mouse_event(MouseEventKind::Down(MouseButton::Left), 79, 23);
+        assert_eq!(map_mouse_to_action(e, true), AppAction::MouseButton(MousePanelButton::NotesSolToggle));
     }
 }
