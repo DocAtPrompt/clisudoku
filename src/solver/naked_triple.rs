@@ -10,7 +10,11 @@ pub fn find_naked_triples(cands: &CandidateGrid) -> Vec<Elimination> {
             .filter_map(|&(r, c)| {
                 let m = cands.mask(r, c);
                 let n = m.count_ones();
-                if n == 2 || n == 3 { Some((r, c, m)) } else { None }
+                if n >= 1 && n <= 3 {
+                    Some((r, c, m))
+                } else {
+                    None
+                }
             })
             .collect();
 
@@ -24,11 +28,12 @@ pub fn find_naked_triples(cands: &CandidateGrid) -> Vec<Elimination> {
                             (small[j].0, small[j].1),
                             (small[k].0, small[k].1),
                         ];
-                        let digits: Vec<u8> = (1u8..=9)
-                            .filter(|&d| combined & (1 << d) != 0)
-                            .collect();
+                        let digits: Vec<u8> =
+                            (1u8..=9).filter(|&d| combined & (1 << d) != 0).collect();
                         for &(r, c) in cells {
-                            if triple_cells.contains(&(r, c)) { continue; }
+                            if triple_cells.contains(&(r, c)) {
+                                continue;
+                            }
                             for &d in &digits {
                                 if cands.has(r, c, d) {
                                     elims.push(Elimination {
@@ -72,12 +77,16 @@ mod tests {
     #[test]
     fn no_panic_no_false_positives() {
         let grid = Grid::from_str(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-        ).unwrap();
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        )
+        .unwrap();
         let cands = CandidateGrid::from_grid(&grid);
         let elims = find_naked_triples(&cands);
         for e in &elims {
-            assert!(cands.has(e.row, e.col, e.digit), "elimination targets cell without candidate");
+            assert!(
+                cands.has(e.row, e.col, e.digit),
+                "elimination targets cell without candidate"
+            );
         }
     }
 }
