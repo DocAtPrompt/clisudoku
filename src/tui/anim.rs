@@ -277,56 +277,144 @@ const MATRIX_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$&*?!<>|+-="
 
 /// What the renderer should draw at a given (col, row) position.
 pub enum RainCell {
-    /// Head has settled here — skip writing; the game screen beneath shows through.
+    /// Row has crystallised — skip writing; game screen beneath shows through.
     Settled,
-    /// Not yet reached or column not started — cover with background colour.
+    /// Not yet reached — cover with background colour.
     Blank,
     /// Falling rain character. Level: 0 = head (White), 1 = near trail (Green), 2 = far (DarkGreen).
     Rain(char, u8),
 }
 
-pub struct RainColumn {
-    start_delay:     u32,
-    /// Chars scroll down 1 row every `speed` ticks.
-    speed:           u8,
-    frame_tick:      u8,
-    /// Total rows scrolled so far (grows unbounded). Used to compute char index and head.
-    scroll_off:      usize,
-    /// True once scroll_off has reached RAIN_ROWS (first full pass completed).
-    first_pass_done: bool,
-    /// Rows crystallised from the bottom (0 → RAIN_ROWS).
-    pub settled_rows: usize,
-    settle_tick:      u8,
-    /// Pre-generated character pool; indexed via (row + scroll_off).
-    chars:           Vec<char>,
+// ── Individual raindrop ───────────────────────────────────────────────────────
+
+struct RainDrop {
+    head:       i16,   // current head row; starts at -(trail_len), falls to target
+    target:     i16,   // grid row where this drop crystallises
+    trail_len:  u8,
+    speed:      u8,    // advance 1 row every `speed` ticks
+    frame_tick: u8,
 }
 
+impl RainDrop {
+    fn new(target: i16, seed: &mut u64) -> Self {
+        let speed     = if rng_next(seed) < 0.45 { 1u8 } else { 2u8 };
+        let trail_len = 5 + (rng_next(seed) * 9.0) as u8; // 5 ..= 13
+        Self { head: -(trail_len as i16), target, trail_len, speed, frame_tick: 0 }
+    }
+
+    fn advance(&mut self) {
+        if self.head >= self.target { return; }
+        self.frame_tick += 1;
+        if self.frame_tick >= self.speed {
+            self.frame_tick = 0;
+            self.head += 1;
+        }
+    }
+
+    fn done(&self) -> bool { self.head >= self.target }
+
+    /// Brightness level at `row`: 0=head(White), 1=near trail(Green), 2=far(DarkGreen), None=not here.
+    fn level_at(&self, row: i16) -> Option<u8> {
+        if row < 0 || row >= RAIN_ROWS as i16 { return None; }
+        let head = self.head;
+        if row == head {
+            Some(0)
+        } else if row < head && row >= head - self.trail_len as i16 {
+            let dist = (head - row) as usize;
+            Some(if dist <= self.trail_len as usize / 2 { 1 } else { 2 })
+        } else {
+            None
+        }
+    }
+
+    /// Progress through the full fall (0.0 = just spawned, 1.0 = reached target).
+    fn progress(&self) -> f32 {
+        let total = self.target + self.trail_len as i16;
+        if total <= 0 { return 1.0; }
+        ((self.head + self.trail_len as i16).max(0) as f32) / total as f32
+    }
+}
+
+// ── Per-column state ──────────────────────────────────────────────────────────
+
+struct RainColumn {
+    start_delay:  u32,
+    drop_a:       Option<RainDrop>, // drop currently in flight
+    drop_b:       Option<RainDrop>, // pre-spawned successor
+    settled_rows: usize,            // rows crystallised from bottom (0 → RAIN_ROWS)
+    chars:        Vec<char>,
+    col_seed:     u64,
+    shimmer:      usize,            // tick counter for char variety
+}
+
+impl RainColumn {
+    /// Next row (from bottom) that needs to be settled.
+    fn next_target(&self) -> i16 {
+        RAIN_ROWS as i16 - 1 - self.settled_rows as i16
+    }
+
+    fn ensure_drop_a(&mut self) {
+        if self.drop_a.is_none() && self.next_target() >= 0 {
+            let t = self.next_target();
+            self.drop_a = Some(RainDrop::new(t, &mut self.col_seed));
+        }
+    }
+
+    /// Spawn drop_b once drop_a is more than halfway to its target.
+    fn maybe_spawn_drop_b(&mut self) {
+        if self.drop_b.is_some() { return; }
+        let next_b = self.next_target() - 1;
+        if next_b < 0 { return; }
+        if self.drop_a.as_ref().map(|a| a.progress() >= 0.5).unwrap_or(false) {
+            self.drop_b = Some(RainDrop::new(next_b, &mut self.col_seed));
+        }
+    }
+
+    fn advance(&mut self) {
+        self.shimmer = self.shimmer.wrapping_add(1);
+        self.ensure_drop_a();
+        if let Some(d) = &mut self.drop_a { d.advance(); }
+        if let Some(d) = &mut self.drop_b { d.advance(); }
+        self.maybe_spawn_drop_b();
+
+        // Settle drop_a when it has reached its target row.
+        if self.drop_a.as_ref().map(|d| d.done()).unwrap_or(false) {
+            self.settled_rows += 1;
+            self.drop_a = self.drop_b.take();
+        }
+    }
+
+    fn char_at(&self, row: usize) -> char {
+        self.chars[(row.wrapping_add(self.shimmer)) % self.chars.len()]
+    }
+}
+
+// ── MatrixRainAnim ────────────────────────────────────────────────────────────
+
 pub struct MatrixRainAnim {
-    pub columns: Vec<RainColumn>,
-    tick:        u32,
+    columns: Vec<RainColumn>,
+    tick:    u32,
 }
 
 impl MatrixRainAnim {
     pub fn new(seed: u64) -> Self {
         let mut s = seed;
         let columns = (0..RAIN_COLS).map(|_| {
-            let start_delay = (rng_next(&mut s) * 18.0) as u32;
-            let speed       = if rng_next(&mut s) < 0.45 { 1u8 } else { 2u8 };
-            // Large pool so scrolling looks random without noticeable repetition.
+            let start_delay = (rng_next(&mut s) * 15.0) as u32;
+            let col_seed    = s ^ (rng_next(&mut s) * u64::MAX as f32) as u64;
             let chars = (0..96).map(|_| {
                 let idx = (rng_next(&mut s) * MATRIX_CHARS.len() as f32) as usize;
                 MATRIX_CHARS[idx % MATRIX_CHARS.len()] as char
             }).collect();
             RainColumn {
-                start_delay, speed, frame_tick: 0, scroll_off: 0,
-                first_pass_done: false, settled_rows: 0, settle_tick: 0,
-                chars,
+                start_delay, drop_a: None, drop_b: None,
+                settled_rows: 0, chars, col_seed, shimmer: 0,
             }
         }).collect();
         Self { columns, tick: 0 }
     }
 
-    /// All columns fully crystallised — whole grid visible again.
+    /// All columns fully crystallised — the whole grid is visible again.
     pub fn done(&self) -> bool {
         self.columns.iter().all(|c| {
             if self.tick <= c.start_delay { return false; }
@@ -337,78 +425,42 @@ impl MatrixRainAnim {
     pub fn advance(&mut self) {
         self.tick += 1;
         for col in &mut self.columns {
-            if self.tick <= col.start_delay { continue; }
-
-            // ── Dense scrolling rain ───────────────────────────────────────
-            col.frame_tick += 1;
-            if col.frame_tick >= col.speed {
-                col.frame_tick = 0;
-                col.scroll_off = col.scroll_off.wrapping_add(1);
-                if col.scroll_off >= RAIN_ROWS {
-                    col.first_pass_done = true;
-                }
-            }
-
-            // ── Settled zone: grows upward after the first full pass ───────
-            if col.first_pass_done && col.settled_rows < RAIN_ROWS {
-                col.settle_tick += 1;
-                if col.settle_tick >= col.speed {
-                    col.settle_tick = 0;
-                    col.settled_rows += 1;
-                }
-            }
+            if self.tick <= col.start_delay   { continue; }
+            if col.settled_rows >= RAIN_ROWS  { continue; }
+            col.advance();
         }
     }
 
     /// What to render at grid position `(col, row)`.
     ///
-    /// - `Settled`  → skip; the game screen rendered beneath shows through
-    /// - `Blank`    → dark (column not started, or below the head on first pass)
-    /// - `Rain`     → dense character; level 0=White head, 1=Green trail, 2=DarkGreen body
-    ///
-    /// # Layout
-    ///
-    /// On the **first pass** (`!first_pass_done`):
-    ///   rows ABOVE head → dense green (rain already fallen)
-    ///   row  AT    head → White (the falling bright character)
-    ///   rows BELOW head → Blank  ← no green leaks below the head
-    ///
-    /// After the first pass the entire unsettled zone stays dense while the
-    /// settled zone grows from the bottom upward.
+    /// Each column has at most two drops in flight: `drop_a` (current) and
+    /// `drop_b` (pre-spawned successor). When `drop_a` crystallises its row,
+    /// `drop_b` becomes the new `drop_a` and a fresh `drop_b` is queued.
+    /// This gives the classic Matrix look: clear head + fading trail, nothing
+    /// below the head, and no visual gap between consecutive drops.
     pub fn cell_at(&self, col: usize, row: usize) -> RainCell {
         let c = &self.columns[col];
+        if self.tick <= c.start_delay { return RainCell::Blank; }
 
-        if self.tick <= c.start_delay {
-            return RainCell::Blank;
-        }
-
-        // Crystallised zone: bottom settled_rows rows reveal real grid content.
+        // Crystallised zone grows upward from the bottom.
         let settle_row = RAIN_ROWS.saturating_sub(c.settled_rows);
-        if row >= settle_row {
-            return RainCell::Settled;
-        }
+        if row >= settle_row { return RainCell::Settled; }
 
-        // Virtual head: where in the column the bright leading char is.
-        let virtual_head = c.scroll_off % RAIN_ROWS;
-
-        // During the first pass, rows below the head are still dark.
-        if !c.first_pass_done && row > virtual_head {
-            return RainCell::Blank;
-        }
-
-        // Dense scrolling character (shimmers as scroll_off advances).
-        let ch = c.chars[(row.wrapping_add(c.scroll_off)) % c.chars.len()];
-
-        // Brightness: head brightest, short trail above fades to dark body.
-        let level = if row == virtual_head {
-            0 // White — the falling head
-        } else if row < virtual_head && virtual_head - row <= 3 {
-            1 // Green — close trail above the head
-        } else {
-            2 // DarkGreen — dense rain body
+        // Take the brightest level offered by either drop.
+        let row_i = row as i16;
+        let la = c.drop_a.as_ref().and_then(|d| d.level_at(row_i));
+        let lb = c.drop_b.as_ref().and_then(|d| d.level_at(row_i));
+        let best = match (la, lb) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (Some(a), None)    => Some(a),
+            (None,    Some(b)) => Some(b),
+            (None,    None)    => None,
         };
 
-        RainCell::Rain(ch, level)
+        match best {
+            None        => RainCell::Blank,
+            Some(level) => RainCell::Rain(c.char_at(row), level),
+        }
     }
 }
 
