@@ -337,25 +337,29 @@ fn render_digit_grid(
 
 // ── Mouse controls section ────────────────────────────────────────────────────
 
-/// Render the mouse controls into content rows 18–30 (terminal rows row_off+19 through row_off+31).
+/// Render the mouse controls into content rows 18–30, then blank-pad rows 31–34.
+///
+/// Content rows are numbered relative to the panel top (`row_off + 1`).
+/// Terminal row for content row N = `row_off + 1 + N`.
 ///
 /// Layout (each string is exactly 34 display chars — outer ║ borders rendered here):
 ///
-///   Mouse Controls                    (content row 18 / term row 20)
-///   (blank)                           (content row 19 / term row 21)
-///   ┌────────┬───────┬───────┬───────┐ (content row 20 / term row 22)
-///   │ N/Sol  │  Undo │  Redo │  Clr  │ (content row 21 / term row 23, clickable)
-///   └────────┴───────┴───────┴───────┘ (content row 22 / term row 24)
-///   (blank)                           (content row 23 / term row 25)
-///   ┌──────────┬──────────┬──────────┐ (content row 24 / term row 26)
-///   │    1     │    2     │    3     │ (content row 25 / term row 27, clickable)
-///   ├──────────┼──────────┼──────────┤ (content row 26 / term row 28)
-///   │    4     │    5     │    6     │ (content row 27 / term row 29, clickable)
-///   ├──────────┼──────────┼──────────┤ (content row 28 / term row 30)
-///   │    7     │    8     │    9     │ (content row 29 / term row 31, clickable)
-///   └──────────┴──────────┴──────────┘ (content row 30 / term row 32)
+///   Mouse Controls                    (content row 18)
+///   (blank)                           (content row 19)
+///   ┌────────┬───────┬───────┬───────┐ (content row 20)
+///   │ N/Sol  │  Undo │  Redo │  Clr  │ (content row 21, clickable)
+///   └────────┴───────┴───────┴───────┘ (content row 22)
+///   (blank)                           (content row 23)
+///   ┌──────────┬──────────┬──────────┐ (content row 24)
+///   │    1     │    2     │    3     │ (content row 25, clickable)
+///   ├──────────┼──────────┼──────────┤ (content row 26)
+///   │    4     │    5     │    6     │ (content row 27, clickable)
+///   ├──────────┼──────────┼──────────┤ (content row 28)
+///   │    7     │    8     │    9     │ (content row 29, clickable)
+///   └──────────┴──────────┴──────────┘ (content row 30)
 ///
-/// Content rows 31–34 remain blank (padding before bottom border at row 35).
+/// NOTE: "Mouse Controls" label is intentionally not localised (no i18n field).
+/// Add a `Strings::mouse_controls` field if translation becomes needed.
 fn render_mouse_controls(
     out: &mut impl Write,
     row_off: u16,
