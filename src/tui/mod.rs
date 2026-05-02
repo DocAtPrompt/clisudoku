@@ -1292,7 +1292,17 @@ impl App {
                                     self.handle_action(action);
                                 }
                             }
-                            _ => {}
+                            _ => {
+                                // Move/drag outside the grid: clear the hover highlight
+                                // so it doesn't linger on the last in-grid position.
+                                use crossterm::event::MouseEventKind;
+                                if matches!(
+                                    mouse_event.kind,
+                                    MouseEventKind::Moved | MouseEventKind::Drag(_)
+                                ) {
+                                    self.hover_cell = None;
+                                }
+                            }
                         }
                     }
                     Event::Resize(cols, rows) => {
