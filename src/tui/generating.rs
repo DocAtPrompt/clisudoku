@@ -10,6 +10,8 @@ use crate::puzzle::Grid;
 /// Message sent from the generator thread to the main thread.
 pub enum GenMsg {
     Done(Grid, Difficulty),
+    /// Intermediate progress from the BareMinimum multi-attempt generator.
+    BareMinimumProgress { done: usize, total: usize, best_count: usize },
 }
 
 /// Spawn a background thread that generates one puzzle with the given seed.
@@ -22,6 +24,43 @@ pub fn spawn_generation(pattern: Pattern, seed: u64) -> mpsc::Receiver<GenMsg> {
     });
     rx
 }
+
+/// Spawn a background thread that runs `attempts` BareMinimum generations with
+/// different seeds and returns the puzzle with the fewest given cells.
+///
+/// Sends one `BareMinimumProgress` message after each completed attempt so the
+/// UI can show live progress, followed by a single `Done` with the best grid.
+pub fn spawn_bare_minimum(seed: u64, attempts: usize) -> mpsc::Receiver<GenMsg> {
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        let mut best_grid: Option<Grid> = None;
+        let mut best_count = usize::MAX;
+        for i in 0..attempts {
+            // Derive a distinct seed per attempt using a LCG step.
+            let s = seed.wrapping_add((i as u64).wrapping_mul(0x9e3779b97f4a7c15));
+            let grid = PuzzleGenerator::new(s).generate(Difficulty::BareMinimum, false);
+            let count = (0..9).flat_map(|r| (0..9).map(move |c| (r, c)))
+                .filter(|&(r, c)| grid.get(r, c).is_given())
+                .count();
+            if count < best_count {
+                best_count = count;
+                best_grid = Some(grid);
+            }
+            let _ = tx.send(GenMsg::BareMinimumProgress {
+                done: i + 1,
+                total: attempts,
+                best_count,
+            });
+        }
+        if let Some(grid) = best_grid {
+            let _ = tx.send(GenMsg::Done(grid, Difficulty::BareMinimum));
+        }
+    });
+    rx
+}
+
+/// Number of BareMinimum generation attempts per request.
+pub const BARE_MINIMUM_ATTEMPTS: usize = 5;
 
 /// Cyclic verb list for the generating message "baking sudoku..."
 pub const VERBS: &[&str] = &[
@@ -51,6 +90,14 @@ pub struct GeneratingState {
     /// True when entered from --pattern CLI flag (Esc → DifficultySelect).
     /// False when entered from PatternSelect screen (Esc → PatternSelect).
     pub from_cli:      bool,
+    /// True when generating a BareMinimum puzzle (multi-attempt mode).
+    pub bare_minimum:  bool,
+    /// Completed attempt count for BareMinimum progress display.
+    pub bm_done:       usize,
+    /// Total attempt count for BareMinimum progress display.
+    pub bm_total:      usize,
+    /// Best (fewest) given count seen so far across BareMinimum attempts.
+    pub bm_best_count: usize,
 }
 
 impl GeneratingState {
@@ -70,6 +117,37 @@ impl GeneratingState {
             show_new_seed: false,
             new_seed_at: None,
             from_cli,
+            bare_minimum:  false,
+            bm_done:       0,
+            bm_total:      0,
+            bm_best_count: 0,
+        }
+    }
+
+    /// Create a state for BareMinimum multi-attempt generation.
+    /// No pattern is involved; back navigation always returns to DifficultySelect.
+    pub fn new_bare_minimum() -> Self {
+        let seed = random_seed();
+        let rx = spawn_bare_minimum(seed, BARE_MINIMUM_ATTEMPTS);
+        let n = VERBS.len();
+        let mut verb_order: Vec<usize> = (0..n).collect();
+        lcg_shuffle(&mut verb_order, seed);
+        // Dummy pattern — never used in bare-minimum mode.
+        let dummy = Pattern { name_en: "", mask: [false; 81], cell_count: 0 };
+        GeneratingState {
+            pattern: dummy,
+            rx,
+            seed,
+            started_at: Instant::now(),
+            verb_order,
+            verb_pos: 0,
+            show_new_seed: false,
+            new_seed_at: None,
+            from_cli: false,
+            bare_minimum:  true,
+            bm_done:       0,
+            bm_total:      BARE_MINIMUM_ATTEMPTS,
+            bm_best_count: 0,
         }
     }
 
@@ -140,6 +218,7 @@ mod tests {
                     assert!(crate::solver::Solver::new().solve(grid).grid.is_solved());
                     return;
                 }
+                Ok(GenMsg::BareMinimumProgress { .. }) => { /* ignore progress in this test */ }
                 Err(std::sync::mpsc::TryRecvError::Empty) => {
                     if std::time::Instant::now() > deadline { panic!("timeout"); }
                     std::thread::sleep(std::time::Duration::from_millis(50));

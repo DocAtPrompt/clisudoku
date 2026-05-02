@@ -21,6 +21,8 @@ pub fn render_generating(
     verb:          &str,
     countdown:     u8,
     show_new_seed: bool,
+    // Some(done, total, best_count) during BareMinimum multi-attempt generation.
+    bare_minimum:  Option<(usize, usize, usize)>,
     strings:       &'static Strings,
     colors:        &ColorScheme,
 ) -> io::Result<()> {
@@ -39,7 +41,14 @@ pub fn render_generating(
     }
 
     // ── Main message ─────────────────────────────────────────────────────────
-    let main_line = if show_new_seed {
+    let main_line = if let Some((done, total, best)) = bare_minimum {
+        // BareMinimum: show attempt progress and best result so far.
+        if done == 0 {
+            format!("{} bare minimum...   0/{}", verb, total)
+        } else {
+            format!("{} bare minimum...   {}/{} (best: {} clues)", verb, done, total, best)
+        }
+    } else if show_new_seed {
         strings.using_new_seed.to_string()
     } else {
         format!("{} sudoku...   {}", verb, countdown)
@@ -75,7 +84,7 @@ mod tests {
     #[test]
     fn render_generating_normal_does_not_panic() {
         let mut buf = Vec::new();
-        render_generating(&mut buf, "baking", 2, false, &EN, &ColorScheme::default()).unwrap();
+        render_generating(&mut buf, "baking", 2, false, None, &EN, &ColorScheme::default()).unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("baking sudoku"));
         assert!(s.contains('2'));
@@ -84,8 +93,17 @@ mod tests {
     #[test]
     fn render_generating_new_seed_shows_message() {
         let mut buf = Vec::new();
-        render_generating(&mut buf, "frying", 0, true, &EN, &ColorScheme::default()).unwrap();
+        render_generating(&mut buf, "frying", 0, true, None, &EN, &ColorScheme::default()).unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("using new seed") || s.contains("new seed"));
+    }
+
+    #[test]
+    fn render_generating_bare_minimum_shows_progress() {
+        let mut buf = Vec::new();
+        render_generating(&mut buf, "forging", 0, false, Some((2, 5, 23)), &EN, &ColorScheme::default()).unwrap();
+        let s = String::from_utf8_lossy(&buf);
+        assert!(s.contains("2/5"), "should show done/total");
+        assert!(s.contains("23"), "should show best count");
     }
 }

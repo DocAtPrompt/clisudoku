@@ -34,10 +34,11 @@ impl Solver {
     pub fn for_difficulty(difficulty: &crate::generator::difficulty::Difficulty) -> Self {
         use crate::generator::difficulty::Difficulty;
         match difficulty {
-            Difficulty::Easy    => Self { max_strategy: Some(Strategy::HiddenSingle),  use_backtracking: false },
-            Difficulty::Medium  => Self { max_strategy: Some(Strategy::PointingPair),   use_backtracking: false },
-            Difficulty::Hard    => Self { max_strategy: Some(Strategy::XWing),          use_backtracking: false },
-            Difficulty::Extreme => Self { max_strategy: Some(Strategy::Swordfish),      use_backtracking: false },
+            Difficulty::Easy        => Self { max_strategy: Some(Strategy::HiddenSingle),  use_backtracking: false },
+            Difficulty::Medium      => Self { max_strategy: Some(Strategy::PointingPair),   use_backtracking: false },
+            Difficulty::Hard        => Self { max_strategy: Some(Strategy::XWing),          use_backtracking: false },
+            Difficulty::Extreme     => Self { max_strategy: Some(Strategy::Swordfish),      use_backtracking: false },
+            Difficulty::BareMinimum => Self { max_strategy: None,                           use_backtracking: true  },
         }
     }
 

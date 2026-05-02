@@ -24,7 +24,16 @@ impl PuzzleGenerator {
         // Step 1: fill a complete valid grid (randomized backtracking)
         let full = self.fill_grid(&mut rng).expect("fill_grid failed");
 
-        // Step 2: remove cells while keeping puzzle uniquely solvable at target difficulty
+        // Step 2: remove cells while keeping puzzle uniquely solvable at target difficulty.
+        // BareMinimum uses full backtracking uniqueness (no strategy cap) for maximum removal.
+        let solvable = |puzzle: &Grid| -> bool {
+            if difficulty == Difficulty::BareMinimum {
+                self.is_uniquely_solvable_full(puzzle)
+            } else {
+                self.is_uniquely_solvable(puzzle, difficulty)
+            }
+        };
+
         let mut puzzle = full.clone();
 
         if symmetry {
@@ -49,12 +58,35 @@ impl PuzzleGenerator {
                     None
                 };
 
-                if !self.is_uniquely_solvable(&puzzle, difficulty) {
+                if !solvable(&puzzle) {
                     if let Some(v) = prev1 { puzzle.set_given(r1, c1, v); }
                     if let Some((r2, c2, Some(v))) = mirror_state {
                         puzzle.set_given(r2, c2, v);
                     }
                 }
+            }
+        } else if difficulty == Difficulty::BareMinimum {
+            // Multi-pass exhaustive removal: repeat until no cell can be removed.
+            // After each pass a new shuffle is used so order-dependent blockages resolve.
+            loop {
+                let mut changed = false;
+                let mut indices: Vec<usize> = (0..81)
+                    .filter(|&i| { let (r, c) = (i / 9, i % 9); !puzzle.get(r, c).is_empty() })
+                    .collect();
+                shuffle(&mut indices, &mut rng);
+
+                for &idx in &indices {
+                    let (row, col) = (idx / 9, idx % 9);
+                    let prev_val = puzzle.get(row, col).value();
+                    puzzle.clear(row, col);
+                    if self.is_uniquely_solvable_full(&puzzle) {
+                        changed = true; // cell successfully removed
+                    } else {
+                        if let Some(v) = prev_val { puzzle.set_given(row, col, v); }
+                    }
+                }
+
+                if !changed { break; } // converged — no further reduction possible
             }
         } else {
             let mut indices: Vec<usize> = (0..81).collect();
@@ -66,7 +98,7 @@ impl PuzzleGenerator {
                 let prev_val = puzzle.get(row, col).value();
                 puzzle.clear(row, col);
 
-                if !self.is_uniquely_solvable(&puzzle, difficulty) {
+                if !solvable(&puzzle) {
                     if let Some(v) = prev_val { puzzle.set_given(row, col, v); }
                 }
             }
@@ -372,5 +404,23 @@ mod tests {
         // difficulty must be one of the valid variants (not None)
         let _ = result.difficulty; // just verifying it compiles and is accessible
         assert!(crate::solver::Solver::new().solve(result.grid).grid.is_solved());
+    }
+
+    #[test]
+    fn bare_minimum_is_solvable_and_reduced() {
+        // Multi-pass exhaustive removal should produce well below 30 givens.
+        // The theoretical minimum is 17; practically the greedy algorithm converges
+        // at 20–26 depending on the seed. We accept anything ≤ 27 as proof that
+        // the multi-pass loop is working correctly.
+        let grid = PuzzleGenerator::new(42).generate(Difficulty::BareMinimum, false);
+        let given_count = (0..9).flat_map(|r| (0..9).map(move |c| (r, c)))
+            .filter(|&(r, c)| grid.get(r, c).is_given())
+            .count();
+        assert!(given_count >= 17, "too few givens: {}", given_count);
+        assert!(given_count <= 27,
+            "Bare Minimum produced {} givens — multi-pass loop not converging", given_count);
+        // Must still be uniquely solvable
+        let result = Solver::new().solve(grid);
+        assert!(result.grid.is_solved(), "BareMinimum puzzle must be solvable");
     }
 }

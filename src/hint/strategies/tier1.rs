@@ -41,6 +41,7 @@ pub struct FullHouse;
 pub struct NakedSingle;
 pub struct HiddenSingle;
 pub struct NotesHint;
+pub struct NotesValidator;
 pub struct NakedPairs;
 pub struct HiddenPairs;
 pub struct PointingPairs;
@@ -69,8 +70,8 @@ impl Strategy for FullHouse {
                     target_digit:   Some(d),
                     name_en:        self.name_en(),
                     name_de:        self.name_de(),
-                    explanation_en: "Only one empty cell remains in this unit.".to_string(),
-                    explanation_de: "Nur eine leere Zelle bleibt in dieser Einheit.".to_string(),
+                    explanation_en: format!("Last empty cell in this unit — place {} here.", d),
+                    explanation_de: format!("Letzte leere Zelle hier — {} eintragen.", d),
                 });
             }
         }
@@ -97,8 +98,8 @@ impl Strategy for NakedSingle {
                         target_digit:   Some(d),
                         name_en:        self.name_en(),
                         name_de:        self.name_de(),
-                        explanation_en: format!("Only {} fits in this cell.", d),
-                        explanation_de: format!("Nur {} passt in diese Zelle.", d),
+                        explanation_en: format!("All other digits are blocked — {} is the only fit here.", d),
+                        explanation_de: format!("Alle anderen Ziffern blockiert — nur {} passt hier.", d),
                     });
                 }
             }
@@ -163,8 +164,8 @@ impl Strategy for HiddenSingle {
                         target_digit:   Some(digit),
                         name_en:        self.name_en(),
                         name_de:        self.name_de(),
-                        explanation_en: format!("{} can only go here in this unit.", digit),
-                        explanation_de: format!("{} kann nur hier in dieser Einheit stehen.", digit),
+                        explanation_en: format!("{} has only one possible cell in this unit — place it here.", digit),
+                        explanation_de: format!("{} passt in dieser Einheit nur hier — hier eintragen.", digit),
                     });
                 }
             }
@@ -226,9 +227,93 @@ impl Strategy for NotesHint {
             target_digit:   None,
             name_en:        self.name_en(),
             name_de:        self.name_de(),
-            explanation_en: "Add pencil marks in this unit to continue.".to_string(),
-            explanation_de: "Trage Notizen in diese Einheit ein.".to_string(),
+            explanation_en: "Note all possible digits in the empty cells here to find your next move.".to_string(),
+            explanation_de: "Alle m\u{f6}glichen Ziffern in die leeren Zellen dieser Einheit eintragen.".to_string(),
         })
+    }
+}
+
+// ── Notes Validator ───────────────────────────────────────────────────────────
+//
+// Fires when any empty cell with at least one note contains:
+//   Pass 1 — a WRONG note   (digit noted but cannot go in this cell)
+//   Pass 2 — a MISSING note (valid candidate absent from the notes)
+//
+// Both checks use actual grid candidates so they are independent of whether the
+// player has filled in all their notes correctly elsewhere.
+//
+// Placed between NotesHint and NakedPairs so that note-dependent strategies
+// always operate on verified, complete candidate sets.
+
+impl Strategy for NotesValidator {
+    fn name_en(&self) -> &'static str { "Fix Notes" }
+    fn name_de(&self) -> &'static str { "Notizen korrigieren" }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+
+        // Pass 1: wrong notes — digit is noted but doesn't fit (already in row/col/box).
+        for r in 0..9 {
+            for c in 0..9 {
+                if !matches!(grid.get(r, c), CellKind::Empty) { continue; }
+                let notes  = state.notes_mask(r, c);
+                if notes == 0 { continue; }
+                let actual = candidates(grid, r, c);
+                let wrong  = notes & !actual;
+                if wrong == 0 { continue; }
+
+                let d = wrong.trailing_zeros() as u8;
+                // Cause: peer cells that already contain d, explaining the conflict.
+                let mut cause: Vec<(usize, usize)> = vec![];
+                for cc in 0..9 { if grid.get(r, cc).value() == Some(d) { cause.push((r, cc)); } }
+                for rr in 0..9 { if grid.get(rr, c).value() == Some(d) { cause.push((rr, c)); } }
+                let (br, bc) = ((r / 3) * 3, (c / 3) * 3);
+                for dr in 0..3 { for dc in 0..3 {
+                    if grid.get(br+dr, bc+dc).value() == Some(d) { cause.push((br+dr, bc+dc)); }
+                }}
+                cause.sort_unstable();
+                cause.dedup();
+
+                return Some(Hint {
+                    cause_cells:    cause,
+                    elim_cells:     vec![(r, c)],
+                    target_cell:    (r, c),
+                    elim_digit:     Some(d),
+                    target_digit:   None,
+                    name_en:        "Wrong Note",
+                    name_de:        "Falsche Notiz",
+                    explanation_en: format!("{} already appears in this row, col, or box — remove this note.", d),
+                    explanation_de: format!("{} ist schon in Zeile, Spalte oder Box — diese Notiz streichen.", d),
+                });
+            }
+        }
+
+        // Pass 2: missing notes — valid candidate absent from an already-started cell.
+        for r in 0..9 {
+            for c in 0..9 {
+                if !matches!(grid.get(r, c), CellKind::Empty) { continue; }
+                let notes   = state.notes_mask(r, c);
+                if notes == 0 { continue; } // NotesHint handles zero-note cells
+                let actual  = candidates(grid, r, c);
+                let missing = actual & !notes;
+                if missing == 0 { continue; }
+
+                let d = missing.trailing_zeros() as u8;
+                return Some(Hint {
+                    cause_cells:    vec![],
+                    elim_cells:     vec![],
+                    target_cell:    (r, c),
+                    elim_digit:     None,
+                    target_digit:   Some(d),
+                    name_en:        "Missing Note",
+                    name_de:        "Fehlende Notiz",
+                    explanation_en: format!("{} is a valid candidate here — add it to the notes in this cell.", d),
+                    explanation_de: format!("{} ist hier m\u{f6}glich — zur Notiz hinzuf\u{fc}gen.", d),
+                });
+            }
+        }
+
+        None
     }
 }
 
@@ -269,8 +354,8 @@ impl Strategy for NakedPairs {
                         target_digit:   None,
                         name_en:        self.name_en(),
                         name_de:        self.name_de(),
-                        explanation_en: format!("Cells with {}/{} form a pair. Eliminate from others.", d1, d2),
-                        explanation_de: format!("Zellen mit {}/{} bilden ein Paar. In anderen eliminieren.", d1, d2),
+                        explanation_en: format!("These 2 cells can only hold {} or {}. Remove both from notes in highlighted cells.", d1, d2),
+                        explanation_de: format!("Diese 2 Zellen k\u{f6}nnen nur {} oder {} enthalten. Beide aus den markierten Zellen streichen.", d1, d2),
                     });
                 }
             }
@@ -319,8 +404,8 @@ impl Strategy for HiddenPairs {
                         target_digit:   None,
                         name_en:        self.name_en(),
                         name_de:        self.name_de(),
-                        explanation_en: format!("Only these cells can hold {}/{}.", d1, d2),
-                        explanation_de: format!("Nur diese Zellen k\u{f6}nnen {}/{} halten.", d1, d2),
+                        explanation_en: format!("Only these 2 cells can hold {}/{}. Remove all other notes from them.", d1, d2),
+                        explanation_de: format!("Nur diese 2 Zellen k\u{f6}nnen {}/{} enthalten. Alle anderen Notizen daraus streichen.", d1, d2),
                     });
                 }
             }
@@ -342,12 +427,13 @@ impl Strategy for PointingPairs {
                 .flat_map(|dr| (0..3).map(move |dc| (br+dr, bc+dc)))
                 .collect();
             for digit in 1u8..=9 {
-                // Cells in this box where digit is noted
+                // Use ACTUAL candidates (grid constraints) — not player notes — to
+                // determine where the digit can go within the box.  Using notes here
+                // causes false positives when the player hasn't yet noted the digit in
+                // every cell where it fits (the strategy would incorrectly conclude the
+                // digit is confined to one row/col).
                 let cand_cells: Vec<(usize,usize)> = box_cells.iter()
-                    .filter(|&&(r,c)| {
-                        matches!(grid.get(r,c), CellKind::Empty)
-                            && (state.notes_mask(r,c) & (1<<digit)) != 0
-                    })
+                    .filter(|&&(r,c)| (candidates(grid, r, c) & (1<<digit)) != 0)
                     .copied().collect();
                 if cand_cells.len() < 2 { continue; }
                 // All in same row?
@@ -371,8 +457,8 @@ impl Strategy for PointingPairs {
                             target_digit:   None,
                             name_en:        self.name_en(),
                             name_de:        self.name_de(),
-                            explanation_en: format!("{} in this box points to this row.", digit),
-                            explanation_de: format!("{} in dieser Box zeigt auf diese Zeile.", digit),
+                            explanation_en: format!("In this box, {} fits only in this row. Remove {} from notes in highlighted cells.", digit, digit),
+                            explanation_de: format!("In dieser Box passt {} nur in diese Zeile. {} aus den markierten Zellen streichen.", digit, digit),
                         });
                     }
                 }
@@ -397,8 +483,8 @@ impl Strategy for PointingPairs {
                             target_digit:   None,
                             name_en:        self.name_en(),
                             name_de:        self.name_de(),
-                            explanation_en: format!("{} in this box points to this column.", digit),
-                            explanation_de: format!("{} in dieser Box zeigt auf diese Spalte.", digit),
+                            explanation_en: format!("In this box, {} fits only in this column. Remove {} from notes in highlighted cells.", digit, digit),
+                            explanation_de: format!("In dieser Box passt {} nur in diese Spalte. {} aus den markierten Zellen streichen.", digit, digit),
                         });
                     }
                 }
@@ -414,12 +500,11 @@ impl Strategy for BoxLineReduction {
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
-        // For each row: if all candidates for a digit are in the same box → eliminate from rest of box
+        // For each row: if all ACTUAL candidates for a digit are in the same box → eliminate from rest of box
         for row in 0..9usize {
             for digit in 1u8..=9 {
                 let cand_cols: Vec<usize> = (0..9)
-                    .filter(|&c| matches!(grid.get(row,c), CellKind::Empty)
-                        && (state.notes_mask(row,c) & (1<<digit)) != 0)
+                    .filter(|&c| (candidates(grid, row, c) & (1<<digit)) != 0)
                     .collect();
                 if cand_cols.len() < 2 { continue; }
                 let box_col = cand_cols[0] / 3;
@@ -441,18 +526,17 @@ impl Strategy for BoxLineReduction {
                         target_digit:   None,
                         name_en:        self.name_en(),
                         name_de:        self.name_de(),
-                        explanation_en: format!("{} in this row is confined to one box.", digit),
-                        explanation_de: format!("{} in dieser Zeile ist auf eine Box beschr\u{e4}nkt.", digit),
+                        explanation_en: format!("In this row, {} fits only within one box. Remove {} from other notes in that box.", digit, digit),
+                        explanation_de: format!("In dieser Zeile passt {} nur in eine Box. {} aus den anderen Box-Zellen streichen.", digit, digit),
                     });
                 }
             }
         }
-        // For each col: if all candidates for a digit are in the same box → eliminate from rest of box
+        // For each col: if all ACTUAL candidates for a digit are in the same box → eliminate from rest of box
         for col in 0..9usize {
             for digit in 1u8..=9 {
                 let cand_rows: Vec<usize> = (0..9)
-                    .filter(|&r| matches!(grid.get(r,col), CellKind::Empty)
-                        && (state.notes_mask(r,col) & (1<<digit)) != 0)
+                    .filter(|&r| (candidates(grid, r, col) & (1<<digit)) != 0)
                     .collect();
                 if cand_rows.len() < 2 { continue; }
                 let box_row = cand_rows[0] / 3;
@@ -474,8 +558,8 @@ impl Strategy for BoxLineReduction {
                         target_digit:   None,
                         name_en:        self.name_en(),
                         name_de:        self.name_de(),
-                        explanation_en: format!("{} in this column is confined to one box.", digit),
-                        explanation_de: format!("{} in dieser Spalte ist auf eine Box beschr\u{e4}nkt.", digit),
+                        explanation_en: format!("In this column, {} fits only within one box. Remove {} from other notes in that box.", digit, digit),
+                        explanation_de: format!("In dieser Spalte passt {} nur in eine Box. {} aus den anderen Box-Zellen streichen.", digit, digit),
                     });
                 }
             }
@@ -619,5 +703,74 @@ mod tests {
             "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
         ).unwrap();
         assert!(BoxLineReduction.find(&state, &sol).is_none());
+    }
+
+    // ── NotesValidator tests ──────────────────────────────────────────────────
+
+    // FULL_HOUSE_PUZZLE row 0: 5 3 4 6 7 8 9 1 _  → only digit 2 fits in (0,8).
+    // Noting digit 5 there is wrong (5 already in row 0 at col 0).
+    #[test]
+    fn notes_validator_detects_wrong_note() {
+        use crate::puzzle::GameEvent;
+        let mut state = state_from(FULL_HOUSE_PUZZLE);
+        let sol = Grid::from_str(FULL_HOUSE_SOL).unwrap();
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 5 });
+        let hint = NotesValidator.find(&state, &sol);
+        assert!(hint.is_some(), "should detect wrong note 5 at (0,8)");
+        let h = hint.unwrap();
+        assert_eq!(h.target_cell, (0, 8));
+        assert_eq!(h.elim_digit, Some(5));
+        assert_eq!(h.name_en, "Wrong Note");
+        // Cause must include the cell that already contains 5
+        assert!(!h.cause_cells.is_empty(), "cause cells should explain the conflict");
+    }
+
+    // Cell (0,8) in FULL_HOUSE_PUZZLE can only hold 2.
+    // Note digit 1 (which is also wrong) — then note the correct digit 2.
+    // After removing the wrong note, only 2 is noted and it matches actual → no violation.
+    #[test]
+    fn notes_validator_silent_when_notes_correct_and_complete() {
+        use crate::puzzle::GameEvent;
+        let mut state = state_from(FULL_HOUSE_PUZZLE);
+        let sol = Grid::from_str(FULL_HOUSE_SOL).unwrap();
+        // Only the correct digit noted
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 2 });
+        assert!(
+            NotesValidator.find(&state, &sol).is_none(),
+            "no violation when correct digit is noted"
+        );
+    }
+
+    // Cell (0,2) in the medium puzzle can hold {1,2,4}.
+    // Noting only digit 1 leaves 2 and 4 missing.
+    #[test]
+    fn notes_validator_detects_missing_note() {
+        use crate::puzzle::GameEvent;
+        const MEDIUM: &str =
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+        const MEDIUM_SOL: &str =
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179";
+        let mut state = state_from(MEDIUM);
+        let sol = Grid::from_str(MEDIUM_SOL).unwrap();
+        // Note only digit 1 in cell (0,2) — valid candidates are {1,2,4}, so 2 and 4 are missing
+        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 1 });
+        let hint = NotesValidator.find(&state, &sol);
+        assert!(hint.is_some(), "should detect missing note in (0,2)");
+        let h = hint.unwrap();
+        assert_eq!(h.target_cell, (0, 2));
+        assert_eq!(h.name_en, "Missing Note");
+        assert!(h.target_digit.is_some());
+    }
+
+    // Without any notes, NotesValidator must not fire (NotesHint handles that case).
+    #[test]
+    fn notes_validator_returns_none_without_notes() {
+        let state = state_from(
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        );
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+        ).unwrap();
+        assert!(NotesValidator.find(&state, &sol).is_none());
     }
 }

@@ -56,6 +56,7 @@ pub enum GameCategory {
     #[default]
     Classic,
     Design,
+    BareMinimum,
 }
 
 /// Per-game statistics tracked for database / post-game summary.
@@ -168,6 +169,14 @@ impl App {
 
     /// Start a new game at the given difficulty.
     fn start_game(&mut self, difficulty: Difficulty) {
+        if difficulty == Difficulty::BareMinimum {
+            // BareMinimum runs multiple long passes — show Generating screen.
+            let state = crate::tui::generating::GeneratingState::new_bare_minimum();
+            self.screen = AppScreen::Generating(state);
+            self.needs_clear = true;
+            self.drain_input = true;
+            return;
+        }
         let seed = self.clock.now_ms();
         let puzzle = PuzzleGenerator::new(seed).generate(difficulty, self.symmetry);
         self.enter_game(puzzle);
@@ -264,7 +273,7 @@ impl App {
     }
 
     fn handle_difficulty_action(&mut self, action: AppAction, selected: usize, sym_focused: bool) {
-        const DIFFICULTY_COUNT: usize = 5;
+        const DIFFICULTY_COUNT: usize = 6;
         match action {
             // ── Navigation between columns ───────────────────────────────────
             AppAction::MoveRight if !sym_focused => {
@@ -298,11 +307,12 @@ impl App {
             // ── Confirm: start game ──────────────────────────────────────────
             AppAction::Enter if !sym_focused => {
                 match selected {
-                    0 => { self.start_game(Difficulty::Easy);    self.needs_clear = true; }
-                    1 => { self.start_game(Difficulty::Medium);  self.needs_clear = true; }
-                    2 => { self.start_game(Difficulty::Hard);    self.needs_clear = true; }
-                    3 => { self.start_game(Difficulty::Extreme); self.needs_clear = true; }
-                    4 => {
+                    0 => { self.start_game(Difficulty::Easy);        self.needs_clear = true; }
+                    1 => { self.start_game(Difficulty::Medium);      self.needs_clear = true; }
+                    2 => { self.start_game(Difficulty::Hard);        self.needs_clear = true; }
+                    3 => { self.start_game(Difficulty::Extreme);     self.needs_clear = true; }
+                    4 => { self.start_game(Difficulty::BareMinimum); self.needs_clear = true; }
+                    5 => {
                         self.screen = AppScreen::PatternSelect { selected: 0 };
                         self.needs_clear = true;
                     }
@@ -395,7 +405,7 @@ impl App {
                 self.start_generating(pattern, false);
             }
             AppAction::Back => {
-                self.screen = AppScreen::DifficultySelect { selected: 4, sym_focused: false };
+                self.screen = AppScreen::DifficultySelect { selected: 5, sym_focused: false };
                 self.needs_clear = true;
             }
             _ => {}
@@ -404,16 +414,20 @@ impl App {
 
     fn handle_generating_action(&mut self, action: AppAction) {
         if matches!(action, AppAction::Back) {
-            let (from_cli, pat_selected) = if let AppScreen::Generating(ref s) = self.screen {
-                let idx = crate::pattern::PATTERNS.iter()
-                    .position(|p| p.name_en == s.pattern.name_en)
-                    .unwrap_or(0);
-                (s.from_cli, idx)
-            } else {
-                (false, 0)
-            };
-            self.screen = if from_cli {
+            let (bare_minimum, from_cli, pat_selected) =
+                if let AppScreen::Generating(ref s) = self.screen {
+                    let idx = crate::pattern::PATTERNS.iter()
+                        .position(|p| p.name_en == s.pattern.name_en)
+                        .unwrap_or(0);
+                    (s.bare_minimum, s.from_cli, idx)
+                } else {
+                    (false, false, 0)
+                };
+            self.screen = if bare_minimum {
+                // BareMinimum: always go back to DifficultySelect at its index.
                 AppScreen::DifficultySelect { selected: 4, sym_focused: false }
+            } else if from_cli {
+                AppScreen::DifficultySelect { selected: 5, sym_focused: false }
             } else {
                 AppScreen::PatternSelect { selected: pat_selected }
             };
@@ -755,6 +769,7 @@ impl App {
             EasterEgg::KonamiCode => {
                 let seed = self.clock.now_ms();
                 self.anim.matrix_rain = Some(crate::tui::anim::MatrixRainAnim::new(seed));
+                self.matrix_mode = true; // grid renders in Matrix green from frame 1
                 self.needs_clear = true;
             }
             EasterEgg::MatrixMode => {
@@ -968,14 +983,16 @@ impl App {
             out.flush()?;
 
             // ── Poll background generator ────────────────────────────────────
-            // First: tick and check timeouts with the mutable borrow
+            // First: tick and check timeouts (only for Designer/pattern mode).
             if let AppScreen::Generating(ref mut gs) = self.screen {
-                gs.tick_new_seed_expiry();
-                if !gs.show_new_seed && gs.started_at.elapsed().as_secs() >= 3 {
-                    gs.try_new_seed();
+                if !gs.bare_minimum {
+                    gs.tick_new_seed_expiry();
+                    if !gs.show_new_seed && gs.started_at.elapsed().as_secs() >= 3 {
+                        gs.try_new_seed();
+                    }
                 }
             }
-            // Then: try_recv WITHOUT holding the mutable borrow
+            // Then: drain all pending messages without holding the mutable borrow long.
             let gen_result = if let AppScreen::Generating(ref mut gs) = self.screen {
                 match gs.rx.try_recv() {
                     Ok(msg) => Some(msg),
@@ -984,21 +1001,37 @@ impl App {
             } else {
                 None
             };
-            // Finally: handle completion outside the borrow
-            if let Some(crate::tui::generating::GenMsg::Done(grid, _)) = gen_result {
-                let pattern_name = if let AppScreen::Generating(ref gs) = self.screen {
-                    gs.pattern.name_en.to_string()
-                } else {
-                    String::new()
-                };
-                self.enter_game(grid);
-                self.stats.category = GameCategory::Design;
-                self.stats.pattern_name = Some(pattern_name);
+            // Handle incoming messages.
+            match gen_result {
+                Some(crate::tui::generating::GenMsg::BareMinimumProgress { done, total, best_count }) => {
+                    if let AppScreen::Generating(ref mut gs) = self.screen {
+                        gs.bm_done       = done;
+                        gs.bm_total      = total;
+                        gs.bm_best_count = best_count;
+                        gs.verb_pos      = done; // cycle verb with each attempt
+                    }
+                }
+                Some(crate::tui::generating::GenMsg::Done(grid, difficulty)) => {
+                    let (is_bare_minimum, pattern_name) =
+                        if let AppScreen::Generating(ref gs) = self.screen {
+                            (gs.bare_minimum, gs.pattern.name_en.to_string())
+                        } else {
+                            (false, String::new())
+                        };
+                    self.enter_game(grid);
+                    if is_bare_minimum || difficulty == Difficulty::BareMinimum {
+                        self.stats.category = GameCategory::BareMinimum;
+                    } else {
+                        self.stats.category = GameCategory::Design;
+                        self.stats.pattern_name = Some(pattern_name);
+                    }
+                }
+                None => {}
             }
 
             // Shorten poll timeout when an animation is running or generating so frames advance.
             let poll_ms = if self.anim.matrix_rain.is_some() {
-                30
+                50
             } else if matches!(self.screen, AppScreen::Generating(_)) {
                 50
             } else if self.anim.is_active() {
@@ -1068,10 +1101,9 @@ impl App {
             // Advance animations every poll cycle (≈80 ms when active).
             self.anim.advance();
 
-            // Matrix rain finished → activate matrix mode and show the Neo message.
+            // Matrix rain finished → show the Neo message (matrix_mode already active).
             if matches!(&self.anim.matrix_rain, Some(r) if r.done()) {
                 self.anim.matrix_rain = None;
-                self.matrix_mode = true;
                 self.set_overlay("Wake up, Neo... The Matrix has you.");
                 self.needs_clear = true;
             }
@@ -1150,10 +1182,16 @@ impl App {
                 )
             }
             AppScreen::Generating(ref gs) => {
+                let bare_minimum = if gs.bare_minimum {
+                    Some((gs.bm_done, gs.bm_total, gs.bm_best_count))
+                } else {
+                    None
+                };
                 let screen = Screen::Generating {
                     verb:          gs.current_verb(),
                     countdown:     gs.countdown_secs(),
                     show_new_seed: gs.show_new_seed,
+                    bare_minimum,
                 };
                 render_frame(out, &screen, &self.colors, self.style.as_ref(), strings)
             }
@@ -1434,7 +1472,7 @@ mod tests {
         use crate::timer::SystemClock;
         let mut app = App::new(Box::new(SystemClock));
         app.screen = AppScreen::DifficultySelect { selected: 0, sym_focused: false };
-        for _ in 0..4 {
+        for _ in 0..5 {
             app.handle_action(AppAction::MoveDown);
         }
         app.handle_action(AppAction::Enter);
@@ -1447,7 +1485,7 @@ mod tests {
         let mut app = App::new(Box::new(SystemClock));
         app.screen = AppScreen::PatternSelect { selected: 0 };
         app.handle_action(AppAction::MoveLeft);
-        assert!(matches!(app.screen, AppScreen::PatternSelect { selected: 27 }));
+        assert!(matches!(app.screen, AppScreen::PatternSelect { selected: 29 }));
     }
 
     #[test]

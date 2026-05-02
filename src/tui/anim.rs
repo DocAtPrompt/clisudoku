@@ -297,7 +297,8 @@ struct RainDrop {
 
 impl RainDrop {
     fn new(target: i16, seed: &mut u64) -> Self {
-        let speed     = if rng_next(seed) < 0.45 { 1u8 } else { 2u8 };
+        // 65 % speed-1 (fast), 35 % speed-2 (slower) — organic mix, overall bias toward fast
+        let speed     = if rng_next(seed) < 0.65 { 1u8 } else { 2u8 };
         let trail_len = 5 + (rng_next(seed) * 9.0) as u8; // 5 ..= 13
         Self { head: -(trail_len as i16), target, trail_len, speed, frame_tick: 0 }
     }
@@ -360,12 +361,12 @@ impl RainColumn {
         }
     }
 
-    /// Spawn drop_b once drop_a is more than halfway to its target.
+    /// Spawn drop_b once drop_a is 30% of the way to its target (earlier = denser rain).
     fn maybe_spawn_drop_b(&mut self) {
         if self.drop_b.is_some() { return; }
         let next_b = self.next_target() - 1;
         if next_b < 0 { return; }
-        if self.drop_a.as_ref().map(|a| a.progress() >= 0.5).unwrap_or(false) {
+        if self.drop_a.as_ref().map(|a| a.progress() >= 0.3).unwrap_or(false) {
             self.drop_b = Some(RainDrop::new(next_b, &mut self.col_seed));
         }
     }

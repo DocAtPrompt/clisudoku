@@ -123,8 +123,10 @@ OPTIONS:
     -f <FILE>          Load a puzzle from a text file (same format as -s).
 
     --pattern <81chars>
-                       Generate a designer puzzle from a custom pattern.
-                       81 chars: '1' or '*' = pattern cell, '.' or '0' = always empty.
+                       Generate a puzzle from a custom cell pattern.
+                       81 chars: '1' or '*' = given cell, '.' or '0' = always empty.
+                       Alternatively, select 'Designer' in the difficulty
+                       menu to pick from 28 built-in patterns interactively.
 
     -t, --theme <NAME>     Set the color theme. Available themes:
 
@@ -146,10 +148,11 @@ OPTIONS:
 
     -h, --help         Show this help and exit.
 
-EXAMPLE:
+EXAMPLES:
     clisudoku -s 530070000600195000098000060800060003400803001700020006060000280000419005000080079
     clisudoku -f my_puzzle.txt
     clisudoku -l de -s 530070000600195000098000060800060003400803001700020006060000280000419005000080079
+    clisudoku --pattern 1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1
 ");
 }
 

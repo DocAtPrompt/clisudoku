@@ -145,9 +145,15 @@ pub static PATTERNS: &[Pattern] = &[
     // 27. Home Office — 26
     pat!("Home Office",
          b"000010000000111000001101100110000011010000010010000010010001010010101010010100010"),
-    // 28. We Are Connected Wirelessly — 22
+    // 28. Backgammon — 24
+    pat!("Backgammon",
+         b"010101010010101010010101010000000000000000000000000000010101010010101010010101010"),
+    // 29. We Are Connected Wirelessly — 22
     pat!("We Are Connected Wirelessly",
          b"001111100010000010100000001001111100010000010000000000000111000001000100000010000"),
+    // 30. Brainfuck — 17 (minimum clues for a uniquely solvable puzzle)
+    pat!("Brainfuck",
+         b"000010001001010000010000010100000010000000001001001000010001000100000100000100100"),
 ];
 
 #[cfg(test)]
@@ -155,8 +161,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pattern_count_is_28() {
-        assert_eq!(PATTERNS.len(), 28);
+    fn pattern_count_is_30() {
+        assert_eq!(PATTERNS.len(), 30);
     }
 
     #[test]

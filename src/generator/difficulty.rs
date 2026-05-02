@@ -4,6 +4,9 @@ pub enum Difficulty {
     Medium,
     Hard,
     Extreme,
+    /// Maximally-reduced puzzle: as few givens as possible (targeting 17),
+    /// solved using full backtracking — no strategy cap.
+    BareMinimum,
 }
 
 use crate::solver::Strategy;

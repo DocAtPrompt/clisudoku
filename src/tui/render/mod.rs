@@ -61,6 +61,8 @@ pub enum Screen<'a> {
         verb:          &'a str,
         countdown:     u8,
         show_new_seed: bool,
+        /// Some(done, total, best_count) while BareMinimum multi-attempt is running.
+        bare_minimum:  Option<(usize, usize, usize)>,
     },
     Confirm {
         /// Screen rendered underneath the overlay.
@@ -99,9 +101,9 @@ pub fn render_frame(
         Screen::PatternSelect { selected } => {
             pattern_select::render_pattern_select(out, *selected, strings, colors)?;
         }
-        Screen::Generating { verb, countdown, show_new_seed } => {
+        Screen::Generating { verb, countdown, show_new_seed, bare_minimum } => {
             crate::tui::render::generating::render_generating(
-                out, verb, *countdown, *show_new_seed, strings, colors,
+                out, verb, *countdown, *show_new_seed, *bare_minimum, strings, colors,
             )?;
         }
         Screen::Game { state, cursor, note_mode, scan_mode, error_mode, solution, errors_shown, elapsed_ms, paused, nav, anim, scan_digit, hint, hint_warning, hint_count, matrix_mode } => {
