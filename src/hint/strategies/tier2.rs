@@ -2386,10 +2386,92 @@ mod tests {
     }
 
     #[test]
+    fn x_wing_finds_row_based_and_eliminates() {
+        // Digit 5 is confined to exactly cols 0 and 8 in both row 2 and row 6
+        // (X-Wing pattern). Cell (4,0) also carries note 5 and must be eliminated.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // X-Wing base rows: digit 5 only in cols 0 and 8
+        state.apply(GameEvent::ToggleNote { row: 2, col: 0, digit: 5 });
+        state.apply(GameEvent::ToggleNote { row: 2, col: 8, digit: 5 });
+        state.apply(GameEvent::ToggleNote { row: 6, col: 0, digit: 5 });
+        state.apply(GameEvent::ToggleNote { row: 6, col: 8, digit: 5 });
+        // Elimination target outside the two base rows
+        state.apply(GameEvent::ToggleNote { row: 4, col: 0, digit: 5 });
+
+        let hint = XWing
+            .find(&state, &sol)
+            .expect("XWing should detect the row-based pattern for digit 5");
+        assert_eq!(hint.name_en, "X-Wing");
+        assert!(
+            hint.elim_cells.contains(&(4, 0)),
+            "elim_cells should contain (4,0) which sees both X-Wing columns"
+        );
+    }
+
+    #[test]
     fn swordfish_returns_none_without_notes() {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
         assert!(Swordfish.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn swordfish_finds_row_based_and_eliminates() {
+        // Digit 7 spans exactly 3 rows (0, 3, 6), each with 2 occurrences.
+        // The union of their columns is {0, 3, 6} — exactly 3 columns → Swordfish.
+        // Cell (1,0) also has note 7 and must be eliminated.
+        //
+        // Row 0: cols {0, 3}   Row 3: cols {0, 6}   Row 6: cols {3, 6}
+        // Union = {0, 3, 6} ✓
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Swordfish base rows
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 3, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 3, col: 0, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 3, col: 6, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 6, col: 3, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 6, col: 6, digit: 7 });
+        // Elimination target: row 1, col 0 (outside the three base rows, inside col 0)
+        state.apply(GameEvent::ToggleNote { row: 1, col: 0, digit: 7 });
+
+        let hint = Swordfish
+            .find(&state, &sol)
+            .expect("Swordfish should detect the row-based pattern for digit 7");
+        assert_eq!(hint.name_en, "Swordfish");
+        assert!(
+            hint.elim_cells.contains(&(1, 0)),
+            "elim_cells should contain (1,0) which is in a Swordfish column"
+        );
     }
 
     #[test]
@@ -2404,6 +2486,52 @@ mod tests {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
         assert!(YWing.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn y_wing_finds_pattern_and_eliminates() {
+        // Classic Y-Wing:
+        //   Pivot  (0,0): {1,2}
+        //   Wing1  (0,5): {1,3}  — sees pivot (same row)
+        //   Wing2  (5,0): {2,3}  — sees pivot (same col)
+        //   Elimination digit: 3 (shared between the two wings but not pivot)
+        //   Target (5,5): note 3 — sees Wing1 via col 5, sees Wing2 via row 5
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Pivot
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 2 });
+        // Wing1: shares digit 1 with pivot, carries elimination digit 3
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 3 });
+        // Wing2: carries the other pivot digit (2) and elimination digit 3
+        state.apply(GameEvent::ToggleNote { row: 5, col: 0, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 0, digit: 3 });
+        // Elimination target: sees Wing1 (col 5) and Wing2 (row 5)
+        state.apply(GameEvent::ToggleNote { row: 5, col: 5, digit: 3 });
+
+        let hint = YWing
+            .find(&state, &sol)
+            .expect("YWing should detect the pivot/wing pattern");
+        assert_eq!(hint.name_en, "Y-Wing");
+        assert!(
+            hint.elim_cells.contains(&(5, 5)),
+            "elim_cells should contain (5,5) which sees both wings"
+        );
     }
 
     #[test]
