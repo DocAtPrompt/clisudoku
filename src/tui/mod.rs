@@ -1146,6 +1146,12 @@ impl App {
         )?;
         out.flush()?;
 
+        // Dirty-render tracking: only write to the terminal when state changed.
+        // This prevents flicker in mouse mode caused by continuous re-rendering
+        // even when the display content is identical.
+        let mut needs_render = true; // always render the first frame
+        let mut last_elapsed_s: u64 = u64::MAX; // detect timer-second ticks
+
         loop {
             // Drain any buffered input events that accumulated during a slow operation
             // (e.g. puzzle generation). This prevents stray key presses from being
@@ -1155,10 +1161,27 @@ impl App {
                 while event::poll(Duration::from_millis(0))? {
                     let _ = event::read()?;
                 }
+                needs_render = true;
             }
 
-            self.render_current(&mut out)?;
-            out.flush()?;
+            // Timer-second tick: re-render once per second so the clock stays current.
+            let current_elapsed_s = self.elapsed_ms() / 1000;
+            if current_elapsed_s != last_elapsed_s {
+                last_elapsed_s = current_elapsed_s;
+                needs_render = true;
+            }
+
+            // Render only when something changed (dirty-flag approach).
+            // Always render for Generating screens and active animations.
+            if needs_render
+                || self.needs_clear
+                || self.anim.is_active()
+                || matches!(self.screen, AppScreen::Generating(_))
+            {
+                self.render_current(&mut out)?;
+                out.flush()?;
+                needs_render = false;
+            }
 
             // ── Poll background generator ────────────────────────────────────
             // First: tick and check timeouts (only for Designer/pattern mode).
@@ -1192,6 +1215,7 @@ impl App {
                         gs.bm_best_count = best_count;
                         gs.verb_pos = done; // cycle verb with each attempt
                     }
+                    needs_render = true;
                 }
                 Some(crate::tui::generating::GenMsg::Done(grid, difficulty)) => {
                     let (is_bare_minimum, pattern_name) =
@@ -1207,11 +1231,14 @@ impl App {
                         self.stats.category = GameCategory::Design;
                         self.stats.pattern_name = Some(pattern_name);
                     }
+                    needs_render = true;
                 }
                 None => {}
             }
 
             // Shorten poll timeout when an animation is running or generating so frames advance.
+            // Mouse mode uses the same 80 ms interval for event responsiveness, but no longer
+            // forces a re-render every tick — only actual state changes trigger a redraw.
             let poll_ms = if self.anim.matrix_rain.is_some() {
                 50
             } else if matches!(self.screen, AppScreen::Generating(_)) {
@@ -1221,6 +1248,9 @@ impl App {
             } else {
                 500
             };
+
+            // Snapshot hover position before polling so we can detect changes.
+            let prev_hover = self.hover_cell;
 
             if event::poll(Duration::from_millis(poll_ms))? {
                 match event::read()? {
@@ -1265,6 +1295,7 @@ impl App {
                             let action = map_key_to_action(key, &self.nav_state);
                             self.handle_action(action);
                         }
+                        needs_render = true;
                     }
                     Event::Mouse(mouse_event)
                         if matches!(self.screen, AppScreen::Game) && self.mouse_mode =>
@@ -1274,6 +1305,7 @@ impl App {
                         match action {
                             AppAction::MouseHover(r, c) => {
                                 // Pure hover: update position, no hint/warning dismissal.
+                                // needs_render is set below based on whether hover actually changed.
                                 self.hover_cell = Some((r, c));
                             }
                             AppAction::MouseSelectCell(..) | AppAction::MouseButton(_) => {
@@ -1291,6 +1323,7 @@ impl App {
                                 } else {
                                     self.handle_action(action);
                                 }
+                                needs_render = true;
                             }
                             _ => {
                                 // Move/drag outside the grid: clear the hover highlight
@@ -1323,8 +1356,17 @@ impl App {
                 }
             }
 
+            // Hover position changed → re-render so the highlight moves.
+            if self.hover_cell != prev_hover {
+                needs_render = true;
+            }
+
             // Advance animations every poll cycle (≈80 ms when active).
+            let anim_was_active = self.anim.is_active();
             self.anim.advance();
+            if anim_was_active || self.anim.is_active() {
+                needs_render = true;
+            }
 
             // Matrix rain finished → show the Neo message (matrix_mode already active).
             if matches!(&self.anim.matrix_rain, Some(r) if r.done()) {

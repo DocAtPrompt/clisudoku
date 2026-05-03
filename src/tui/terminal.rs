@@ -1,7 +1,6 @@
 // src/tui/terminal.rs
 use crossterm::{
-    cursor,
-    execute,
+    cursor, execute,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io::{self, Stdout};
@@ -29,7 +28,13 @@ impl Terminal {
 impl Drop for Terminal {
     fn drop(&mut self) {
         // Restore terminal even if we panic — best effort, ignore errors.
-        let _ = execute!(self.stdout, LeaveAlternateScreen, cursor::Show);
+        // Always disable mouse capture so no stray mouse events appear after exit.
+        let _ = execute!(
+            self.stdout,
+            crossterm::event::DisableMouseCapture,
+            LeaveAlternateScreen,
+            cursor::Show
+        );
         let _ = terminal::disable_raw_mode();
     }
 }
