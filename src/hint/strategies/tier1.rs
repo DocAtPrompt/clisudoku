@@ -1,7 +1,7 @@
 // src/hint/strategies/tier1.rs
 use crate::hint::{Hint, Strategy};
-use crate::puzzle::{CellKind, Grid};
 use crate::puzzle::game_state::GameState;
+use crate::puzzle::{CellKind, Grid};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -9,15 +9,29 @@ use crate::puzzle::game_state::GameState;
 /// Bit d is set if digit d (1-9) is not present in the same row, col, or box.
 /// Returns 0 if the cell is not empty.
 fn candidates(grid: &Grid, r: usize, c: usize) -> u16 {
-    if !matches!(grid.get(r, c), CellKind::Empty) { return 0; }
+    if !matches!(grid.get(r, c), CellKind::Empty) {
+        return 0;
+    }
     let mut used = 0u16;
-    for cc in 0..9 { if let Some(d) = grid.get(r, cc).value() { used |= 1 << d; } }
-    for rr in 0..9 { if let Some(d) = grid.get(rr, c).value() { used |= 1 << d; } }
+    for cc in 0..9 {
+        if let Some(d) = grid.get(r, cc).value() {
+            used |= 1 << d;
+        }
+    }
+    for rr in 0..9 {
+        if let Some(d) = grid.get(rr, c).value() {
+            used |= 1 << d;
+        }
+    }
     let br = (r / 3) * 3;
     let bc = (c / 3) * 3;
-    for dr in 0..3 { for dc in 0..3 {
-        if let Some(d) = grid.get(br + dr, bc + dc).value() { used |= 1 << d; }
-    }}
+    for dr in 0..3 {
+        for dc in 0..3 {
+            if let Some(d) = grid.get(br + dr, bc + dc).value() {
+                used |= 1 << d;
+            }
+        }
+    }
     let all: u16 = 0b1111111110; // bits 1..=9
     all & !used
 }
@@ -30,7 +44,11 @@ fn all_units() -> Vec<Vec<(usize, usize)>> {
         units.push((0..9).map(|r| (r, i)).collect()); // col i
         let br = (i / 3) * 3;
         let bc = (i % 3) * 3;
-        units.push((0..3).flat_map(|dr| (0..3).map(move |dc| (br + dr, bc + dc))).collect()); // box
+        units.push(
+            (0..3)
+                .flat_map(|dr| (0..3).map(move |dc| (br + dr, bc + dc)))
+                .collect(),
+        ); // box
     }
     units
 }
@@ -50,26 +68,32 @@ pub struct BoxLineReduction;
 // ── Implementations ───────────────────────────────────────────────────────────
 
 impl Strategy for FullHouse {
-    fn name_en(&self) -> &'static str { "Full House" }
-    fn name_de(&self) -> &'static str { "Full House" }
+    fn name_en(&self) -> &'static str {
+        "Full House"
+    }
+    fn name_de(&self) -> &'static str {
+        "Full House"
+    }
 
     fn find(&self, state: &GameState, solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
         for unit in all_units() {
-            let empty: Vec<(usize, usize)> = unit.iter()
+            let empty: Vec<(usize, usize)> = unit
+                .iter()
                 .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
-                .copied().collect();
+                .copied()
+                .collect();
             if empty.len() == 1 {
                 let (r, c) = empty[0];
                 let d = solution.get(r, c).value()?;
                 return Some(Hint {
-                    cause_cells:    vec![],
-                    elim_cells:     vec![],
-                    target_cell:    (r, c),
-                    elim_digit:     None,
-                    target_digit:   Some(d),
-                    name_en:        self.name_en(),
-                    name_de:        self.name_de(),
+                    cause_cells: vec![],
+                    elim_cells: vec![],
+                    target_cell: (r, c),
+                    elim_digit: None,
+                    target_digit: Some(d),
+                    name_en: self.name_en(),
+                    name_de: self.name_de(),
                     explanation_en: format!("Last empty cell in this unit — place {} here.", d),
                     explanation_de: format!("Letzte leere Zelle hier — {} eintragen.", d),
                 });
@@ -80,8 +104,12 @@ impl Strategy for FullHouse {
 }
 
 impl Strategy for NakedSingle {
-    fn name_en(&self) -> &'static str { "Naked Single" }
-    fn name_de(&self) -> &'static str { "Naked Single" }
+    fn name_en(&self) -> &'static str {
+        "Naked Single"
+    }
+    fn name_de(&self) -> &'static str {
+        "Naked Single"
+    }
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
@@ -91,15 +119,21 @@ impl Strategy for NakedSingle {
                 if cands != 0 && cands.count_ones() == 1 {
                     let d = cands.trailing_zeros() as u8;
                     return Some(Hint {
-                        cause_cells:    vec![],
-                        elim_cells:     vec![],
-                        target_cell:    (r, c),
-                        elim_digit:     None,
-                        target_digit:   Some(d),
-                        name_en:        self.name_en(),
-                        name_de:        self.name_de(),
-                        explanation_en: format!("All other digits are blocked — {} is the only fit here.", d),
-                        explanation_de: format!("Alle anderen Ziffern blockiert — nur {} passt hier.", d),
+                        cause_cells: vec![],
+                        elim_cells: vec![],
+                        target_cell: (r, c),
+                        elim_digit: None,
+                        target_digit: Some(d),
+                        name_en: self.name_en(),
+                        name_de: self.name_de(),
+                        explanation_en: format!(
+                            "All other digits are blocked — {} is the only fit here.",
+                            d
+                        ),
+                        explanation_de: format!(
+                            "Alle anderen Ziffern blockiert — nur {} passt hier.",
+                            d
+                        ),
                     });
                 }
             }
@@ -109,19 +143,25 @@ impl Strategy for NakedSingle {
 }
 
 impl Strategy for HiddenSingle {
-    fn name_en(&self) -> &'static str { "Hidden Single" }
-    fn name_de(&self) -> &'static str { "Hidden Single" }
+    fn name_en(&self) -> &'static str {
+        "Hidden Single"
+    }
+    fn name_de(&self) -> &'static str {
+        "Hidden Single"
+    }
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
         for unit in all_units() {
             for digit in 1u8..=9 {
-                let positions: Vec<(usize, usize)> = unit.iter()
+                let positions: Vec<(usize, usize)> = unit
+                    .iter()
                     .filter(|&&(r, c)| {
                         matches!(grid.get(r, c), CellKind::Empty)
                             && (candidates(grid, r, c) & (1 << digit)) != 0
                     })
-                    .copied().collect();
+                    .copied()
+                    .collect();
                 if positions.len() == 1 {
                     let (r, c) = positions[0];
                     // Collect cells that already contain `digit` and "see" the
@@ -130,8 +170,12 @@ impl Strategy for HiddenSingle {
                     let mut cause_set: std::collections::HashSet<(usize, usize)> =
                         std::collections::HashSet::new();
                     for &(rr, cc) in &unit {
-                        if (rr, cc) == (r, c) { continue; }
-                        if !matches!(grid.get(rr, cc), CellKind::Empty) { continue; }
+                        if (rr, cc) == (r, c) {
+                            continue;
+                        }
+                        if !matches!(grid.get(rr, cc), CellKind::Empty) {
+                            continue;
+                        }
                         // Same row
                         for col in 0..9 {
                             if grid.get(rr, col).value() == Some(digit) {
@@ -157,15 +201,21 @@ impl Strategy for HiddenSingle {
                     }
                     let cause: Vec<(usize, usize)> = cause_set.into_iter().collect();
                     return Some(Hint {
-                        cause_cells:    cause,
-                        elim_cells:     vec![],
-                        target_cell:    (r, c),
-                        elim_digit:     None,
-                        target_digit:   Some(digit),
-                        name_en:        self.name_en(),
-                        name_de:        self.name_de(),
-                        explanation_en: format!("{} has only one possible cell in this unit — place it here.", digit),
-                        explanation_de: format!("{} passt in dieser Einheit nur hier — hier eintragen.", digit),
+                        cause_cells: cause,
+                        elim_cells: vec![],
+                        target_cell: (r, c),
+                        elim_digit: None,
+                        target_digit: Some(digit),
+                        name_en: self.name_en(),
+                        name_de: self.name_de(),
+                        explanation_en: format!(
+                            "{} has only one possible cell in this unit — place it here.",
+                            digit
+                        ),
+                        explanation_de: format!(
+                            "{} passt in dieser Einheit nur hier — hier eintragen.",
+                            digit
+                        ),
                     });
                 }
             }
@@ -175,8 +225,12 @@ impl Strategy for HiddenSingle {
 }
 
 impl Strategy for NotesHint {
-    fn name_en(&self) -> &'static str { "Add Notes" }
-    fn name_de(&self) -> &'static str { "Notizen erg\u{e4}nzen" }
+    fn name_en(&self) -> &'static str {
+        "Add Notes"
+    }
+    fn name_de(&self) -> &'static str {
+        "Notizen erg\u{e4}nzen"
+    }
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
@@ -190,15 +244,20 @@ impl Strategy for NotesHint {
             // So boxes are at indices where i % 3 == 2
             let is_box = i % 3 == 2;
             // Does this unit have at least one empty cell with zero notes?
-            let has_empty_no_notes = unit.iter().any(|&(r, c)|
+            let has_empty_no_notes = unit.iter().any(|&(r, c)| {
                 matches!(grid.get(r, c), CellKind::Empty) && state.notes_mask(r, c) == 0
-            );
-            if !has_empty_no_notes { continue; }
+            });
+            if !has_empty_no_notes {
+                continue;
+            }
 
-            let total_empty = unit.iter()
+            let total_empty = unit
+                .iter()
                 .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
                 .count();
-            if total_empty == 0 { continue; }
+            if total_empty == 0 {
+                continue;
+            }
 
             let better = best_unit.is_none()
                 || (is_box && !best_is_box)
@@ -212,23 +271,30 @@ impl Strategy for NotesHint {
 
         let unit = best_unit?;
         // target_cell = most constrained empty cell in unit (fewest candidates)
-        let target = unit.iter()
+        let target = unit
+            .iter()
             .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
             .min_by_key(|&&(r, c)| candidates(grid, r, c).count_ones())
             .copied()?;
 
         Some(Hint {
-            cause_cells: unit.iter()
+            cause_cells: unit
+                .iter()
                 .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty) && (r, c) != target)
-                .copied().collect(),
-            elim_cells:     vec![],
-            target_cell:    target,
-            elim_digit:     None,
-            target_digit:   None,
-            name_en:        self.name_en(),
-            name_de:        self.name_de(),
-            explanation_en: "Note all possible digits in the empty cells here to find your next move.".to_string(),
-            explanation_de: "Alle m\u{f6}glichen Ziffern in die leeren Zellen dieser Einheit eintragen.".to_string(),
+                .copied()
+                .collect(),
+            elim_cells: vec![],
+            target_cell: target,
+            elim_digit: None,
+            target_digit: None,
+            name_en: self.name_en(),
+            name_de: self.name_de(),
+            explanation_en:
+                "Note all possible digits in the empty cells here to find your next move."
+                    .to_string(),
+            explanation_de:
+                "Alle m\u{f6}glichen Ziffern in die leeren Zellen dieser Einheit eintragen."
+                    .to_string(),
         })
     }
 }
@@ -246,8 +312,12 @@ impl Strategy for NotesHint {
 // always operate on verified, complete candidate sets.
 
 impl Strategy for NotesValidator {
-    fn name_en(&self) -> &'static str { "Fix Notes" }
-    fn name_de(&self) -> &'static str { "Notizen korrigieren" }
+    fn name_en(&self) -> &'static str {
+        "Fix Notes"
+    }
+    fn name_de(&self) -> &'static str {
+        "Notizen korrigieren"
+    }
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
@@ -255,35 +325,59 @@ impl Strategy for NotesValidator {
         // Pass 1: wrong notes — digit is noted but doesn't fit (already in row/col/box).
         for r in 0..9 {
             for c in 0..9 {
-                if !matches!(grid.get(r, c), CellKind::Empty) { continue; }
-                let notes  = state.notes_mask(r, c);
-                if notes == 0 { continue; }
+                if !matches!(grid.get(r, c), CellKind::Empty) {
+                    continue;
+                }
+                let notes = state.notes_mask(r, c);
+                if notes == 0 {
+                    continue;
+                }
                 let actual = candidates(grid, r, c);
-                let wrong  = notes & !actual;
-                if wrong == 0 { continue; }
+                let wrong = notes & !actual;
+                if wrong == 0 {
+                    continue;
+                }
 
                 let d = wrong.trailing_zeros() as u8;
                 // Cause: peer cells that already contain d, explaining the conflict.
                 let mut cause: Vec<(usize, usize)> = vec![];
-                for cc in 0..9 { if grid.get(r, cc).value() == Some(d) { cause.push((r, cc)); } }
-                for rr in 0..9 { if grid.get(rr, c).value() == Some(d) { cause.push((rr, c)); } }
+                for cc in 0..9 {
+                    if grid.get(r, cc).value() == Some(d) {
+                        cause.push((r, cc));
+                    }
+                }
+                for rr in 0..9 {
+                    if grid.get(rr, c).value() == Some(d) {
+                        cause.push((rr, c));
+                    }
+                }
                 let (br, bc) = ((r / 3) * 3, (c / 3) * 3);
-                for dr in 0..3 { for dc in 0..3 {
-                    if grid.get(br+dr, bc+dc).value() == Some(d) { cause.push((br+dr, bc+dc)); }
-                }}
+                for dr in 0..3 {
+                    for dc in 0..3 {
+                        if grid.get(br + dr, bc + dc).value() == Some(d) {
+                            cause.push((br + dr, bc + dc));
+                        }
+                    }
+                }
                 cause.sort_unstable();
                 cause.dedup();
 
                 return Some(Hint {
-                    cause_cells:    cause,
-                    elim_cells:     vec![(r, c)],
-                    target_cell:    (r, c),
-                    elim_digit:     Some(d),
-                    target_digit:   None,
-                    name_en:        "Wrong Note",
-                    name_de:        "Falsche Notiz",
-                    explanation_en: format!("{} already appears in this row, col, or box — remove this note.", d),
-                    explanation_de: format!("{} ist schon in Zeile, Spalte oder Box — diese Notiz streichen.", d),
+                    cause_cells: cause,
+                    elim_cells: vec![(r, c)],
+                    target_cell: (r, c),
+                    elim_digit: Some(d),
+                    target_digit: None,
+                    name_en: "Wrong Note",
+                    name_de: "Falsche Notiz",
+                    explanation_en: format!(
+                        "{} already appears in this row, col, or box — remove this note.",
+                        d
+                    ),
+                    explanation_de: format!(
+                        "{} ist schon in Zeile, Spalte oder Box — diese Notiz streichen.",
+                        d
+                    ),
                 });
             }
         }
@@ -291,24 +385,36 @@ impl Strategy for NotesValidator {
         // Pass 2: missing notes — valid candidate absent from an already-started cell.
         for r in 0..9 {
             for c in 0..9 {
-                if !matches!(grid.get(r, c), CellKind::Empty) { continue; }
-                let notes   = state.notes_mask(r, c);
-                if notes == 0 { continue; } // NotesHint handles zero-note cells
-                let actual  = candidates(grid, r, c);
+                if !matches!(grid.get(r, c), CellKind::Empty) {
+                    continue;
+                }
+                let notes = state.notes_mask(r, c);
+                if notes == 0 {
+                    continue;
+                } // NotesHint handles zero-note cells
+                let actual = candidates(grid, r, c);
                 let missing = actual & !notes;
-                if missing == 0 { continue; }
+                if missing == 0 {
+                    continue;
+                }
 
                 let d = missing.trailing_zeros() as u8;
                 return Some(Hint {
-                    cause_cells:    vec![],
-                    elim_cells:     vec![],
-                    target_cell:    (r, c),
-                    elim_digit:     None,
-                    target_digit:   Some(d),
-                    name_en:        "Missing Note",
-                    name_de:        "Fehlende Notiz",
-                    explanation_en: format!("{} is a valid candidate here — add it to the notes in this cell.", d),
-                    explanation_de: format!("{} ist hier m\u{f6}glich — zur Notiz hinzuf\u{fc}gen.", d),
+                    cause_cells: vec![],
+                    elim_cells: vec![],
+                    target_cell: (r, c),
+                    elim_digit: None,
+                    target_digit: Some(d),
+                    name_en: "Missing Note",
+                    name_de: "Fehlende Notiz",
+                    explanation_en: format!(
+                        "{} is a valid candidate here — add it to the notes in this cell.",
+                        d
+                    ),
+                    explanation_de: format!(
+                        "{} ist hier m\u{f6}glich — zur Notiz hinzuf\u{fc}gen.",
+                        d
+                    ),
                 });
             }
         }
@@ -318,33 +424,48 @@ impl Strategy for NotesValidator {
 }
 
 impl Strategy for NakedPairs {
-    fn name_en(&self) -> &'static str { "Naked Pairs" }
-    fn name_de(&self) -> &'static str { "Naked Pairs" }
+    fn name_en(&self) -> &'static str {
+        "Naked Pairs"
+    }
+    fn name_de(&self) -> &'static str {
+        "Naked Pairs"
+    }
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
         for unit in all_units() {
-            let empties: Vec<(usize, usize)> = unit.iter()
+            let empties: Vec<(usize, usize)> = unit
+                .iter()
                 .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
-                .copied().collect();
+                .copied()
+                .collect();
             for i in 0..empties.len() {
                 let (r1, c1) = empties[i];
                 let m1 = state.notes_mask(r1, c1);
-                if m1.count_ones() != 2 { continue; }
+                if m1.count_ones() != 2 {
+                    continue;
+                }
                 for j in (i + 1)..empties.len() {
                     let (r2, c2) = empties[j];
-                    if state.notes_mask(r2, c2) != m1 { continue; }
+                    if state.notes_mask(r2, c2) != m1 {
+                        continue;
+                    }
                     // Found a naked pair — extract the two digits from the mask
                     let d1 = m1.trailing_zeros() as u8;
                     let remaining = m1 >> (d1 as u32 + 1);
                     let d2 = d1 + 1 + remaining.trailing_zeros() as u8;
-                    let elim: Vec<(usize, usize)> = empties.iter()
+                    let elim: Vec<(usize, usize)> = empties
+                        .iter()
                         .filter(|&&(r, c)| {
-                            (r, c) != (r1, c1) && (r, c) != (r2, c2)
+                            (r, c) != (r1, c1)
+                                && (r, c) != (r2, c2)
                                 && (state.notes_mask(r, c) & m1) != 0
                         })
-                        .copied().collect();
-                    if elim.is_empty() { continue; }
+                        .copied()
+                        .collect();
+                    if elim.is_empty() {
+                        continue;
+                    }
                     let target = elim[0];
                     return Some(Hint {
                         cause_cells:    vec![(r1, c1), (r2, c2)],
@@ -364,37 +485,53 @@ impl Strategy for NakedPairs {
     }
 }
 impl Strategy for HiddenPairs {
-    fn name_en(&self) -> &'static str { "Hidden Pairs" }
-    fn name_de(&self) -> &'static str { "Hidden Pairs" }
+    fn name_en(&self) -> &'static str {
+        "Hidden Pairs"
+    }
+    fn name_de(&self) -> &'static str {
+        "Hidden Pairs"
+    }
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
         for unit in all_units() {
-            let empties: Vec<(usize,usize)> = unit.iter()
-                .filter(|&&(r,c)| matches!(grid.get(r,c), CellKind::Empty))
-                .copied().collect();
+            let empties: Vec<(usize, usize)> = unit
+                .iter()
+                .filter(|&&(r, c)| matches!(grid.get(r, c), CellKind::Empty))
+                .copied()
+                .collect();
             for d1 in 1u8..=9 {
-                for d2 in (d1+1)..=9 {
+                for d2 in (d1 + 1)..=9 {
                     // Find cells in this unit where d1 or d2 appear in notes
-                    let pair_cells: Vec<(usize,usize)> = empties.iter()
-                        .filter(|&&(r,c)| {
-                            let m = state.notes_mask(r,c);
-                            (m & (1<<d1)) != 0 || (m & (1<<d2)) != 0
+                    let pair_cells: Vec<(usize, usize)> = empties
+                        .iter()
+                        .filter(|&&(r, c)| {
+                            let m = state.notes_mask(r, c);
+                            (m & (1 << d1)) != 0 || (m & (1 << d2)) != 0
                         })
-                        .copied().collect();
-                    if pair_cells.len() != 2 { continue; }
+                        .copied()
+                        .collect();
+                    if pair_cells.len() != 2 {
+                        continue;
+                    }
                     // Both d1 AND d2 must appear in BOTH cells
-                    let both_digits = pair_cells.iter().all(|&(r,c)| {
-                        let m = state.notes_mask(r,c);
-                        (m & (1<<d1)) != 0 && (m & (1<<d2)) != 0
+                    let both_digits = pair_cells.iter().all(|&(r, c)| {
+                        let m = state.notes_mask(r, c);
+                        (m & (1 << d1)) != 0 && (m & (1 << d2)) != 0
                     });
-                    if !both_digits { continue; }
+                    if !both_digits {
+                        continue;
+                    }
                     // The pair cells must have extra candidates to eliminate
-                    let pair_mask = (1u16<<d1) | (1u16<<d2);
-                    let elim: Vec<(usize,usize)> = pair_cells.iter()
-                        .filter(|&&(r,c)| state.notes_mask(r,c) & !pair_mask != 0)
-                        .copied().collect();
-                    if elim.is_empty() { continue; }
+                    let pair_mask = (1u16 << d1) | (1u16 << d2);
+                    let elim: Vec<(usize, usize)> = pair_cells
+                        .iter()
+                        .filter(|&&(r, c)| state.notes_mask(r, c) & !pair_mask != 0)
+                        .copied()
+                        .collect();
+                    if elim.is_empty() {
+                        continue;
+                    }
                     let target = elim[0];
                     return Some(Hint {
                         cause_cells:    pair_cells,
@@ -415,16 +552,20 @@ impl Strategy for HiddenPairs {
 }
 
 impl Strategy for PointingPairs {
-    fn name_en(&self) -> &'static str { "Pointing Pairs" }
-    fn name_de(&self) -> &'static str { "Pointing Pairs" }
+    fn name_en(&self) -> &'static str {
+        "Pointing Pairs"
+    }
+    fn name_de(&self) -> &'static str {
+        "Pointing Pairs"
+    }
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
         for box_idx in 0..9usize {
             let br = (box_idx / 3) * 3;
             let bc = (box_idx % 3) * 3;
-            let box_cells: Vec<(usize,usize)> = (0..3)
-                .flat_map(|dr| (0..3).map(move |dc| (br+dr, bc+dc)))
+            let box_cells: Vec<(usize, usize)> = (0..3)
+                .flat_map(|dr| (0..3).map(move |dc| (br + dr, bc + dc)))
                 .collect();
             for digit in 1u8..=9 {
                 // Use ACTUAL candidates (grid constraints) — not player notes — to
@@ -432,21 +573,25 @@ impl Strategy for PointingPairs {
                 // causes false positives when the player hasn't yet noted the digit in
                 // every cell where it fits (the strategy would incorrectly conclude the
                 // digit is confined to one row/col).
-                let cand_cells: Vec<(usize,usize)> = box_cells.iter()
-                    .filter(|&&(r,c)| (candidates(grid, r, c) & (1<<digit)) != 0)
-                    .copied().collect();
-                if cand_cells.len() < 2 { continue; }
+                let cand_cells: Vec<(usize, usize)> = box_cells
+                    .iter()
+                    .filter(|&&(r, c)| (candidates(grid, r, c) & (1 << digit)) != 0)
+                    .copied()
+                    .collect();
+                if cand_cells.len() < 2 {
+                    continue;
+                }
                 // All in same row?
                 let row = cand_cells[0].0;
-                if cand_cells.iter().all(|&(r,_)| r == row) {
-                    let elim: Vec<(usize,usize)> = (0..9)
+                if cand_cells.iter().all(|&(r, _)| r == row) {
+                    let elim: Vec<(usize, usize)> = (0..9)
                         .filter(|&c| {
-                            let cell_box = (row/3)*3 + c/3;
+                            let cell_box = (row / 3) * 3 + c / 3;
                             cell_box != box_idx
-                                && matches!(grid.get(row,c), CellKind::Empty)
-                                && (state.notes_mask(row,c) & (1<<digit)) != 0
+                                && matches!(grid.get(row, c), CellKind::Empty)
+                                && (state.notes_mask(row, c) & (1 << digit)) != 0
                         })
-                        .map(|c| (row,c))
+                        .map(|c| (row, c))
                         .collect();
                     if !elim.is_empty() {
                         return Some(Hint {
@@ -464,15 +609,15 @@ impl Strategy for PointingPairs {
                 }
                 // All in same col?
                 let col = cand_cells[0].1;
-                if cand_cells.iter().all(|&(_,c)| c == col) {
-                    let elim: Vec<(usize,usize)> = (0..9)
+                if cand_cells.iter().all(|&(_, c)| c == col) {
+                    let elim: Vec<(usize, usize)> = (0..9)
                         .filter(|&r| {
-                            let cell_box = (r/3)*3 + col/3;
+                            let cell_box = (r / 3) * 3 + col / 3;
                             cell_box != box_idx
-                                && matches!(grid.get(r,col), CellKind::Empty)
-                                && (state.notes_mask(r,col) & (1<<digit)) != 0
+                                && matches!(grid.get(r, col), CellKind::Empty)
+                                && (state.notes_mask(r, col) & (1 << digit)) != 0
                         })
-                        .map(|r| (r,col))
+                        .map(|r| (r, col))
                         .collect();
                     if !elim.is_empty() {
                         return Some(Hint {
@@ -495,8 +640,12 @@ impl Strategy for PointingPairs {
 }
 
 impl Strategy for BoxLineReduction {
-    fn name_en(&self) -> &'static str { "Box-Line Reduction" }
-    fn name_de(&self) -> &'static str { "Box-Line Reduction" }
+    fn name_en(&self) -> &'static str {
+        "Box-Line Reduction"
+    }
+    fn name_de(&self) -> &'static str {
+        "Box-Line Reduction"
+    }
 
     fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
@@ -504,18 +653,25 @@ impl Strategy for BoxLineReduction {
         for row in 0..9usize {
             for digit in 1u8..=9 {
                 let cand_cols: Vec<usize> = (0..9)
-                    .filter(|&c| (candidates(grid, row, c) & (1<<digit)) != 0)
+                    .filter(|&c| (candidates(grid, row, c) & (1 << digit)) != 0)
                     .collect();
-                if cand_cols.len() < 2 { continue; }
+                if cand_cols.len() < 2 {
+                    continue;
+                }
                 let box_col = cand_cols[0] / 3;
-                if !cand_cols.iter().all(|&c| c/3 == box_col) { continue; }
-                let br = (row/3)*3;
+                if !cand_cols.iter().all(|&c| c / 3 == box_col) {
+                    continue;
+                }
+                let br = (row / 3) * 3;
                 let bc = box_col * 3;
-                let cand_cells: Vec<(usize,usize)> = cand_cols.iter().map(|&c| (row,c)).collect();
-                let elim: Vec<(usize,usize)> = (0..3).flat_map(|dr| (0..3).map(move |dc| (br+dr, bc+dc)))
-                    .filter(|&(r,c)| r != row
-                        && matches!(grid.get(r,c), CellKind::Empty)
-                        && (state.notes_mask(r,c) & (1<<digit)) != 0)
+                let cand_cells: Vec<(usize, usize)> = cand_cols.iter().map(|&c| (row, c)).collect();
+                let elim: Vec<(usize, usize)> = (0..3)
+                    .flat_map(|dr| (0..3).map(move |dc| (br + dr, bc + dc)))
+                    .filter(|&(r, c)| {
+                        r != row
+                            && matches!(grid.get(r, c), CellKind::Empty)
+                            && (state.notes_mask(r, c) & (1 << digit)) != 0
+                    })
                     .collect();
                 if !elim.is_empty() {
                     return Some(Hint {
@@ -536,18 +692,25 @@ impl Strategy for BoxLineReduction {
         for col in 0..9usize {
             for digit in 1u8..=9 {
                 let cand_rows: Vec<usize> = (0..9)
-                    .filter(|&r| (candidates(grid, r, col) & (1<<digit)) != 0)
+                    .filter(|&r| (candidates(grid, r, col) & (1 << digit)) != 0)
                     .collect();
-                if cand_rows.len() < 2 { continue; }
+                if cand_rows.len() < 2 {
+                    continue;
+                }
                 let box_row = cand_rows[0] / 3;
-                if !cand_rows.iter().all(|&r| r/3 == box_row) { continue; }
+                if !cand_rows.iter().all(|&r| r / 3 == box_row) {
+                    continue;
+                }
                 let br = box_row * 3;
-                let bc = (col/3)*3;
-                let cand_cells: Vec<(usize,usize)> = cand_rows.iter().map(|&r| (r,col)).collect();
-                let elim: Vec<(usize,usize)> = (0..3).flat_map(|dr| (0..3).map(move |dc| (br+dr, bc+dc)))
-                    .filter(|&(r,c)| c != col
-                        && matches!(grid.get(r,c), CellKind::Empty)
-                        && (state.notes_mask(r,c) & (1<<digit)) != 0)
+                let bc = (col / 3) * 3;
+                let cand_cells: Vec<(usize, usize)> = cand_rows.iter().map(|&r| (r, col)).collect();
+                let elim: Vec<(usize, usize)> = (0..3)
+                    .flat_map(|dr| (0..3).map(move |dc| (br + dr, bc + dc)))
+                    .filter(|&(r, c)| {
+                        c != col
+                            && matches!(grid.get(r, c), CellKind::Empty)
+                            && (state.notes_mask(r, c) & (1 << digit)) != 0
+                    })
                     .collect();
                 if !elim.is_empty() {
                     return Some(Hint {
@@ -574,7 +737,7 @@ impl Strategy for BoxLineReduction {
 mod tests {
     use super::*;
     use crate::hint::Strategy;
-    use crate::puzzle::{Grid, GameState};
+    use crate::puzzle::{GameState, Grid};
 
     fn state_from(s: &str) -> GameState {
         let grid = Grid::from_str(s).unwrap();
@@ -593,7 +756,9 @@ mod tests {
     fn full_house_finds_last_cell_in_row() {
         let state = state_from(FULL_HOUSE_PUZZLE);
         let sol = Grid::from_str(FULL_HOUSE_SOL).unwrap();
-        let hint = FullHouse.find(&state, &sol).expect("should find full house");
+        let hint = FullHouse
+            .find(&state, &sol)
+            .expect("should find full house");
         assert_eq!(hint.target_cell, (0, 8));
         assert_eq!(hint.target_digit, Some(2));
     }
@@ -608,7 +773,9 @@ mod tests {
     fn naked_single_finds_only_candidate() {
         let state = state_from(NAKED_SINGLE_PUZZLE);
         let sol = Grid::from_str(NAKED_SINGLE_SOL).unwrap();
-        let hint = NakedSingle.find(&state, &sol).expect("should find naked single");
+        let hint = NakedSingle
+            .find(&state, &sol)
+            .expect("should find naked single");
         assert_eq!(hint.target_digit, Some(8));
         assert!(hint.cause_cells.is_empty());
     }
@@ -632,14 +799,18 @@ mod tests {
     fn notes_hint_fires_when_empty_cell_has_no_notes() {
         // Any standard puzzle where no notes have been entered yet
         let state = state_from(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
         );
         let sol = Grid::from_str(
-            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
-        ).unwrap();
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
         // With no notes set, NotesHint should fire
         let hint = NotesHint.find(&state, &sol);
-        assert!(hint.is_some(), "should find notes hint when notes are missing");
+        assert!(
+            hint.is_some(),
+            "should find notes hint when notes are missing"
+        );
     }
 
     #[test]
@@ -650,10 +821,15 @@ mod tests {
         let mut state = state_from(puzzle);
         // Toggle a note for the last empty cell (8,8) — digit 9
         use crate::puzzle::GameEvent;
-        state.apply(GameEvent::ToggleNote { row: 8, col: 8, digit: 9 });
+        state.apply(GameEvent::ToggleNote {
+            row: 8,
+            col: 8,
+            digit: 9,
+        });
         let sol = Grid::from_str(
-            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
-        ).unwrap();
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
         // NotesHint should NOT fire — all empty cells have at least one note
         let hint = NotesHint.find(&state, &sol);
         assert!(hint.is_none());
@@ -663,45 +839,117 @@ mod tests {
     fn naked_pairs_returns_none_without_notes() {
         // Without notes, NakedPairs cannot fire (it works from notes masks)
         let state = state_from(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
         );
         let sol = Grid::from_str(
-            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
-        ).unwrap();
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
         let hint = NakedPairs.find(&state, &sol);
         assert!(hint.is_none());
     }
 
     #[test]
+    fn naked_pairs_finds_pair_and_returns_elimination() {
+        use crate::puzzle::GameEvent;
+        // Empty board — all cells are CellKind::Empty, no givens.
+        let grid = Grid::from_str(&"0".repeat(81)).unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
+
+        // Row 0: cells (0,5) and (0,6) form a naked pair with notes {1,2}.
+        for digit in [1, 2] {
+            state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit });
+            state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit });
+        }
+        // Cell (0,7) has notes {1,2,3} — the 1 and 2 should be eliminated.
+        for digit in [1, 2, 3] {
+            state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit });
+        }
+
+        let hint = NakedPairs.find(&state, &sol);
+        assert!(hint.is_some(), "NakedPairs should detect the {{1,2}} pair in row 0");
+        let h = hint.unwrap();
+        assert_eq!(h.name_en, "Naked Pairs");
+        assert!(
+            h.cause_cells.contains(&(0, 5)) && h.cause_cells.contains(&(0, 6)),
+            "cause_cells should be the pair cells; got {:?}", h.cause_cells
+        );
+        assert!(
+            h.elim_cells.contains(&(0, 7)),
+            "cell (0,7) should be an elimination target; got {:?}", h.elim_cells
+        );
+    }
+
+    #[test]
     fn hidden_pairs_returns_none_without_notes() {
         let state = state_from(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
         );
         let sol = Grid::from_str(
-            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
-        ).unwrap();
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
         assert!(HiddenPairs.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn hidden_pairs_finds_pair_and_returns_elimination() {
+        use crate::puzzle::GameEvent;
+        // Row 0 cols 0-6 filled → only cells (0,7) and (0,8) are empty in row 0.
+        // Digits 1 and 2 exist only in those two cells → hidden pair.
+        // Extra notes (3 and 4 respectively) are the elimination targets.
+        let grid = Grid::from_str("345678900000000000000000000000000000000000000000000000000000000000000000000000000").unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
+
+        // (0,7): notes {1,2,3} — 3 is extra and must be eliminated
+        for digit in [1, 2, 3] {
+            state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit });
+        }
+        // (0,8): notes {1,2,4} — 4 is extra and must be eliminated
+        for digit in [1, 2, 4] {
+            state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit });
+        }
+
+        let hint = HiddenPairs.find(&state, &sol);
+        assert!(hint.is_some(), "HiddenPairs should detect the {{1,2}} hidden pair in row 0");
+        let h = hint.unwrap();
+        assert_eq!(h.name_en, "Hidden Pairs");
+        // Both pair cells must be in elim (they each have extra notes to remove)
+        assert!(
+            h.elim_cells.contains(&(0, 7)) && h.elim_cells.contains(&(0, 8)),
+            "both pair cells should be elimination targets; got {:?}", h.elim_cells
+        );
     }
 
     #[test]
     fn pointing_pairs_returns_none_without_notes() {
         let state = state_from(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
         );
         let sol = Grid::from_str(
-            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
-        ).unwrap();
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
         assert!(PointingPairs.find(&state, &sol).is_none());
     }
 
     #[test]
     fn box_line_reduction_returns_none_without_notes() {
         let state = state_from(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
         );
         let sol = Grid::from_str(
-            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
-        ).unwrap();
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
         assert!(BoxLineReduction.find(&state, &sol).is_none());
     }
 
@@ -714,7 +962,11 @@ mod tests {
         use crate::puzzle::GameEvent;
         let mut state = state_from(FULL_HOUSE_PUZZLE);
         let sol = Grid::from_str(FULL_HOUSE_SOL).unwrap();
-        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 5 });
+        state.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 8,
+            digit: 5,
+        });
         let hint = NotesValidator.find(&state, &sol);
         assert!(hint.is_some(), "should detect wrong note 5 at (0,8)");
         let h = hint.unwrap();
@@ -722,7 +974,10 @@ mod tests {
         assert_eq!(h.elim_digit, Some(5));
         assert_eq!(h.name_en, "Wrong Note");
         // Cause must include the cell that already contains 5
-        assert!(!h.cause_cells.is_empty(), "cause cells should explain the conflict");
+        assert!(
+            !h.cause_cells.is_empty(),
+            "cause cells should explain the conflict"
+        );
     }
 
     // Cell (0,8) in FULL_HOUSE_PUZZLE can only hold 2.
@@ -734,7 +989,11 @@ mod tests {
         let mut state = state_from(FULL_HOUSE_PUZZLE);
         let sol = Grid::from_str(FULL_HOUSE_SOL).unwrap();
         // Only the correct digit noted
-        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 2 });
+        state.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 8,
+            digit: 2,
+        });
         assert!(
             NotesValidator.find(&state, &sol).is_none(),
             "no violation when correct digit is noted"
@@ -753,7 +1012,11 @@ mod tests {
         let mut state = state_from(MEDIUM);
         let sol = Grid::from_str(MEDIUM_SOL).unwrap();
         // Note only digit 1 in cell (0,2) — valid candidates are {1,2,4}, so 2 and 4 are missing
-        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 1 });
+        state.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 2,
+            digit: 1,
+        });
         let hint = NotesValidator.find(&state, &sol);
         assert!(hint.is_some(), "should detect missing note in (0,2)");
         let h = hint.unwrap();
@@ -766,11 +1029,12 @@ mod tests {
     #[test]
     fn notes_validator_returns_none_without_notes() {
         let state = state_from(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
         );
         let sol = Grid::from_str(
-            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
-        ).unwrap();
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
         assert!(NotesValidator.find(&state, &sol).is_none());
     }
 }
