@@ -2226,6 +2226,159 @@ mod tests {
     }
 
     #[test]
+    fn hidden_triples_finds_triple_and_eliminates() {
+        // Row 0: cols 0-5 filled with 4,5,6,7,8,9; cols 6,7,8 empty.
+        // Digits 1,2,3 are confined to exactly those 3 empty cells.
+        // (0,6): notes {1,2} + extra note 5  → elim target
+        // (0,7): notes {2,3} + extra note 6  → elim target
+        // (0,8): notes {1,3}                 → no extras
+        // HiddenTriples must find d1/d2/d3 = 1/2/3 and report elim_cells.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "456789000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // (0,6): {1,2,5} — extra 5 must be eliminated
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 5 });
+        // (0,7): {2,3,6} — extra 6 must be eliminated
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 6 });
+        // (0,8): {1,3} — no extras; included in triple
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 3 });
+
+        let hint = HiddenTriples
+            .find(&state, &sol)
+            .expect("HiddenTriples should detect triple {1,2,3} in row 0");
+        assert_eq!(hint.name_en, "Hidden Triples");
+        // Both (0,6) and (0,7) have extra notes and must appear as elim targets.
+        assert!(
+            hint.elim_cells.contains(&(0, 6)),
+            "elim_cells should include (0,6) which has extra note 5"
+        );
+        assert!(
+            hint.elim_cells.contains(&(0, 7)),
+            "elim_cells should include (0,7) which has extra note 6"
+        );
+    }
+
+    #[test]
+    fn naked_quads_finds_quad_and_eliminates() {
+        // Row 0: cols 0-3 filled with 5,6,7,8; cols 4-8 empty.
+        // The 4 quad cells (0,4)–(0,7) together hold only {1,2,3,4}.
+        // Cell (0,8) holds {1,3} — overlaps the quad, so its notes are eliminated.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "567800000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Quad cells — union = {1,2,3,4}
+        state.apply(GameEvent::ToggleNote { row: 0, col: 4, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 4, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 4 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 4 });
+        // (0,8): {1,3} — outside the quad; notes 1 and 3 must be eliminated
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 3 });
+
+        let hint = NakedQuads
+            .find(&state, &sol)
+            .expect("NakedQuads should detect quad {1,2,3,4} in row 0");
+        assert_eq!(hint.name_en, "Naked Quads");
+        assert!(
+            hint.elim_cells.contains(&(0, 8)),
+            "elim_cells should contain (0,8) which shares notes with the quad"
+        );
+    }
+
+    #[test]
+    fn hidden_quads_finds_quad_and_eliminates() {
+        // Row 0: cols 0-4 filled with 5,6,7,8,9; cols 5-8 empty.
+        // Digits 1,2,3,4 are confined to exactly those 4 empty cells.
+        // (0,5): {1,2,5}  — extra note 5 must be eliminated
+        // (0,6): {2,3,6}  — extra note 6 must be eliminated
+        // (0,7): {3,4,7}  — extra note 7 must be eliminated
+        // (0,8): {1,4}    — no extras
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "567890000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // (0,5): {1,2,5}
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 5 });
+        // (0,6): {2,3,6}
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 6 });
+        // (0,7): {3,4,7}
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 4 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 7 });
+        // (0,8): {1,4}
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 4 });
+
+        let hint = HiddenQuads
+            .find(&state, &sol)
+            .expect("HiddenQuads should detect quad {1,2,3,4} in row 0");
+        assert_eq!(hint.name_en, "Hidden Quads");
+        assert!(
+            hint.elim_cells.contains(&(0, 5)),
+            "elim_cells should include (0,5) which has extra note 5"
+        );
+        assert!(
+            hint.elim_cells.contains(&(0, 6)),
+            "elim_cells should include (0,6) which has extra note 6"
+        );
+        assert!(
+            hint.elim_cells.contains(&(0, 7)),
+            "elim_cells should include (0,7) which has extra note 7"
+        );
+    }
+
+    #[test]
     fn x_wing_returns_none_without_notes() {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
