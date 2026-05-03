@@ -942,6 +942,54 @@ mod tests {
     }
 
     #[test]
+    fn pointing_pairs_finds_row_confinement_and_eliminates() {
+        use crate::puzzle::GameEvent;
+        // Digit 5 is placed in row 1 (col 3) and row 2 (col 4).
+        // Within box 0 (rows 0-2, cols 0-2), this blocks 5 from rows 1 and 2,
+        // so 5 can only be a candidate in row 0 of that box → Pointing Pair fires.
+        // Note 5 at (0,6) — same row, outside box 0 — is the elimination target.
+        let grid = Grid::from_str(
+            "000000000\
+             000500000\
+             000050000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000\
+             000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
+
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 5 });
+
+        let hint = PointingPairs.find(&state, &sol);
+        assert!(
+            hint.is_some(),
+            "PointingPairs should detect digit 5 confined to row 0 within box 0"
+        );
+        let h = hint.unwrap();
+        assert_eq!(h.name_en, "Pointing Pairs");
+        assert_eq!(h.elim_digit, Some(5));
+        assert!(
+            h.elim_cells.contains(&(0, 6)),
+            "cell (0,6) should be an elimination target; got {:?}",
+            h.elim_cells
+        );
+        // All cause cells must be in box 0 and row 0
+        assert!(
+            h.cause_cells.iter().all(|&(r, c)| r == 0 && c < 3),
+            "cause cells should be in row 0 of box 0; got {:?}",
+            h.cause_cells
+        );
+    }
+
+    #[test]
     fn box_line_reduction_returns_none_without_notes() {
         let state = state_from(
             "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
@@ -951,6 +999,55 @@ mod tests {
         )
         .unwrap();
         assert!(BoxLineReduction.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn box_line_reduction_finds_column_confinement_and_eliminates() {
+        use crate::puzzle::GameEvent;
+        // Digit 7 is placed in cols 3-8 (one per column, rows 3-8).
+        // In row 0, digit 7 can therefore only be a candidate in cols 0,1,2 — all
+        // within box 0. Box-Line Reduction eliminates 7 from the rest of box 0
+        // (rows 1 and 2, cols 0-2) where the player has noted it.
+        let grid = Grid::from_str(
+            "000000000\
+             000000000\
+             000000000\
+             000700000\
+             000070000\
+             000007000\
+             000000700\
+             000000070\
+             000000007",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
+
+        // Note 7 in box 0, outside row 0 — the elimination target
+        state.apply(GameEvent::ToggleNote { row: 1, col: 1, digit: 7 });
+
+        let hint = BoxLineReduction.find(&state, &sol);
+        assert!(
+            hint.is_some(),
+            "BoxLineReduction should detect digit 7 confined to box 0 within row 0"
+        );
+        let h = hint.unwrap();
+        assert_eq!(h.name_en, "Box-Line Reduction");
+        assert_eq!(h.elim_digit, Some(7));
+        assert!(
+            h.elim_cells.contains(&(1, 1)),
+            "cell (1,1) should be an elimination target; got {:?}",
+            h.elim_cells
+        );
+        // Cause cells must all be in row 0, cols 0-2
+        assert!(
+            h.cause_cells.iter().all(|&(r, c)| r == 0 && c < 3),
+            "cause cells should be row 0 of box 0; got {:?}",
+            h.cause_cells
+        );
     }
 
     // ── NotesValidator tests ──────────────────────────────────────────────────
