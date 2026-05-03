@@ -2535,13 +2535,6 @@ mod tests {
     }
 
     #[test]
-    fn unique_rectangle_returns_none_without_notes() {
-        let state = state_from(PUZZLE);
-        let sol = Grid::from_str(SOL).unwrap();
-        assert!(UniqueRectangle.find(&state, &sol).is_none());
-    }
-
-    #[test]
     fn naked_quads_returns_none_without_notes() {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
@@ -2563,10 +2556,79 @@ mod tests {
     }
 
     #[test]
+    fn jellyfish_finds_row_based_and_eliminates() {
+        // Digit 3 spans 4 rows (0,2,5,7), each with 2 occurrences.
+        // Union of columns = {0,2,5,7} — exactly 4 → Jellyfish.
+        // Row 0:{0,2}  Row 2:{0,5}  Row 5:{2,7}  Row 7:{5,7}
+        // Cell (1,0) has note 3 outside the 4 base rows → eliminated.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 2, col: 0, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 2, col: 5, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 2, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 7, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 7, col: 5, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 7, col: 7, digit: 3 });
+        // Elimination target: outside the 4 base rows, inside a Jellyfish column
+        state.apply(GameEvent::ToggleNote { row: 1, col: 0, digit: 3 });
+
+        let hint = Jellyfish
+            .find(&state, &sol)
+            .expect("Jellyfish should detect the row-based pattern for digit 3");
+        assert_eq!(hint.name_en, "Jellyfish");
+        assert!(
+            hint.elim_cells.contains(&(1, 0)),
+            "elim_cells should contain (1,0) inside a Jellyfish column"
+        );
+    }
+
+    #[test]
     fn skyscraper_returns_none_without_notes() {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
         assert!(Skyscraper.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn skyscraper_finds_row_based_and_eliminates() {
+        // Digit 4: two rows each with exactly 2 occurrences, sharing column 2.
+        // Row 0: cols {2, 6}   Row 5: cols {2, 8}   shared col = 2
+        // Tips: (0,6) and (5,8).
+        // Elimination target (3,6):
+        //   sees tip (0,6) via col 6, sees tip (5,8) via box 5 (rows 3-5, cols 6-8).
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Row 0 base
+        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 4 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 4 });
+        // Row 5 base
+        state.apply(GameEvent::ToggleNote { row: 5, col: 2, digit: 4 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 8, digit: 4 });
+        // Elimination target: sees tip (0,6) via col 6, sees tip (5,8) via box 5
+        state.apply(GameEvent::ToggleNote { row: 3, col: 6, digit: 4 });
+
+        let hint = Skyscraper
+            .find(&state, &sol)
+            .expect("Skyscraper should detect the row-based pattern for digit 4");
+        assert_eq!(hint.name_en, "Skyscraper");
+        assert!(
+            hint.elim_cells.contains(&(3, 6)),
+            "elim_cells should contain (3,6) which sees both Skyscraper tips"
+        );
     }
 
     #[test]
@@ -2577,10 +2639,81 @@ mod tests {
     }
 
     #[test]
+    fn two_string_kite_finds_and_eliminates() {
+        // Digit 4: row 0 has exactly cols {3,7}; col 5 has exactly rows {1,7}.
+        // (0,3) and (1,5) are both in box 1 → they form the kite's intersection.
+        // Tips: (0,7) and (7,5).
+        // (7,7): sees (0,7) via col 7, sees (7,5) via row 7 → eliminated.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Row string
+        state.apply(GameEvent::ToggleNote { row: 0, col: 3, digit: 4 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 4 });
+        // Col string
+        state.apply(GameEvent::ToggleNote { row: 1, col: 5, digit: 4 });
+        state.apply(GameEvent::ToggleNote { row: 7, col: 5, digit: 4 });
+        // Elimination target
+        state.apply(GameEvent::ToggleNote { row: 7, col: 7, digit: 4 });
+
+        let hint = TwoStringKite
+            .find(&state, &sol)
+            .expect("TwoStringKite should detect the kite pattern for digit 4");
+        assert_eq!(hint.name_en, "2-String Kite");
+        assert!(
+            hint.elim_cells.contains(&(7, 7)),
+            "elim_cells should contain (7,7) which sees both kite tips"
+        );
+    }
+
+    #[test]
     fn xyz_wing_returns_none_without_notes() {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
         assert!(XYZWing.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn xyz_wing_finds_and_eliminates() {
+        // Pivot  (0,0): {1,2,3}   — trivalue
+        // Wing1  (0,5): {1,3}     — sees pivot (same row), mask = {1, c_digit=3}
+        // Wing2  (0,8): {2,3}     — sees pivot (same row), mask = {2, c_digit=3}
+        // All three are in row 0.  Elimination digit = 3.
+        // Target (0,3): note 3 — sees all three via row 0 → eliminated.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Pivot
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 3 });
+        // Wing1: {1,3}
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 3 });
+        // Wing2: {2,3}
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 3 });
+        // Elimination target: sees pivot, wing1, wing2 via row 0
+        state.apply(GameEvent::ToggleNote { row: 0, col: 3, digit: 3 });
+
+        let hint = XYZWing
+            .find(&state, &sol)
+            .expect("XYZWing should detect the pivot+wing pattern");
+        assert_eq!(hint.name_en, "XYZ-Wing");
+        assert!(
+            hint.elim_cells.contains(&(0, 3)),
+            "elim_cells should contain (0,3) which sees all three XYZ-Wing cells"
+        );
     }
 
     #[test]
@@ -2591,10 +2724,136 @@ mod tests {
     }
 
     #[test]
+    fn w_wing_finds_and_eliminates() {
+        // W-Wing on {1,2} (a=1, b=2):
+        //   P1 = (0,1): bivalue {1,2}  — sees strong-link cell (5,1) via col 1
+        //   P2 = (8,8): bivalue {1,2}  — sees strong-link cell (5,8) via col 8
+        //   P1 and P2 do NOT see each other.
+        //   Strong link: row 5 has digit 1 in exactly (5,1) and (5,8).
+        //   Eliminate b=2 from cells seeing both P1 and P2:
+        //   (0,8): sees (0,1) via row 0, sees (8,8) via col 8 → eliminated.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Bivalue W-Wing endpoints
+        state.apply(GameEvent::ToggleNote { row: 0, col: 1, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 1, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 8, col: 8, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 8, col: 8, digit: 2 });
+        // Strong link on digit 1 in row 5
+        state.apply(GameEvent::ToggleNote { row: 5, col: 1, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 8, digit: 1 });
+        // Elimination target: sees P1=(0,1) via row 0, sees P2=(8,8) via col 8
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 2 });
+
+        let hint = WWing
+            .find(&state, &sol)
+            .expect("WWing should detect the W-Wing pattern for {1,2}");
+        assert_eq!(hint.name_en, "W-Wing");
+        assert!(
+            hint.elim_cells.contains(&(0, 8)),
+            "elim_cells should contain (0,8) which sees both W-Wing endpoints"
+        );
+    }
+
+    #[test]
+    fn unique_rectangle_returns_none_without_notes() {
+        let state = state_from(PUZZLE);
+        let sol = Grid::from_str(SOL).unwrap();
+        assert!(UniqueRectangle.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn unique_rectangle_type1_finds_and_eliminates() {
+        // Rectangle corners in 2 boxes (box 0 and box 1):
+        //   (0,0),(0,3),(1,0),(1,3) — rows {0,1}, cols {0,3}
+        // 3 corners locked to {1,2}; roof (1,3) has extra note 5.
+        // Unique Rectangle Type 1: eliminate {1,2} from the roof.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Three floor corners: only {1,2}
+        for &(r, c) in &[(0usize, 0usize), (0, 3), (1, 0)] {
+            state.apply(GameEvent::ToggleNote { row: r, col: c, digit: 1 });
+            state.apply(GameEvent::ToggleNote { row: r, col: c, digit: 2 });
+        }
+        // Roof corner: {1,2} + extra 5
+        state.apply(GameEvent::ToggleNote { row: 1, col: 3, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 1, col: 3, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 1, col: 3, digit: 5 });
+
+        let hint = UniqueRectangle
+            .find(&state, &sol)
+            .expect("UniqueRectangle should detect the Type-1 pattern");
+        assert_eq!(hint.name_en, "Unique Rectangle");
+        assert_eq!(
+            hint.target_cell,
+            (1, 3),
+            "target_cell should be the roof corner (1,3)"
+        );
+    }
+
+    #[test]
     fn bug_plus_one_returns_none_without_notes() {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
         assert!(BugPlusOne.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn bug_plus_one_finds_and_places() {
+        // Board: 4 empty cells, all others given (digit 5 as filler).
+        // (0,4): {1,3}   (0,8): {1,2,3}  ← the BUG+1 trivalue cell
+        // (2,6): {1,5}   (5,8): {1,4}
+        //
+        // Digit 1 at (0,8):
+        //   row 0 peers with note 1: (0,4)           → count = 1 (odd) ✓
+        //   col 8 peers with note 1: (5,8)            → count = 1 (odd) ✓
+        //   box 2 peers with note 1: (2,6)            → count = 1 (odd) ✓
+        // → BUG+1 places digit 1 at (0,8).
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            // (0,4)=0, (0,8)=0, (2,6)=0, (5,8)=0; all others = 5 (given)
+            "555505550\
+             555555555\
+             555555055\
+             555555555\
+             555555555\
+             555555550\
+             555555555\
+             555555555\
+             555555555",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        state.apply(GameEvent::ToggleNote { row: 0, col: 4, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 4, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 2, col: 6, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 2, col: 6, digit: 5 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 8, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 8, digit: 4 });
+
+        let hint = BugPlusOne
+            .find(&state, &sol)
+            .expect("BugPlusOne should detect the trivalue BUG+1 cell");
+        assert_eq!(hint.name_en, "BUG+1");
+        assert_eq!(hint.target_cell, (0, 8), "target_cell should be the trivalue cell");
+        assert_eq!(hint.target_digit, Some(1), "digit 1 restores balance in all three units");
     }
 
     #[test]
@@ -2605,6 +2864,39 @@ mod tests {
     }
 
     #[test]
+    fn empty_rectangle_finds_column_confinement_and_eliminates() {
+        // Box 0 (rows 0-2, cols 0-2): digit 4 only in col 0 → (0,0) and (2,0).
+        // Conjugate pair (row outside box band): row 5 has digit 4 exactly at
+        // (5,0) and (5,7).  c_er_end=0 matches er_col=0; c_other=7.
+        // Eliminate 4 from (r_er, 7) where r_er in {0,1,2}: (0,7) has note 4.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // ER cells (box 0, confined to col 0)
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 4 });
+        state.apply(GameEvent::ToggleNote { row: 2, col: 0, digit: 4 });
+        // Conjugate pair in row 5
+        state.apply(GameEvent::ToggleNote { row: 5, col: 0, digit: 4 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 7, digit: 4 });
+        // Elimination target
+        state.apply(GameEvent::ToggleNote { row: 0, col: 7, digit: 4 });
+
+        let hint = EmptyRectangle
+            .find(&state, &sol)
+            .expect("EmptyRectangle should detect column confinement in box 0");
+        assert_eq!(hint.name_en, "Empty Rectangle");
+        assert!(
+            hint.elim_cells.contains(&(0, 7)),
+            "elim_cells should contain (0,7)"
+        );
+    }
+
+    #[test]
     fn simple_coloring_returns_none_without_notes() {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
@@ -2612,9 +2904,80 @@ mod tests {
     }
 
     #[test]
+    fn simple_coloring_finds_color_trap_and_eliminates() {
+        // Digit 7 — Color Wrap (two same-color cells see each other).
+        // 4-link chain with strong links:
+        //   row 0 : (0,0) c0 ↔ (0,6) c1   [exactly 2 in row 0]
+        //   col 6 : (0,6) c1 ↔ (3,6) c0   [exactly 2 in col 6]
+        //   row 3 : (3,6) c0 ↔ (3,3) c1   [exactly 2 in row 3]
+        //   col 3 : (3,3) c1 ↔ (0,3) c0   [exactly 2 in col 3]
+        // c0 = {(0,0), (3,6), (0,3)}.
+        // (0,0) and (0,3) are both c0 and share row 0 → Color Wrap fires.
+        // All c0 cells are eliminated → elim_cells contains (0,0).
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 6, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 3, col: 6, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 3, col: 3, digit: 7 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 3, digit: 7 });
+
+        let hint = SimpleColoring
+            .find(&state, &sol)
+            .expect("SimpleColoring should detect the Color Wrap");
+        assert_eq!(hint.name_en, "Simple Coloring");
+        assert!(
+            hint.elim_cells.contains(&(0, 0))
+                || hint.elim_cells.contains(&(3, 6))
+                || hint.elim_cells.contains(&(0, 3)),
+            "elim_cells should contain at least one c0 cell eliminated by Color Wrap"
+        );
+    }
+
+    #[test]
     fn xy_chain_returns_none_without_notes() {
         let state = state_from(PUZZLE);
         let sol = Grid::from_str(SOL).unwrap();
         assert!(XYChain.find(&state, &sol).is_none());
+    }
+
+    #[test]
+    fn xy_chain_finds_and_eliminates() {
+        // 3-cell XY-Chain:  (0,0){1,2} — (0,5){2,3} — (5,5){3,1}
+        // elim_d = 1 (first digit of start cell).
+        // Chain ends share digit 1; cell (5,0) sees start (0,0) via col 0
+        // and end (5,5) via row 5, and has note 1 → eliminated.
+        use crate::puzzle::event::GameEvent;
+        let grid = Grid::from_str(
+            "000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap();
+        let mut state = GameState::new(grid);
+        let sol = Grid::from_str(SOL).unwrap();
+
+        // Chain cells
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 1 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 0, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 5, digit: 3 });
+        state.apply(GameEvent::ToggleNote { row: 5, col: 5, digit: 1 });
+        // Elimination target
+        state.apply(GameEvent::ToggleNote { row: 5, col: 0, digit: 1 });
+
+        let hint = XYChain
+            .find(&state, &sol)
+            .expect("XYChain should detect the 3-cell chain");
+        assert_eq!(hint.name_en, "XY-Chain");
+        assert!(
+            hint.elim_cells.contains(&(5, 0)),
+            "elim_cells should contain (5,0) which sees both chain ends"
+        );
     }
 }
