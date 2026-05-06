@@ -4,6 +4,9 @@ pub enum Difficulty {
     Medium,
     Hard,
     Extreme,
+    /// Requires at least one Tier-2 expert technique (Jellyfish, Skyscraper, XY-Chain, …).
+    /// The Expert solver can solve it; the Extreme solver cannot.
+    Expert,
     /// Maximally-reduced puzzle: as few givens as possible (targeting 17),
     /// solved using full backtracking — no strategy cap.
     BareMinimum,
@@ -13,10 +16,15 @@ use crate::solver::Strategy;
 
 pub fn classify(used: &[Strategy]) -> Difficulty {
     let needs = |s: Strategy| used.contains(&s);
-    if needs(Strategy::Swordfish) || needs(Strategy::Backtracking) {
+    if needs(Strategy::Expert) {
+        Difficulty::Expert
+    } else if needs(Strategy::Swordfish) || needs(Strategy::Backtracking) {
         Difficulty::Extreme
-    } else if needs(Strategy::XWing) || needs(Strategy::HiddenPair)
-        || needs(Strategy::NakedTriple) || needs(Strategy::BoxLineReduction) {
+    } else if needs(Strategy::XWing)
+        || needs(Strategy::HiddenPair)
+        || needs(Strategy::NakedTriple)
+        || needs(Strategy::BoxLineReduction)
+    {
         Difficulty::Hard
     } else if needs(Strategy::NakedPair) || needs(Strategy::PointingPair) {
         Difficulty::Medium
@@ -64,5 +72,17 @@ mod tests {
     fn x_wing_alone_classifies_as_hard() {
         let used = vec![Strategy::NakedSingle, Strategy::XWing];
         assert_eq!(classify(&used), Difficulty::Hard);
+    }
+
+    #[test]
+    fn expert_strategy_classifies_as_expert() {
+        let used = vec![Strategy::NakedSingle, Strategy::Expert];
+        assert_eq!(classify(&used), Difficulty::Expert);
+    }
+
+    #[test]
+    fn swordfish_without_expert_still_classifies_as_extreme() {
+        let used = vec![Strategy::NakedSingle, Strategy::Swordfish];
+        assert_eq!(classify(&used), Difficulty::Extreme);
     }
 }
