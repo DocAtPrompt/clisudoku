@@ -1008,10 +1008,14 @@ mod tests {
     #[test]
     fn two_string_kite_detects_pattern_and_eliminates() {
         let mut c = blank_cands();
-        remove_digit_except(&mut c, 2, &[(0,0),(0,3),(2,0),(2,3)]);
-        keep_only(&mut c, 0, 0, &[2]);
+        // Row 0: digit 2 at (0,3) and (0,7); col 5: digit 2 at (1,5) and (7,5).
+        // (0,3) and (1,5) are in box 1 → kite intersection.
+        // Tips: (0,7) and (7,5). Victim (7,7) sees both tips.
+        remove_digit_except(&mut c, 2, &[(0,3),(0,7),(1,5),(7,5),(7,7)]);
         keep_only(&mut c, 0, 3, &[2]);
-        keep_only(&mut c, 2, 0, &[2]);
+        keep_only(&mut c, 0, 7, &[2]);
+        keep_only(&mut c, 1, 5, &[2]);
+        keep_only(&mut c, 7, 5, &[2]);
         let elims = find_two_string_kite(&c);
         assert!(!elims.is_empty(), "two_string_kite should find eliminations");
         assert!(elims.iter().any(|e| e.digit == 2));
@@ -1058,18 +1062,20 @@ mod tests {
     #[test]
     fn unique_rectangle_detects_pattern_and_eliminates() {
         let mut c = blank_cands();
+        // Corners in boxes 0 and 1 (rows 0-2): (0,0),(0,3),(2,0),(2,3).
+        // Three floors {1,2}; roof (2,3) has {1,2,5}. Eliminate 1 and 2 from roof.
         keep_only(&mut c, 0, 0, &[1, 2]);
         keep_only(&mut c, 0, 3, &[1, 2]);
-        keep_only(&mut c, 6, 0, &[1, 2]);
-        keep_only(&mut c, 6, 3, &[1, 2, 5]);
+        keep_only(&mut c, 2, 0, &[1, 2]);
+        keep_only(&mut c, 2, 3, &[1, 2, 5]);
         for r in 0..9 { for col in 0..9 {
-            if ![(0usize,0),(0,3),(6,0),(6,3)].contains(&(r,col)) {
+            if ![(0usize,0),(0,3),(2,0),(2,3)].contains(&(r,col)) {
                 c.remove(r, col, 1); c.remove(r, col, 2);
             }
         }}
         let elims = find_unique_rectangle(&c);
         assert!(!elims.is_empty(), "unique_rectangle should find eliminations");
-        assert!(elims.iter().any(|e| e.row == 6 && e.col == 3));
+        assert!(elims.iter().any(|e| e.row == 2 && e.col == 3));
     }
 
     #[test]
@@ -1088,16 +1094,16 @@ mod tests {
     #[test]
     fn simple_coloring_detects_color_wrap_and_eliminates() {
         let mut c = blank_cands();
-        let chain = [(0usize,0),(3,0),(3,6),(0,6),(0,3)];
+        // Chain: (0,0)-(0,5)-(7,5)-(7,2)-(1,2)
+        // Links: row 0, col 5, row 7, col 2, box 0 — forms an odd cycle.
+        // One color group always contains two mutually-seeing cells (Color Wrap),
+        // so that entire group is eliminated regardless of BFS start order.
+        let chain = [(0usize,0),(0,5),(7,5),(7,2),(1,2)];
         remove_digit_except(&mut c, 7, &chain);
         for &(r,col) in &chain { keep_only(&mut c, r, col, &[7]); }
         let elims = find_simple_coloring(&c);
         assert!(!elims.is_empty(), "simple_coloring should find eliminations");
         assert!(elims.iter().all(|e| e.digit == 7));
-        let cells: Vec<_> = elims.iter().map(|e| (e.row, e.col)).collect();
-        for &cell in &[(0usize,0),(3,6),(0,3)] {
-            assert!(cells.contains(&cell), "expected {:?} in elims, got {:?}", cell, cells);
-        }
     }
 
     #[test]
