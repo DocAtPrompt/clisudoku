@@ -184,9 +184,9 @@ impl Solver {
                     expert::find_xy_chain,
                 ];
                 for f in expert_fns {
-                    let e = f(&cands);
-                    if !e.is_empty() {
-                        for elim in &e {
+                    let elims = f(&cands);
+                    if !elims.is_empty() {
+                        for elim in &elims {
                             cands.remove(elim.row, elim.col, elim.digit);
                         }
                         used.insert(Strategy::Expert);
@@ -285,5 +285,15 @@ mod tests {
         let expert_pos = order.iter().position(|&s| s == Strategy::Expert).unwrap();
         let back_pos = order.iter().position(|&s| s == Strategy::Backtracking).unwrap();
         assert!(expert_pos < back_pos);
+    }
+
+    #[test]
+    fn expert_solver_allows_expert_strategy() {
+        // Verifies that allowed() returns true for Expert (and lower strategies)
+        // and false for Backtracking when configured for Expert difficulty.
+        let solver = Solver::for_difficulty(&crate::generator::difficulty::Difficulty::Expert);
+        assert!(solver.allowed(Strategy::Expert));
+        assert!(solver.allowed(Strategy::Swordfish)); // lower strategies still allowed
+        assert!(!solver.allowed(Strategy::Backtracking));
     }
 }
