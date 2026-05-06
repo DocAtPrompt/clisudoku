@@ -38,6 +38,7 @@ impl Solver {
             Difficulty::Medium      => Self { max_strategy: Some(Strategy::PointingPair),   use_backtracking: false },
             Difficulty::Hard        => Self { max_strategy: Some(Strategy::XWing),          use_backtracking: false },
             Difficulty::Extreme     => Self { max_strategy: Some(Strategy::Swordfish),      use_backtracking: false },
+            Difficulty::Expert      => Self { max_strategy: Some(Strategy::Expert),         use_backtracking: false },
             Difficulty::BareMinimum => Self { max_strategy: None,                           use_backtracking: true  },
         }
     }

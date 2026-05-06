@@ -14,6 +14,12 @@ pub enum Difficulty {
 
 use crate::solver::Strategy;
 
+/// Classify a solved puzzle by the hardest strategy used.
+///
+/// Priority (highest first): Expert > Extreme (Swordfish/Backtracking) > Hard > Medium > Easy.
+/// `Expert` is checked first because a puzzle requiring Tier-2 techniques (Jellyfish,
+/// Skyscraper, XY-Chain, …) cannot be solved by the Extreme solver at all. When both
+/// `Strategy::Expert` and `Strategy::Swordfish` appear, `Expert` wins.
 pub fn classify(used: &[Strategy]) -> Difficulty {
     let needs = |s: Strategy| used.contains(&s);
     if needs(Strategy::Expert) {
@@ -81,8 +87,8 @@ mod tests {
     }
 
     #[test]
-    fn swordfish_without_expert_still_classifies_as_extreme() {
-        let used = vec![Strategy::NakedSingle, Strategy::Swordfish];
-        assert_eq!(classify(&used), Difficulty::Extreme);
+    fn expert_dominates_swordfish_in_combined_use() {
+        let used = vec![Strategy::NakedSingle, Strategy::Swordfish, Strategy::Expert];
+        assert_eq!(classify(&used), Difficulty::Expert);
     }
 }
