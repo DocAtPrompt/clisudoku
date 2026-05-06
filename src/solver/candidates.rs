@@ -13,6 +13,7 @@ pub enum Strategy {
     BoxLineReduction,
     XWing,
     Swordfish,
+    Expert,
     Backtracking,
 }
 
@@ -170,5 +171,12 @@ mod tests {
         for r in 0..9 {
             if r != 0 { assert!(!cands.has(r, 2, 4), "col peer still has 4 at row {}", r); }
         }
+    }
+
+    #[test]
+    fn strategy_expert_exists_and_is_distinct() {
+        // Ensure Expert exists and is not equal to Swordfish or Backtracking
+        assert_ne!(Strategy::Expert, Strategy::Swordfish);
+        assert_ne!(Strategy::Expert, Strategy::Backtracking);
     }
 }
