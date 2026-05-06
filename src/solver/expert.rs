@@ -14,6 +14,13 @@ use crate::solver::candidates::{CandidateGrid, Elimination, SolveStep, Strategy}
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
+/// Given a bitmask and the position of one already-extracted bit `first` (0-indexed),
+/// returns the position of the next set bit after `first`.
+#[inline]
+fn second_bit(mask: u16, first: u8) -> u8 {
+    (mask >> (first as u32 + 1)).trailing_zeros() as u8 + first + 1
+}
+
 fn all_units() -> Vec<Vec<(usize, usize)>> {
     let mut units = Vec::with_capacity(27);
     for i in 0..9 {
@@ -358,7 +365,7 @@ pub fn find_y_wing(cands: &CandidateGrid) -> Vec<Elimination> {
         .collect();
     for &(r0, c0, m0) in &bi_cells {
         let a = m0.trailing_zeros() as u8;
-        let b = (m0 >> (a as u32 + 1)).trailing_zeros() as u8 + a + 1;
+        let b = second_bit(m0, a);
         for &(r1, c1, m1) in &bi_cells {
             if (r1, c1) == (r0, c0) { continue; }
             if !sees(r0, c0, r1, c1) { continue; }
@@ -452,6 +459,7 @@ pub fn find_xyz_wing(cands: &CandidateGrid) -> Vec<Elimination> {
 
 pub fn find_w_wing(cands: &CandidateGrid) -> Vec<Elimination> {
     let mut result = Vec::new();
+    let units = all_units();
     let pairs: Vec<(usize, usize)> = (0..9)
         .flat_map(|r| (0..9).map(move |c| (r, c)))
         .filter(|&(r, c)| cands.mask(r, c).count_ones() == 2)
@@ -463,9 +471,9 @@ pub fn find_w_wing(cands: &CandidateGrid) -> Vec<Elimination> {
             if sees(p1.0, p1.1, p2.0, p2.1) { continue; }
             let pair_mask = cands.mask(p1.0, p1.1);
             let a = pair_mask.trailing_zeros() as u8;
-            let b = (pair_mask >> (a as u32 + 1)).trailing_zeros() as u8 + a + 1;
+            let b = second_bit(pair_mask, a);
             // Need strong link on `a` connecting p1 and p2 through a unit
-            for unit in all_units() {
+            for unit in &units {
                 let unit_a: Vec<(usize, usize)> = unit.iter()
                     .filter(|&&(r, c)| cands.mask(r, c) != 0 && cands.has(r, c, a))
                     .copied().collect();
@@ -473,7 +481,7 @@ pub fn find_w_wing(cands: &CandidateGrid) -> Vec<Elimination> {
                 let (e1, e2) = (unit_a[0], unit_a[1]);
                 // p1 sees e1 and p2 sees e2 (or vice versa)
                 for &(ea, eb) in &[(e1, e2), (e2, e1)] {
-                    if ea == p1 || eb == p2 { continue; }
+                    if ea == p1 || ea == p2 || eb == p1 || eb == p2 { continue; }
                     if !sees(p1.0, p1.1, ea.0, ea.1) { continue; }
                     if !sees(p2.0, p2.1, eb.0, eb.1) { continue; }
                     // Eliminate b from cells seeing both p1 and p2
@@ -666,9 +674,10 @@ pub fn find_empty_rectangle(cands: &CandidateGrid) -> Vec<Elimination> {
 pub fn find_simple_coloring(cands: &CandidateGrid) -> Vec<Elimination> {
     use std::collections::HashMap;
     let mut result = Vec::new();
+    let units = all_units();
     for digit in 1u8..=9 {
         let mut links: HashMap<(usize, usize), Vec<(usize, usize)>> = HashMap::new();
-        for unit in all_units() {
+        for unit in &units {
             let cells_d: Vec<(usize, usize)> = unit.iter()
                 .filter(|&&(r, c)| cands.mask(r, c) != 0 && cands.has(r, c, digit))
                 .copied().collect();
@@ -757,7 +766,7 @@ pub fn find_xy_chain(cands: &CandidateGrid) -> Vec<Elimination> {
     const MAX_DEPTH: usize = 8;
     for &(sr, sc, sm) in &bivalue {
         let elim_d = sm.trailing_zeros() as u8;
-        let x = (sm >> (elim_d as u32 + 1)).trailing_zeros() as u8 + elim_d + 1;
+        let x = second_bit(sm, elim_d);
         let mut chain: Vec<(usize, usize)> = vec![(sr, sc)];
         if let Some(r) = xy_chain_dfs(&mut chain, x, elim_d, &bivalue, cands, MAX_DEPTH) {
             return r;
