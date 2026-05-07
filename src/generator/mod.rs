@@ -19,6 +19,10 @@ impl PuzzleGenerator {
     pub fn new(seed: u64) -> Self { Self { seed } }
 
     pub fn generate(&self, difficulty: Difficulty, symmetry: bool) -> Grid {
+        if difficulty == Difficulty::Expert {
+            return self.generate_expert(symmetry);
+        }
+
         let mut rng = LcgRng::new(self.seed);
 
         // Step 1: fill a complete valid grid (randomized backtracking)
@@ -115,6 +119,81 @@ impl PuzzleGenerator {
             }
         }
         result
+    }
+
+    fn generate_expert(&self, symmetry: bool) -> Grid {
+        const MAX_RETRIES: u32 = 200;
+        for attempt in 0..MAX_RETRIES {
+            let seed = self.seed.wrapping_add(attempt as u64 * 7919);
+            let mut rng = LcgRng::new(seed);
+            let full = self.fill_grid(&mut rng).expect("fill_grid failed");
+
+            let is_expert_solvable = |puzzle: &Grid| -> bool {
+                self.is_uniquely_solvable(puzzle, Difficulty::Expert)
+            };
+            let is_extreme_solvable = |puzzle: &Grid| -> bool {
+                self.is_uniquely_solvable(puzzle, Difficulty::Extreme)
+            };
+
+            // Phase 1: greedy removal keeping the puzzle Expert-solvable.
+            // We do NOT require !is_extreme_solvable here; removing as many clues
+            // as possible maximises the chance that the final puzzle requires a
+            // genuine Expert technique (and is no longer Extreme-solvable).
+            let mut puzzle = full.clone();
+
+            if symmetry {
+                let mut pair_indices: Vec<usize> = (0..=40).collect();
+                shuffle(&mut pair_indices, &mut rng);
+                for &idx in &pair_indices {
+                    let (r1, c1) = (idx / 9, idx % 9);
+                    let prev1 = puzzle.get(r1, c1).value();
+                    puzzle.clear(r1, c1);
+                    let mirror_state = if idx < 40 {
+                        let m = 80 - idx;
+                        let (r2, c2) = (m / 9, m % 9);
+                        let prev2 = puzzle.get(r2, c2).value();
+                        puzzle.clear(r2, c2);
+                        Some((r2, c2, prev2))
+                    } else {
+                        None
+                    };
+                    if !is_expert_solvable(&puzzle) {
+                        if let Some(v) = prev1 { puzzle.set_given(r1, c1, v); }
+                        if let Some((r2, c2, Some(v))) = mirror_state { puzzle.set_given(r2, c2, v); }
+                    }
+                }
+            } else {
+                let mut indices: Vec<usize> = (0..81).collect();
+                shuffle(&mut indices, &mut rng);
+                for &idx in &indices {
+                    let row = idx / 9;
+                    let col = idx % 9;
+                    let prev_val = puzzle.get(row, col).value();
+                    puzzle.clear(row, col);
+                    if !is_expert_solvable(&puzzle) {
+                        if let Some(v) = prev_val { puzzle.set_given(row, col, v); }
+                    }
+                }
+            }
+
+            // Phase 2: double-check — the minimally Expert-solvable puzzle must
+            // NOT be solvable by the Extreme solver (i.e. it genuinely requires
+            // an Expert-tier technique, not just Swordfish or below).
+            if is_expert_solvable(&puzzle) && !is_extreme_solvable(&puzzle) {
+                let mut result = Grid::empty();
+                for r in 0..9 {
+                    for c in 0..9 {
+                        if !puzzle.get(r, c).is_empty() {
+                            let v = full.get(r, c).value().unwrap();
+                            result.set_given(r, c, v);
+                        }
+                    }
+                }
+                return result;
+            }
+            // Else retry with next seed
+        }
+        panic!("Expert puzzle generation failed after {} attempts", MAX_RETRIES);
     }
 
     fn fill_grid(&self, rng: &mut LcgRng) -> Option<Grid> {
@@ -404,6 +483,24 @@ mod tests {
         // difficulty must be one of the valid variants (not None)
         let _ = result.difficulty; // just verifying it compiles and is accessible
         assert!(crate::solver::Solver::new().solve(result.grid).grid.is_solved());
+    }
+
+    #[test]
+    #[ignore = "slow: generates Expert puzzle (30–120 s); run with -- --include-ignored"]
+    fn generates_expert_puzzle_passing_double_check() {
+        use crate::solver::Solver;
+        // Generate an Expert puzzle
+        let grid = PuzzleGenerator::new(42).generate(Difficulty::Expert, false);
+        // Condition 1: Expert solver can solve it
+        let expert_solver = Solver::for_difficulty(&Difficulty::Expert);
+        let expert_result = expert_solver.solve(grid.clone());
+        assert!(expert_result.grid.is_solved(),
+            "Expert solver must solve an Expert-generated puzzle");
+        // Condition 2: Extreme solver cannot solve it
+        let extreme_solver = Solver::for_difficulty(&Difficulty::Extreme);
+        let extreme_result = extreme_solver.solve(grid.clone());
+        assert!(!extreme_result.grid.is_solved(),
+            "Extreme solver must NOT solve an Expert-generated puzzle");
     }
 
     #[test]
