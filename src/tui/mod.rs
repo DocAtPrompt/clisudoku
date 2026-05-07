@@ -1382,8 +1382,13 @@ impl App {
             }
 
             // Advance animations every poll cycle (≈80 ms when active).
+            // Matrix rain advances twice per frame so it completes in roughly half the time
+            // without touching any visual parameters (trail length, colours, density).
             let anim_was_active = self.anim.is_active();
             self.anim.advance();
+            if self.anim.matrix_rain.is_some() {
+                self.anim.advance();
+            }
             if anim_was_active || self.anim.is_active() {
                 needs_render = true;
             }
