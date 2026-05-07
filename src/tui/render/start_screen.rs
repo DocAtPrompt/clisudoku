@@ -100,6 +100,7 @@ pub fn render_difficulty(
         strings.difficulty_medium,
         strings.difficulty_hard,
         strings.difficulty_extreme,
+        strings.difficulty_expert,
         strings.difficulty_bare_minimum,
         strings.difficulty_designer,
     ];

@@ -180,6 +180,14 @@ impl App {
 
     /// Start a new game at the given difficulty.
     fn start_game(&mut self, difficulty: Difficulty) {
+        if difficulty == Difficulty::Expert {
+            // Expert requires advanced techniques — show Generating screen.
+            let state = crate::tui::generating::GeneratingState::new_expert(self.symmetry);
+            self.screen = AppScreen::Generating(state);
+            self.needs_clear = true;
+            self.drain_input = true;
+            return;
+        }
         if difficulty == Difficulty::BareMinimum {
             // BareMinimum runs multiple long passes — show Generating screen.
             let state = crate::tui::generating::GeneratingState::new_bare_minimum();
@@ -290,7 +298,7 @@ impl App {
     }
 
     fn handle_difficulty_action(&mut self, action: AppAction, selected: usize, sym_focused: bool) {
-        const DIFFICULTY_COUNT: usize = 6;
+        const DIFFICULTY_COUNT: usize = 7;
         match action {
             // ── Navigation between columns ───────────────────────────────────
             AppAction::MoveRight if !sym_focused => {
@@ -349,10 +357,14 @@ impl App {
                     self.needs_clear = true;
                 }
                 4 => {
-                    self.start_game(Difficulty::BareMinimum);
+                    self.start_game(Difficulty::Expert);
                     self.needs_clear = true;
                 }
                 5 => {
+                    self.start_game(Difficulty::BareMinimum);
+                    self.needs_clear = true;
+                }
+                6 => {
                     self.screen = AppScreen::PatternSelect { selected: 0 };
                     self.needs_clear = true;
                 }
@@ -447,7 +459,7 @@ impl App {
             }
             AppAction::Back => {
                 self.screen = AppScreen::DifficultySelect {
-                    selected: 5,
+                    selected: 6,
                     sym_focused: false,
                 };
                 self.needs_clear = true;
@@ -458,25 +470,31 @@ impl App {
 
     fn handle_generating_action(&mut self, action: AppAction) {
         if matches!(action, AppAction::Back) {
-            let (bare_minimum, from_cli, pat_selected) =
+            let (bare_minimum, expert, from_cli, pat_selected) =
                 if let AppScreen::Generating(ref s) = self.screen {
                     let idx = crate::pattern::PATTERNS
                         .iter()
                         .position(|p| p.name_en == s.pattern.name_en)
                         .unwrap_or(0);
-                    (s.bare_minimum, s.from_cli, idx)
+                    (s.bare_minimum, s.expert, s.from_cli, idx)
                 } else {
-                    (false, false, 0)
+                    (false, false, false, 0)
                 };
-            self.screen = if bare_minimum {
-                // BareMinimum: always go back to DifficultySelect at its index.
+            self.screen = if expert {
+                // Expert: go back to DifficultySelect at index 4.
                 AppScreen::DifficultySelect {
                     selected: 4,
                     sym_focused: false,
                 }
-            } else if from_cli {
+            } else if bare_minimum {
+                // BareMinimum: go back to DifficultySelect at index 5.
                 AppScreen::DifficultySelect {
                     selected: 5,
+                    sym_focused: false,
+                }
+            } else if from_cli {
+                AppScreen::DifficultySelect {
+                    selected: 6,
                     sym_focused: false,
                 }
             } else {
@@ -1218,15 +1236,17 @@ impl App {
                     needs_render = true;
                 }
                 Some(crate::tui::generating::GenMsg::Done(grid, difficulty)) => {
-                    let (is_bare_minimum, pattern_name) =
+                    let (is_bare_minimum, is_expert, pattern_name) =
                         if let AppScreen::Generating(ref gs) = self.screen {
-                            (gs.bare_minimum, gs.pattern.name_en.to_string())
+                            (gs.bare_minimum, gs.expert, gs.pattern.name_en.to_string())
                         } else {
-                            (false, String::new())
+                            (false, false, String::new())
                         };
                     self.enter_game(grid);
                     if is_bare_minimum || difficulty == Difficulty::BareMinimum {
                         self.stats.category = GameCategory::BareMinimum;
+                    } else if is_expert || difficulty == Difficulty::Expert {
+                        self.stats.category = GameCategory::Classic;
                     } else {
                         self.stats.category = GameCategory::Design;
                         self.stats.pattern_name = Some(pattern_name);
@@ -1822,7 +1842,7 @@ mod tests {
             selected: 0,
             sym_focused: false,
         };
-        for _ in 0..5 {
+        for _ in 0..6 {
             app.handle_action(AppAction::MoveDown);
         }
         app.handle_action(AppAction::Enter);

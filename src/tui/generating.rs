@@ -59,6 +59,17 @@ pub fn spawn_bare_minimum(seed: u64, attempts: usize) -> mpsc::Receiver<GenMsg> 
     rx
 }
 
+/// Spawn a background thread that generates one Expert puzzle.
+pub fn spawn_expert(seed: u64, symmetry: bool) -> mpsc::Receiver<GenMsg> {
+    let (tx, rx) = mpsc::channel();
+    thread::spawn(move || {
+        let grid = PuzzleGenerator::new(seed)
+            .generate(Difficulty::Expert, symmetry);
+        let _ = tx.send(GenMsg::Done(grid, Difficulty::Expert));
+    });
+    rx
+}
+
 /// Number of BareMinimum generation attempts per request.
 pub const BARE_MINIMUM_ATTEMPTS: usize = 5;
 
@@ -92,6 +103,8 @@ pub struct GeneratingState {
     pub from_cli:      bool,
     /// True when generating a BareMinimum puzzle (multi-attempt mode).
     pub bare_minimum:  bool,
+    /// True when generating an Expert puzzle (single-attempt mode).
+    pub expert:        bool,
     /// Completed attempt count for BareMinimum progress display.
     pub bm_done:       usize,
     /// Total attempt count for BareMinimum progress display.
@@ -118,6 +131,7 @@ impl GeneratingState {
             new_seed_at: None,
             from_cli,
             bare_minimum:  false,
+            expert:        false,
             bm_done:       0,
             bm_total:      0,
             bm_best_count: 0,
@@ -145,8 +159,36 @@ impl GeneratingState {
             new_seed_at: None,
             from_cli: false,
             bare_minimum:  true,
+            expert:        false,
             bm_done:       0,
             bm_total:      BARE_MINIMUM_ATTEMPTS,
+            bm_best_count: 0,
+        }
+    }
+
+    /// Create a state for Expert single-attempt generation.
+    /// No pattern is involved; back navigation returns to DifficultySelect (index 4).
+    pub fn new_expert(symmetry: bool) -> Self {
+        let seed = random_seed();
+        let rx = spawn_expert(seed, symmetry);
+        let n = VERBS.len();
+        let mut verb_order: Vec<usize> = (0..n).collect();
+        lcg_shuffle(&mut verb_order, seed);
+        let dummy = Pattern { name_en: "", mask: [false; 81], cell_count: 0 };
+        GeneratingState {
+            pattern: dummy,
+            rx,
+            seed,
+            started_at: Instant::now(),
+            verb_order,
+            verb_pos: 0,
+            show_new_seed: false,
+            new_seed_at: None,
+            from_cli: false,
+            bare_minimum: false,
+            expert: true,
+            bm_done: 0,
+            bm_total: 0,
             bm_best_count: 0,
         }
     }
