@@ -1869,4 +1869,29 @@ mod tests {
         app.handle_action(AppAction::Back);
         assert!(matches!(app.screen, AppScreen::DifficultySelect { .. }));
     }
+
+    #[test]
+    fn expert_difficulty_enters_generating_screen() {
+        // Expert (index 4) must route through Generating, not start a Game immediately.
+        let mut app = make_app();
+        app.screen = AppScreen::DifficultySelect { selected: 4, sym_focused: false };
+        app.handle_action(AppAction::Enter);
+        assert!(matches!(app.screen, AppScreen::Generating(_)),
+            "Expert should open Generating screen, got {:?}", std::mem::discriminant(&app.screen));
+    }
+
+    #[test]
+    fn back_from_expert_generating_returns_to_index_4() {
+        // Back on the Generating screen while generating an Expert puzzle must return
+        // to DifficultySelect at index 4 (Expert's position).
+        let mut app = make_app();
+        app.screen = AppScreen::Generating(
+            crate::tui::generating::GeneratingState::new_expert(false)
+        );
+        app.handle_action(AppAction::Back);
+        assert!(matches!(
+            app.screen,
+            AppScreen::DifficultySelect { selected: 4, sym_focused: false }
+        ));
+    }
 }
