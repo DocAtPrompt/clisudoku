@@ -159,7 +159,9 @@ impl PuzzleGenerator {
                     };
                     if !is_expert_solvable(&puzzle) {
                         if let Some(v) = prev1 { puzzle.set_given(r1, c1, v); }
-                        if let Some((r2, c2, Some(v))) = mirror_state { puzzle.set_given(r2, c2, v); }
+                        if let Some((r2, c2, prev2)) = mirror_state {
+                            if let Some(v) = prev2 { puzzle.set_given(r2, c2, v); }
+                        }
                     }
                 }
             } else {
@@ -179,7 +181,10 @@ impl PuzzleGenerator {
             // Phase 2: double-check — the minimally Expert-solvable puzzle must
             // NOT be solvable by the Extreme solver (i.e. it genuinely requires
             // an Expert-tier technique, not just Swordfish or below).
-            if is_expert_solvable(&puzzle) && !is_extreme_solvable(&puzzle) {
+            // Invariant: after Phase 1, puzzle is Expert-solvable by construction
+            // (the loop only ever exits with a state where is_expert_solvable holds).
+            // Only the Extreme check needs to be verified here.
+            if !is_extreme_solvable(&puzzle) {
                 let mut result = Grid::empty();
                 for r in 0..9 {
                     for c in 0..9 {
