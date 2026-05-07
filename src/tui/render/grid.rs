@@ -238,7 +238,8 @@ pub fn render_grid(
     solution: Option<&Grid>,
     hint: Option<&crate::hint::Hint>,
     colors: &ColorScheme,
-    style: &dyn DigitStyle,
+    given_style: &dyn DigitStyle,
+    filled_style: &dyn DigitStyle,
     matrix_mode: bool,
     hover_cell: Option<(usize, usize)>,
 ) -> io::Result<()> {
@@ -279,7 +280,8 @@ pub fn render_grid(
                 } else {
                     let cell = state.grid().get(row, col);
                     let notes_mask = state.notes_mask(row, col);
-                    let content_lines = cell_display_lines(&cell, notes_mask, style);
+                    let content_lines =
+                        cell_display_lines(&cell, notes_mask, given_style, filled_style);
                     // Sweep animation: invert this cell if it is the active step.
                     // Sweep takes priority over all other colour decisions.
                     if let Some((sweep_fg, sweep_bg)) = anim.sweep_highlight(row, col) {
@@ -567,6 +569,7 @@ mod tests {
             None,
             &ColorScheme::default(),
             &RetroStyle,
+            &RetroStyle,
             false,
             None,
         )
@@ -596,6 +599,7 @@ mod tests {
             None,
             None,
             &ColorScheme::default(),
+            &RetroStyle,
             &RetroStyle,
             false,
             None,
@@ -629,6 +633,7 @@ mod tests {
             None,
             None,
             &ColorScheme::default(),
+            &RetroStyle,
             &RetroStyle,
             false,
             None,
@@ -781,6 +786,7 @@ mod tests {
             None,
             Some(&hint),
             &ColorScheme::default(),
+            &RetroStyle,
             &RetroStyle,
             false,
             None,

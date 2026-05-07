@@ -15,7 +15,7 @@ use crate::solver::candidates::CandidateGrid;
 use crate::timer::Clock;
 use crate::tui::anim::{AnimState, FireworkAnim, SweepAnim};
 use crate::tui::colors::{ColorScheme, Theme};
-use crate::tui::digit_style::{DigitStyle, RetroStyle};
+use crate::tui::digit_style::{AwkwardRetroStyle, DigitStyle, RetroStyle};
 use crate::tui::input::{map_key_to_action, AppAction, NavMode, NavState};
 use crate::tui::render::start_screen::START_ITEM_COUNT;
 use crate::tui::render::{box_cells, box_cells_serpentine, col_cells, row_cells};
@@ -118,7 +118,10 @@ pub struct App {
     /// Elapsed ms frozen at the moment the game was paused or boss key was pressed.
     paused_elapsed_ms: u64,
     pub colors: ColorScheme,
-    style: Box<dyn DigitStyle>,
+    /// Style for pre-filled (given) cells — `RetroStyle` half-block glyphs.
+    given_style: Box<dyn DigitStyle>,
+    /// Style for player-entered (filled) cells — `AwkwardRetroStyle` full-block glyphs.
+    filled_style: Box<dyn DigitStyle>,
     /// Typed sequence detector for easter eggs.
     seq: SeqDetector,
     /// Active animations (sweep + firework).
@@ -165,7 +168,8 @@ impl App {
             game_start_ms: 0,
             paused_elapsed_ms: 0,
             colors: ColorScheme::default(),
-            style: Box::new(RetroStyle),
+            given_style: Box::new(RetroStyle),
+            filled_style: Box::new(AwkwardRetroStyle),
             clock,
             seq: SeqDetector::default(),
             anim: AnimState::default(),
@@ -1440,7 +1444,8 @@ impl App {
                     selected: *selected,
                 },
                 &self.colors,
-                self.style.as_ref(),
+                self.given_style.as_ref(),
+                self.filled_style.as_ref(),
                 strings,
             ),
             AppScreen::DifficultySelect {
@@ -1454,7 +1459,8 @@ impl App {
                     symmetry: self.symmetry,
                 },
                 &self.colors,
-                self.style.as_ref(),
+                self.given_style.as_ref(),
+                self.filled_style.as_ref(),
                 strings,
             ),
             AppScreen::LanguageSelect { selected } => render_frame(
@@ -1463,7 +1469,8 @@ impl App {
                     selected: *selected,
                 },
                 &self.colors,
-                self.style.as_ref(),
+                self.given_style.as_ref(),
+                self.filled_style.as_ref(),
                 strings,
             ),
             AppScreen::ThemeSelect { selected } => render_frame(
@@ -1472,7 +1479,8 @@ impl App {
                     selected: *selected,
                 },
                 &self.colors,
-                self.style.as_ref(),
+                self.given_style.as_ref(),
+                self.filled_style.as_ref(),
                 strings,
             ),
             AppScreen::PatternSelect { selected } => render_frame(
@@ -1481,7 +1489,8 @@ impl App {
                     selected: *selected,
                 },
                 &self.colors,
-                self.style.as_ref(),
+                self.given_style.as_ref(),
+                self.filled_style.as_ref(),
                 strings,
             ),
             AppScreen::Generating(ref gs) => {
@@ -1496,7 +1505,14 @@ impl App {
                     show_new_seed: gs.show_new_seed,
                     bare_minimum,
                 };
-                render_frame(out, &screen, &self.colors, self.style.as_ref(), strings)
+                render_frame(
+                    out,
+                    &screen,
+                    &self.colors,
+                    self.given_style.as_ref(),
+                    self.filled_style.as_ref(),
+                    strings,
+                )
             }
             AppScreen::Game => {
                 if let Some(state) = &self.game_state {
@@ -1538,7 +1554,14 @@ impl App {
                         },
                         None => game_screen(),
                     };
-                    render_frame(out, &screen, &self.colors, self.style.as_ref(), strings)?;
+                    render_frame(
+                        out,
+                        &screen,
+                        &self.colors,
+                        self.given_style.as_ref(),
+                        self.filled_style.as_ref(),
+                        strings,
+                    )?;
                     Ok(())
                 } else {
                     Ok(())

@@ -96,7 +96,8 @@ pub fn render_frame(
     out: &mut impl Write,
     screen: &Screen<'_>,
     colors: &ColorScheme,
-    style: &dyn DigitStyle,
+    given_style: &dyn DigitStyle,
+    filled_style: &dyn DigitStyle,
     strings: &'static Strings,
 ) -> io::Result<()> {
     // No full Clear — we overwrite every position explicitly via MoveTo.
@@ -182,7 +183,8 @@ pub fn render_frame(
                 *solution,
                 *hint,
                 colors,
-                style,
+                given_style,
+                filled_style,
                 *matrix_mode,
                 effective_hover,
             )?;
@@ -242,7 +244,7 @@ pub fn render_frame(
             title,
             options,
         } => {
-            render_frame(out, underneath, colors, style, strings)?;
+            render_frame(out, underneath, colors, given_style, filled_style, strings)?;
             confirm::render_confirm(out, (17, 20), title, options, colors)?;
         }
     }
