@@ -296,4 +296,29 @@ mod tests {
         assert!(solver.allowed(Strategy::Swordfish)); // lower strategies still allowed
         assert!(!solver.allowed(Strategy::Backtracking));
     }
+
+    // Hardcoded known Expert puzzle — found by running PuzzleGenerator::new(42).generate(Expert, false).
+    // The Expert solver solves it; the Extreme solver cannot.
+    const KNOWN_EXPERT_PUZZLE: &str =
+        "000080300400600000005029000060000008004050006000000700020000040000067803503100060";
+
+    #[test]
+    fn expert_solver_solves_known_expert_puzzle() {
+        let grid = Grid::from_str(KNOWN_EXPERT_PUZZLE).unwrap();
+        let result = Solver::for_difficulty(&crate::generator::difficulty::Difficulty::Expert).solve(grid);
+        assert!(result.grid.is_solved(),
+            "Expert solver must solve the known Expert puzzle");
+        assert!(result.used_strategies.contains(&Strategy::Expert),
+            "Must have used Strategy::Expert");
+        assert!(!result.used_strategies.contains(&Strategy::Backtracking),
+            "Must not use backtracking");
+    }
+
+    #[test]
+    fn extreme_solver_cannot_solve_known_expert_puzzle() {
+        let grid = Grid::from_str(KNOWN_EXPERT_PUZZLE).unwrap();
+        let result = Solver::for_difficulty(&crate::generator::difficulty::Difficulty::Extreme).solve(grid);
+        assert!(!result.grid.is_solved(),
+            "Extreme solver must NOT solve the known Expert puzzle");
+    }
 }
