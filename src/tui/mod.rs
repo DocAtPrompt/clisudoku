@@ -1204,7 +1204,7 @@ impl App {
             // ── Poll background generator ────────────────────────────────────
             // First: tick and check timeouts (only for Designer/pattern mode).
             if let AppScreen::Generating(ref mut gs) = self.screen {
-                if !gs.bare_minimum {
+                if !gs.bare_minimum && !gs.expert {
                     gs.tick_new_seed_expiry();
                     if !gs.show_new_seed && gs.started_at.elapsed().as_secs() >= 3 {
                         gs.try_new_seed();
