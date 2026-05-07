@@ -122,7 +122,7 @@ impl PuzzleGenerator {
     }
 
     fn generate_expert(&self, symmetry: bool) -> Grid {
-        const MAX_RETRIES: u32 = 200;
+        const MAX_RETRIES: u32 = 64;
         for attempt in 0..MAX_RETRIES {
             let seed = self.seed.wrapping_add(attempt as u64 * 7919);
             let mut rng = LcgRng::new(seed);
