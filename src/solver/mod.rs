@@ -316,6 +316,9 @@ mod tests {
 
     #[test]
     fn extreme_solver_cannot_solve_known_expert_puzzle() {
+        // NOTE: "Extreme" solver is capped at Strategy::Swordfish and does NOT include
+        // Expert-tier strategies. Despite the name, it is deliberately weaker than the
+        // Expert solver, which is why it cannot crack a puzzle that requires Expert techniques.
         let grid = Grid::from_str(KNOWN_EXPERT_PUZZLE).unwrap();
         let result = Solver::for_difficulty(&crate::generator::difficulty::Difficulty::Extreme).solve(grid);
         assert!(!result.grid.is_solved(),
