@@ -3,7 +3,7 @@ use clisudoku::i18n::EN;
 use clisudoku::puzzle::{GameState, Grid};
 use clisudoku::tui::anim::AnimState;
 use clisudoku::tui::colors::ColorScheme;
-use clisudoku::tui::digit_style::{AwkwardRetroStyle, RetroStyle};
+use clisudoku::tui::digit_style::RetroStyle;
 use clisudoku::tui::input::NavState;
 use clisudoku::tui::render::{render_frame, Screen};
 
@@ -42,7 +42,6 @@ fn render_game_screen_does_not_panic() {
         },
         &ColorScheme::default(),
         &RetroStyle,
-        &AwkwardRetroStyle,
         &EN,
     )
     .unwrap();
@@ -64,7 +63,6 @@ fn render_start_screen_does_not_panic() {
         &clisudoku::tui::render::Screen::Start { selected: 0 },
         &ColorScheme::default(),
         &RetroStyle,
-        &AwkwardRetroStyle,
         &EN,
     )
     .unwrap();

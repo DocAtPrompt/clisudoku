@@ -118,10 +118,10 @@ pub struct App {
     /// Elapsed ms frozen at the moment the game was paused or boss key was pressed.
     paused_elapsed_ms: u64,
     pub colors: ColorScheme,
-    /// Style for pre-filled (given) cells — `RetroStyle` half-block glyphs.
-    given_style: Box<dyn DigitStyle>,
-    /// Style for player-entered (filled) cells — `AwkwardRetroStyle` full-block glyphs.
-    filled_style: Box<dyn DigitStyle>,
+    /// Active digit rendering style; toggled by `#`.
+    style: Box<dyn DigitStyle>,
+    /// Tracks which style is active so the toggle knows what to switch to.
+    awkward_style: bool,
     /// Typed sequence detector for easter eggs.
     seq: SeqDetector,
     /// Active animations (sweep + firework).
@@ -168,8 +168,8 @@ impl App {
             game_start_ms: 0,
             paused_elapsed_ms: 0,
             colors: ColorScheme::default(),
-            given_style: Box::new(RetroStyle),
-            filled_style: Box::new(AwkwardRetroStyle),
+            style: Box::new(RetroStyle),
+            awkward_style: false,
             clock,
             seq: SeqDetector::default(),
             anim: AnimState::default(),
@@ -910,6 +910,18 @@ impl App {
         self.nav_state.box_idx = None;
     }
 
+    // ── Digit style toggle ────────────────────────────────────────────────────
+
+    fn toggle_digit_style(&mut self) {
+        self.awkward_style = !self.awkward_style;
+        self.style = if self.awkward_style {
+            Box::new(AwkwardRetroStyle)
+        } else {
+            Box::new(RetroStyle)
+        };
+        self.needs_clear = true;
+    }
+
     // ── Easter eggs ───────────────────────────────────────────────────────────
 
     fn handle_easter_egg(&mut self, egg: EasterEgg) {
@@ -1316,8 +1328,13 @@ impl App {
                             if let Some(egg) = egg {
                                 self.handle_easter_egg(egg);
                             }
-                            let action = map_key_to_action(key, &self.nav_state);
-                            self.handle_action(action);
+                            // '#' silently toggles between RetroStyle and AwkwardRetroStyle.
+                            if key.code == crossterm::event::KeyCode::Char('#') {
+                                self.toggle_digit_style();
+                            } else {
+                                let action = map_key_to_action(key, &self.nav_state);
+                                self.handle_action(action);
+                            }
                         }
                         needs_render = true;
                     }
@@ -1444,8 +1461,7 @@ impl App {
                     selected: *selected,
                 },
                 &self.colors,
-                self.given_style.as_ref(),
-                self.filled_style.as_ref(),
+                self.style.as_ref(),
                 strings,
             ),
             AppScreen::DifficultySelect {
@@ -1459,8 +1475,7 @@ impl App {
                     symmetry: self.symmetry,
                 },
                 &self.colors,
-                self.given_style.as_ref(),
-                self.filled_style.as_ref(),
+                self.style.as_ref(),
                 strings,
             ),
             AppScreen::LanguageSelect { selected } => render_frame(
@@ -1469,8 +1484,7 @@ impl App {
                     selected: *selected,
                 },
                 &self.colors,
-                self.given_style.as_ref(),
-                self.filled_style.as_ref(),
+                self.style.as_ref(),
                 strings,
             ),
             AppScreen::ThemeSelect { selected } => render_frame(
@@ -1479,8 +1493,7 @@ impl App {
                     selected: *selected,
                 },
                 &self.colors,
-                self.given_style.as_ref(),
-                self.filled_style.as_ref(),
+                self.style.as_ref(),
                 strings,
             ),
             AppScreen::PatternSelect { selected } => render_frame(
@@ -1489,8 +1502,7 @@ impl App {
                     selected: *selected,
                 },
                 &self.colors,
-                self.given_style.as_ref(),
-                self.filled_style.as_ref(),
+                self.style.as_ref(),
                 strings,
             ),
             AppScreen::Generating(ref gs) => {
@@ -1509,8 +1521,7 @@ impl App {
                     out,
                     &screen,
                     &self.colors,
-                    self.given_style.as_ref(),
-                    self.filled_style.as_ref(),
+                    self.style.as_ref(),
                     strings,
                 )
             }
@@ -1554,14 +1565,7 @@ impl App {
                         },
                         None => game_screen(),
                     };
-                    render_frame(
-                        out,
-                        &screen,
-                        &self.colors,
-                        self.given_style.as_ref(),
-                        self.filled_style.as_ref(),
-                        strings,
-                    )?;
+                    render_frame(out, &screen, &self.colors, self.style.as_ref(), strings)?;
                     Ok(())
                 } else {
                     Ok(())
@@ -1823,6 +1827,16 @@ mod tests {
         app.handle_action(AppAction::ToggleMouseMode);
         assert!(!app.mouse_mode);
         assert!(app.hover_cell.is_none());
+    }
+
+    #[test]
+    fn hash_key_toggles_digit_style() {
+        let mut app = make_app();
+        assert!(!app.awkward_style, "starts with RetroStyle");
+        app.toggle_digit_style();
+        assert!(app.awkward_style, "after first toggle: AwkwardRetroStyle");
+        app.toggle_digit_style();
+        assert!(!app.awkward_style, "after second toggle: back to RetroStyle");
     }
 
     #[test]
