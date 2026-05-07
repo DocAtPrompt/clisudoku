@@ -9,7 +9,11 @@ pub fn find_naked_pairs(cands: &CandidateGrid) -> Vec<Elimination> {
             .iter()
             .filter_map(|&(r, c)| {
                 let m = cands.mask(r, c);
-                if m.count_ones() == 2 { Some((r, c, m)) } else { None }
+                if m.count_ones() == 2 {
+                    Some((r, c, m))
+                } else {
+                    None
+                }
             })
             .collect();
         for i in 0..pairs.len() {
@@ -18,11 +22,20 @@ pub fn find_naked_pairs(cands: &CandidateGrid) -> Vec<Elimination> {
                     let mask = pairs[i].2;
                     let digits: Vec<u8> = (1u8..=9).filter(|&d| mask & (1 << d) != 0).collect();
                     for &(r, c) in cells {
-                        if (r, c) == (pairs[i].0, pairs[i].1) { continue; }
-                        if (r, c) == (pairs[j].0, pairs[j].1) { continue; }
+                        if (r, c) == (pairs[i].0, pairs[i].1) {
+                            continue;
+                        }
+                        if (r, c) == (pairs[j].0, pairs[j].1) {
+                            continue;
+                        }
                         for &d in &digits {
                             if cands.has(r, c, d) {
-                                elims.push(Elimination { row: r, col: c, digit: d, strategy: Strategy::NakedPair });
+                                elims.push(Elimination {
+                                    row: r,
+                                    col: c,
+                                    digit: d,
+                                    strategy: Strategy::NakedPair,
+                                });
                             }
                         }
                     }
@@ -37,7 +50,9 @@ pub fn find_naked_pairs(cands: &CandidateGrid) -> Vec<Elimination> {
         let col: Vec<_> = (0..9).map(|r| (r, i)).collect();
         check_house(&col, &mut elims);
         let (br, bc) = Grid::box_start(i);
-        let bx: Vec<_> = (0..3).flat_map(|dr| (0..3).map(move |dc| (br+dr, bc+dc))).collect();
+        let bx: Vec<_> = (0..3)
+            .flat_map(|dr| (0..3).map(move |dc| (br + dr, bc + dc)))
+            .collect();
         check_house(&bx, &mut elims);
     }
 
@@ -55,13 +70,17 @@ mod tests {
     #[test]
     fn no_panic_no_false_positives() {
         let grid = Grid::from_str(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-        ).unwrap();
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        )
+        .unwrap();
         let cands = CandidateGrid::from_grid(&grid);
         let elims = find_naked_pairs(&cands);
         for e in &elims {
             assert!(e.digit >= 1 && e.digit <= 9);
-            assert!(cands.has(e.row, e.col, e.digit), "elimination targets cell without that candidate");
+            assert!(
+                cands.has(e.row, e.col, e.digit),
+                "elimination targets cell without that candidate"
+            );
         }
     }
 }

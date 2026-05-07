@@ -25,7 +25,9 @@ impl SweepAnim {
         Self { cells, tick: 0 }
     }
 
-    pub fn advance(&mut self) { self.tick = self.tick.saturating_add(1); }
+    pub fn advance(&mut self) {
+        self.tick = self.tick.saturating_add(1);
+    }
 
     pub fn done(&self) -> bool {
         self.tick as usize >= self.cells.len() * TICKS_PER_CELL as usize
@@ -61,13 +63,13 @@ const ASPECT_SQUISH: f32 = 0.40;
 /// A spark flying from an explosion.
 #[derive(Debug, Clone)]
 pub struct Particle {
-    pub x:        f32,
-    pub y:        f32,
-    pub vx:       f32,
-    pub vy:       f32,
-    pub life:     u8,
+    pub x: f32,
+    pub y: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub life: u8,
     pub max_life: u8,
-    pub color:    Color,
+    pub color: Color,
 }
 
 impl Particle {
@@ -77,27 +79,40 @@ impl Particle {
     ///                   → `o` slowing → `·` dying
     pub fn glyph(&self) -> char {
         let ratio = self.life as f32 / self.max_life as f32;
-        if ratio < 0.12 { return '\u{00b7}'; } // · — nearly dead
-        // Speed in corrected space (terminal chars ~2× taller than wide).
+        if ratio < 0.12 {
+            return '\u{00b7}';
+        } // · — nearly dead
+          // Speed in corrected space (terminal chars ~2× taller than wide).
         let speed_sq = self.vx * self.vx + (self.vy * 2.0) * (self.vy * 2.0);
-        if speed_sq > 12.0 { return '*'; } // fast burst right after explosion
-        if speed_sq > 4.5  { return '+'; } // mid-speed spreading phase
-        if speed_sq < 0.8  { return 'o'; } // nearly stopped — trailing off
+        if speed_sq > 12.0 {
+            return '*';
+        } // fast burst right after explosion
+        if speed_sq > 4.5 {
+            return '+';
+        } // mid-speed spreading phase
+        if speed_sq < 0.8 {
+            return 'o';
+        } // nearly stopped — trailing off
         let ax = self.vx.abs();
         let ay = self.vy.abs() * 2.0;
-        if ax > ay * 1.8      { '-' }
-        else if ay > ax * 1.8 { '|' }
-        else if self.vx * self.vy > 0.0 { '\\' }
-        else { '/' }
+        if ax > ay * 1.8 {
+            '-'
+        } else if ay > ax * 1.8 {
+            '|'
+        } else if self.vx * self.vy > 0.0 {
+            '\\'
+        } else {
+            '/'
+        }
     }
 }
 
 /// A rocket climbing toward its burst point.
 #[derive(Debug, Clone)]
 pub struct Rocket {
-    pub x:     f32,
-    pub y:     f32,
-    pub vy:    f32,    // negative = moving upward
+    pub x: f32,
+    pub y: f32,
+    pub vy: f32, // negative = moving upward
     pub color: Color,
 }
 
@@ -105,13 +120,13 @@ pub struct Rocket {
 /// Grid spans terminal cols 2..75, rows 1..38.
 /// Rockets launch from tick 2 so they burst during the "Congrats!" phase.
 const ROCKET_SCHEDULE: &[(u32, f32, Color)] = &[
-    ( 2,  18.0, Color::Yellow),
-    ( 6,  57.0, Color::Cyan),
-    (10,  36.0, Color::Magenta),
-    (14,  23.0, Color::Green),
-    (18,  63.0, Color::Red),
-    (22,  45.0, Color::White),
-    (27,  30.0, Color::Yellow),
+    (2, 18.0, Color::Yellow),
+    (6, 57.0, Color::Cyan),
+    (10, 36.0, Color::Magenta),
+    (14, 23.0, Color::Green),
+    (18, 63.0, Color::Red),
+    (22, 45.0, Color::White),
+    (27, 30.0, Color::Yellow),
 ];
 
 /// All colours particles may take on — picked randomly per particle.
@@ -161,10 +176,12 @@ fn explode(x: f32, y: f32, _color: Color, seed: &mut u64) -> Vec<Particle> {
         let speed = EXPLOSION_SPEED * (0.5 + rng_next(seed) * 0.9);
         let max_life = 18 + (rng_next(seed) * 12.0) as u8;
         particles.push(Particle {
-            x, y,
+            x,
+            y,
             vx: angle.cos() * speed,
             vy: angle.sin() * speed * ASPECT_SQUISH,
-            life: max_life, max_life,
+            life: max_life,
+            max_life,
             color: random_color(seed),
         });
     }
@@ -175,10 +192,12 @@ fn explode(x: f32, y: f32, _color: Color, seed: &mut u64) -> Vec<Particle> {
         let speed = EXPLOSION_SPEED * (1.0 + rng_next(seed) * 0.7);
         let max_life = 12 + (rng_next(seed) * 8.0) as u8;
         particles.push(Particle {
-            x, y,
+            x,
+            y,
             vx: angle.cos() * speed,
             vy: angle.sin() * speed * ASPECT_SQUISH,
-            life: max_life, max_life,
+            life: max_life,
+            max_life,
             color: random_color(seed),
         });
     }
@@ -189,10 +208,12 @@ fn explode(x: f32, y: f32, _color: Color, seed: &mut u64) -> Vec<Particle> {
         let speed = EXPLOSION_SPEED * (1.6 + rng_next(seed) * 0.6);
         let max_life = 6 + (rng_next(seed) * 5.0) as u8;
         particles.push(Particle {
-            x, y,
+            x,
+            y,
             vx: angle.cos() * speed,
             vy: angle.sin() * speed * ASPECT_SQUISH,
-            life: max_life, max_life,
+            life: max_life,
+            max_life,
             color: random_color(seed),
         });
     }
@@ -205,26 +226,24 @@ fn explode(x: f32, y: f32, _color: Color, seed: &mut u64) -> Vec<Particle> {
 /// Complete firework + congrats animation state.
 #[derive(Debug, Clone)]
 pub struct FireworkAnim {
-    pub tick:      u32,
+    pub tick: u32,
     pub particles: Vec<Particle>,
-    pub rockets:   Vec<Rocket>,
-    seed:          u64,
+    pub rockets: Vec<Rocket>,
+    seed: u64,
 }
 
 impl FireworkAnim {
     pub fn new() -> Self {
         Self {
-            tick:      0,
+            tick: 0,
             particles: Vec::new(),
-            rockets:   Vec::new(),
-            seed:      0xdead_beef_cafe_babe,
+            rockets: Vec::new(),
+            seed: 0xdead_beef_cafe_babe,
         }
     }
 
     pub fn done(&self) -> bool {
-        self.tick >= TOTAL_FIREWORK_TICKS
-            && self.particles.is_empty()
-            && self.rockets.is_empty()
+        self.tick >= TOTAL_FIREWORK_TICKS && self.particles.is_empty() && self.rockets.is_empty()
     }
 
     pub fn advance(&mut self) {
@@ -234,7 +253,12 @@ impl FireworkAnim {
         for &(launch_tick, x, color) in ROCKET_SCHEDULE {
             if self.tick == launch_tick {
                 let vy = -(1.2 + rng_next(&mut self.seed) * 0.6);
-                self.rockets.push(Rocket { x, y: 35.0, vy, color });
+                self.rockets.push(Rocket {
+                    x,
+                    y: 35.0,
+                    vy,
+                    color,
+                });
             }
         }
 
@@ -243,7 +267,7 @@ impl FireworkAnim {
         let mut surviving = Vec::new();
         for mut r in self.rockets.drain(..) {
             r.vy += GRAVITY;
-            r.y  += r.vy;
+            r.y += r.vy;
             if r.vy >= 0.0 || r.y < 2.0 {
                 exploding.push((r.x, r.y, r.color));
             } else {
@@ -260,8 +284,8 @@ impl FireworkAnim {
         // Update particles: apply gravity, move, age.
         for p in &mut self.particles {
             p.vy += GRAVITY;
-            p.x  += p.vx;
-            p.y  += p.vy;
+            p.x += p.vx;
+            p.y += p.vy;
             p.life = p.life.saturating_sub(1);
         }
         self.particles.retain(|p| p.life > 0);
@@ -288,23 +312,31 @@ pub enum RainCell {
 // ── Individual raindrop ───────────────────────────────────────────────────────
 
 struct RainDrop {
-    head:       i16,   // current head row; starts at -(trail_len), falls to target
-    target:     i16,   // grid row where this drop crystallises
-    trail_len:  u8,
-    speed:      u8,    // advance 1 row every `speed` ticks
+    head: i16,   // current head row; starts at -(trail_len), falls to target
+    target: i16, // grid row where this drop crystallises
+    trail_len: u8,
+    speed: u8, // advance 1 row every `speed` ticks
     frame_tick: u8,
 }
 
 impl RainDrop {
     fn new(target: i16, seed: &mut u64) -> Self {
         // 65 % speed-1 (fast), 35 % speed-2 (slower) — organic mix, overall bias toward fast
-        let speed     = if rng_next(seed) < 0.65 { 1u8 } else { 2u8 };
+        let speed = if rng_next(seed) < 0.65 { 1u8 } else { 2u8 };
         let trail_len = 5 + (rng_next(seed) * 9.0) as u8; // 5 ..= 13
-        Self { head: -(trail_len as i16), target, trail_len, speed, frame_tick: 0 }
+        Self {
+            head: -(trail_len as i16),
+            target,
+            trail_len,
+            speed,
+            frame_tick: 0,
+        }
     }
 
     fn advance(&mut self) {
-        if self.head >= self.target { return; }
+        if self.head >= self.target {
+            return;
+        }
         self.frame_tick += 1;
         if self.frame_tick >= self.speed {
             self.frame_tick = 0;
@@ -312,17 +344,25 @@ impl RainDrop {
         }
     }
 
-    fn done(&self) -> bool { self.head >= self.target }
+    fn done(&self) -> bool {
+        self.head >= self.target
+    }
 
     /// Brightness level at `row`: 0=head(White), 1=near trail(Green), 2=far(DarkGreen), None=not here.
     fn level_at(&self, row: i16) -> Option<u8> {
-        if row < 0 || row >= RAIN_ROWS as i16 { return None; }
+        if row < 0 || row >= RAIN_ROWS as i16 {
+            return None;
+        }
         let head = self.head;
         if row == head {
             Some(0)
         } else if row < head && row >= head - self.trail_len as i16 {
             let dist = (head - row) as usize;
-            Some(if dist <= self.trail_len as usize / 2 { 1 } else { 2 })
+            Some(if dist <= self.trail_len as usize / 2 {
+                1
+            } else {
+                2
+            })
         } else {
             None
         }
@@ -331,7 +371,9 @@ impl RainDrop {
     /// Progress through the full fall (0.0 = just spawned, 1.0 = reached target).
     fn progress(&self) -> f32 {
         let total = self.target + self.trail_len as i16;
-        if total <= 0 { return 1.0; }
+        if total <= 0 {
+            return 1.0;
+        }
         ((self.head + self.trail_len as i16).max(0) as f32) / total as f32
     }
 }
@@ -339,13 +381,13 @@ impl RainDrop {
 // ── Per-column state ──────────────────────────────────────────────────────────
 
 struct RainColumn {
-    start_delay:  u32,
-    drop_a:       Option<RainDrop>, // drop currently in flight
-    drop_b:       Option<RainDrop>, // pre-spawned successor
-    settled_rows: usize,            // rows crystallised from bottom (0 → RAIN_ROWS)
-    chars:        Vec<char>,
-    col_seed:     u64,
-    shimmer:      usize,            // tick counter for char variety
+    start_delay: u32,
+    drop_a: Option<RainDrop>, // drop currently in flight
+    drop_b: Option<RainDrop>, // pre-spawned successor
+    settled_rows: usize,      // rows crystallised from bottom (0 → RAIN_ROWS)
+    chars: Vec<char>,
+    col_seed: u64,
+    shimmer: usize, // tick counter for char variety
 }
 
 impl RainColumn {
@@ -363,10 +405,19 @@ impl RainColumn {
 
     /// Spawn drop_b once drop_a is 30% of the way to its target (earlier = denser rain).
     fn maybe_spawn_drop_b(&mut self) {
-        if self.drop_b.is_some() { return; }
+        if self.drop_b.is_some() {
+            return;
+        }
         let next_b = self.next_target() - 1;
-        if next_b < 0 { return; }
-        if self.drop_a.as_ref().map(|a| a.progress() >= 0.3).unwrap_or(false) {
+        if next_b < 0 {
+            return;
+        }
+        if self
+            .drop_a
+            .as_ref()
+            .map(|a| a.progress() >= 0.3)
+            .unwrap_or(false)
+        {
             self.drop_b = Some(RainDrop::new(next_b, &mut self.col_seed));
         }
     }
@@ -374,8 +425,12 @@ impl RainColumn {
     fn advance(&mut self) {
         self.shimmer = self.shimmer.wrapping_add(1);
         self.ensure_drop_a();
-        if let Some(d) = &mut self.drop_a { d.advance(); }
-        if let Some(d) = &mut self.drop_b { d.advance(); }
+        if let Some(d) = &mut self.drop_a {
+            d.advance();
+        }
+        if let Some(d) = &mut self.drop_b {
+            d.advance();
+        }
         self.maybe_spawn_drop_b();
 
         // Settle drop_a when it has reached its target row.
@@ -394,31 +449,42 @@ impl RainColumn {
 
 pub struct MatrixRainAnim {
     columns: Vec<RainColumn>,
-    tick:    u32,
+    tick: u32,
 }
 
 impl MatrixRainAnim {
     pub fn new(seed: u64) -> Self {
         let mut s = seed;
-        let columns = (0..RAIN_COLS).map(|_| {
-            let start_delay = (rng_next(&mut s) * 15.0) as u32;
-            let col_seed    = s ^ (rng_next(&mut s) * u64::MAX as f32) as u64;
-            let chars = (0..96).map(|_| {
-                let idx = (rng_next(&mut s) * MATRIX_CHARS.len() as f32) as usize;
-                MATRIX_CHARS[idx % MATRIX_CHARS.len()] as char
-            }).collect();
-            RainColumn {
-                start_delay, drop_a: None, drop_b: None,
-                settled_rows: 0, chars, col_seed, shimmer: 0,
-            }
-        }).collect();
+        let columns = (0..RAIN_COLS)
+            .map(|_| {
+                let start_delay = (rng_next(&mut s) * 15.0) as u32;
+                let col_seed = s ^ (rng_next(&mut s) * u64::MAX as f32) as u64;
+                let chars = (0..96)
+                    .map(|_| {
+                        let idx = (rng_next(&mut s) * MATRIX_CHARS.len() as f32) as usize;
+                        MATRIX_CHARS[idx % MATRIX_CHARS.len()] as char
+                    })
+                    .collect();
+                RainColumn {
+                    start_delay,
+                    drop_a: None,
+                    drop_b: None,
+                    settled_rows: 0,
+                    chars,
+                    col_seed,
+                    shimmer: 0,
+                }
+            })
+            .collect();
         Self { columns, tick: 0 }
     }
 
     /// All columns fully crystallised — the whole grid is visible again.
     pub fn done(&self) -> bool {
         self.columns.iter().all(|c| {
-            if self.tick <= c.start_delay { return false; }
+            if self.tick <= c.start_delay {
+                return false;
+            }
             c.settled_rows >= RAIN_ROWS
         })
     }
@@ -426,8 +492,12 @@ impl MatrixRainAnim {
     pub fn advance(&mut self) {
         self.tick += 1;
         for col in &mut self.columns {
-            if self.tick <= col.start_delay   { continue; }
-            if col.settled_rows >= RAIN_ROWS  { continue; }
+            if self.tick <= col.start_delay {
+                continue;
+            }
+            if col.settled_rows >= RAIN_ROWS {
+                continue;
+            }
             col.advance();
         }
     }
@@ -441,11 +511,15 @@ impl MatrixRainAnim {
     /// below the head, and no visual gap between consecutive drops.
     pub fn cell_at(&self, col: usize, row: usize) -> RainCell {
         let c = &self.columns[col];
-        if self.tick <= c.start_delay { return RainCell::Blank; }
+        if self.tick <= c.start_delay {
+            return RainCell::Blank;
+        }
 
         // Crystallised zone grows upward from the bottom.
         let settle_row = RAIN_ROWS.saturating_sub(c.settled_rows);
-        if row >= settle_row { return RainCell::Settled; }
+        if row >= settle_row {
+            return RainCell::Settled;
+        }
 
         // Take the brightest level offered by either drop.
         let row_i = row as i16;
@@ -453,13 +527,13 @@ impl MatrixRainAnim {
         let lb = c.drop_b.as_ref().and_then(|d| d.level_at(row_i));
         let best = match (la, lb) {
             (Some(a), Some(b)) => Some(a.min(b)),
-            (Some(a), None)    => Some(a),
-            (None,    Some(b)) => Some(b),
-            (None,    None)    => None,
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
         };
 
         match best {
-            None        => RainCell::Blank,
+            None => RainCell::Blank,
             Some(level) => RainCell::Rain(c.char_at(row), level),
         }
     }
@@ -473,7 +547,7 @@ const ERROR_BLINK_TICKS: u32 = 4;
 const HINT_BLINK_TICKS: u32 = 4;
 
 pub struct AnimState {
-    pub sweeps:   Vec<SweepAnim>,
+    pub sweeps: Vec<SweepAnim>,
     pub firework: Option<FireworkAnim>,
     /// Konami Code Matrix rain animation.
     pub matrix_rain: Option<MatrixRainAnim>,
@@ -482,21 +556,21 @@ pub struct AnimState {
     /// Tick counter driving the error blink; incremented every advance().
     pub error_blink_tick: u32,
     /// When true the hint target cell blinks yellow↔cursor-colour.
-    pub hint_blink:       bool,
+    pub hint_blink: bool,
     /// Separate tick counter for hint blink, independent of error_blink_tick.
-    pub hint_blink_tick:  u32,
+    pub hint_blink_tick: u32,
 }
 
 impl Default for AnimState {
     fn default() -> Self {
         Self {
-            sweeps:           Vec::new(),
-            firework:         None,
-            matrix_rain:      None,
-            error_blink:      false,
+            sweeps: Vec::new(),
+            firework: None,
+            matrix_rain: None,
+            error_blink: false,
             error_blink_tick: 0,
-            hint_blink:       false,
-            hint_blink_tick:  0,
+            hint_blink: false,
+            hint_blink_tick: 0,
         }
     }
 }
@@ -512,10 +586,15 @@ impl AnimState {
 
     /// Advance all active animations by one tick; discard finished ones.
     pub fn advance(&mut self) {
-        self.sweeps.retain_mut(|s| { s.advance(); !s.done() });
+        self.sweeps.retain_mut(|s| {
+            s.advance();
+            !s.done()
+        });
         if let Some(fw) = &mut self.firework {
             fw.advance();
-            if fw.done() { self.firework = None; }
+            if fw.done() {
+                self.firework = None;
+            }
         }
         if let Some(rain) = &mut self.matrix_rain {
             rain.advance();
@@ -577,10 +656,14 @@ mod tests {
         // Phase at tick 0 = yellow (true)
         assert!(a.hint_cell_yellow_phase());
         // Advance HINT_BLINK_TICKS times → phase flips to false
-        for _ in 0..4 { a.advance(); }
+        for _ in 0..4 {
+            a.advance();
+        }
         assert!(!a.hint_cell_yellow_phase());
         // Advance again → flips back
-        for _ in 0..4 { a.advance(); }
+        for _ in 0..4 {
+            a.advance();
+        }
         assert!(a.hint_cell_yellow_phase());
     }
 
@@ -589,7 +672,9 @@ mod tests {
         let mut a = AnimState::default();
         a.error_blink = true;
         a.hint_blink = true;
-        for _ in 0..3 { a.advance(); }
+        for _ in 0..3 {
+            a.advance();
+        }
         // Both ticks incremented but they are separate fields
         assert_eq!(a.error_blink_tick, 3);
         assert_eq!(a.hint_blink_tick, 3);

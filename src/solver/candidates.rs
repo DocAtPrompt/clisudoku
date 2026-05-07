@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::puzzle::Grid;
+use serde::{Deserialize, Serialize};
 
 /// Which strategy produced this step.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -46,7 +46,9 @@ pub struct CandidateGrid {
 }
 
 impl CandidateGrid {
-    fn idx(row: usize, col: usize) -> usize { row * 9 + col }
+    fn idx(row: usize, col: usize) -> usize {
+        row * 9 + col
+    }
 
     pub fn from_grid(grid: &Grid) -> Self {
         let mut masks = [0u16; 81];
@@ -63,8 +65,12 @@ impl CandidateGrid {
             for c in 0..9 {
                 if let Some(v) = grid.get(r, c).value() {
                     let bit = !(1u16 << v);
-                    for cc in 0..9 { masks[Self::idx(r, cc)] &= bit; }
-                    for rr in 0..9 { masks[Self::idx(rr, c)] &= bit; }
+                    for cc in 0..9 {
+                        masks[Self::idx(r, cc)] &= bit;
+                    }
+                    for rr in 0..9 {
+                        masks[Self::idx(rr, c)] &= bit;
+                    }
                     let (br, bc) = Grid::box_start(Grid::box_idx(r, c));
                     for dr in 0..3 {
                         for dc in 0..3 {
@@ -102,8 +108,16 @@ impl CandidateGrid {
     pub fn eliminate_from_peers(&mut self, row: usize, col: usize, digit: u8) {
         self.masks[Self::idx(row, col)] = 0;
         let bit = !(1u16 << digit);
-        for cc in 0..9 { if cc != col { self.masks[Self::idx(row, cc)] &= bit; } }
-        for rr in 0..9 { if rr != row { self.masks[Self::idx(rr, col)] &= bit; } }
+        for cc in 0..9 {
+            if cc != col {
+                self.masks[Self::idx(row, cc)] &= bit;
+            }
+        }
+        for rr in 0..9 {
+            if rr != row {
+                self.masks[Self::idx(rr, col)] &= bit;
+            }
+        }
         let (br, bc) = Grid::box_start(Grid::box_idx(row, col));
         for dr in 0..3 {
             for dc in 0..3 {
@@ -121,7 +135,8 @@ mod tests {
     use super::*;
     use crate::puzzle::Grid;
 
-    const EASY: &str = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+    const EASY: &str =
+        "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
 
     #[test]
     fn empty_cell_has_no_given_digit_as_candidate() {
@@ -152,7 +167,8 @@ mod tests {
     fn remove_candidate() {
         let grid = Grid::from_str(EASY).unwrap();
         let mut cands = CandidateGrid::from_grid(&grid);
-        let row = 0; let col = 2;
+        let row = 0;
+        let col = 2;
         let before = cands.count(row, col);
         let digit = cands.digits(row, col)[0];
         cands.remove(row, col, digit);
@@ -166,10 +182,14 @@ mod tests {
         let mut cands = CandidateGrid::from_grid(&grid);
         cands.eliminate_from_peers(0, 2, 4);
         for c in 0..9 {
-            if c != 2 { assert!(!cands.has(0, c, 4), "row peer still has 4 at col {}", c); }
+            if c != 2 {
+                assert!(!cands.has(0, c, 4), "row peer still has 4 at col {}", c);
+            }
         }
         for r in 0..9 {
-            if r != 0 { assert!(!cands.has(r, 2, 4), "col peer still has 4 at row {}", r); }
+            if r != 0 {
+                assert!(!cands.has(r, 2, 4), "col peer still has 4 at row {}", r);
+            }
         }
     }
 

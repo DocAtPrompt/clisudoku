@@ -20,19 +20,20 @@ const MINIATURE_LEFT: u16 = 50;
 const MINIATURE_TOP_ROW: u16 = 6;
 
 pub fn render_pattern_select(
-    out:      &mut impl Write,
+    out: &mut impl Write,
     selected: usize,
-    strings:  &'static Strings,
-    colors:   &ColorScheme,
+    strings: &'static Strings,
+    colors: &ColorScheme,
 ) -> io::Result<()> {
     let pattern = &PATTERNS[selected];
-    let bg  = colors.ui_background;
-    let fg  = colors.ui_text;
+    let bg = colors.ui_background;
+    let fg = colors.ui_text;
     let dim = colors.ui_text_dim;
 
     // Clear screen area
     for row in 0u16..24 {
-        queue!(out,
+        queue!(
+            out,
             MoveTo(0, row),
             SetForegroundColor(bg),
             SetBackgroundColor(bg),
@@ -43,7 +44,8 @@ pub fn render_pattern_select(
     // ── Title ────────────────────────────────────────────────────────────────
     let title = strings.designer_title;
     let title_col = (TERMINAL_WIDTH.saturating_sub(title.chars().count() as u16)) / 2;
-    queue!(out,
+    queue!(
+        out,
         MoveTo(title_col, 2),
         SetForegroundColor(fg),
         SetBackgroundColor(bg),
@@ -53,7 +55,8 @@ pub fn render_pattern_select(
     // ── Pattern name ─────────────────────────────────────────────────────────
     let name = pattern.name_en;
     let name_col = (TERMINAL_WIDTH.saturating_sub(name.chars().count() as u16)) / 2;
-    queue!(out,
+    queue!(
+        out,
         MoveTo(name_col, 4),
         SetForegroundColor(fg),
         SetBackgroundColor(bg),
@@ -67,20 +70,18 @@ pub fn render_pattern_select(
         for col in 0..9usize {
             let is_pattern = pattern.mask[row * 9 + col];
             let (ch, cell_fg) = if is_pattern {
-                ('\u{2588}', block_fg)   // █
+                ('\u{2588}', block_fg) // █
             } else {
-                ('\u{00b7}', dim)        // ·
+                ('\u{00b7}', dim) // ·
             };
-            queue!(out,
+            queue!(
+                out,
                 SetForegroundColor(cell_fg),
                 SetBackgroundColor(bg),
                 Print(ch)
             )?;
             if col < 8 {
-                queue!(out,
-                    SetForegroundColor(dim),
-                    Print(' ')
-                )?;
+                queue!(out, SetForegroundColor(dim), Print(' '))?;
             }
         }
     }
@@ -88,7 +89,8 @@ pub fn render_pattern_select(
     // ── Cell count ───────────────────────────────────────────────────────────
     let count_str = format!("{} / 81", pattern.cell_count);
     let count_col = (TERMINAL_WIDTH.saturating_sub(count_str.chars().count() as u16)) / 2;
-    queue!(out,
+    queue!(
+        out,
         MoveTo(count_col, 16),
         SetForegroundColor(dim),
         SetBackgroundColor(bg),
@@ -98,7 +100,8 @@ pub fn render_pattern_select(
     // ── Position indicator ◄ N / 28 ► ───────────────────────────────────────
     let pos_str = format!("\u{25c4}  {} / {}  \u{25ba}", selected + 1, PATTERNS.len());
     let pos_col = (TERMINAL_WIDTH.saturating_sub(pos_str.chars().count() as u16)) / 2;
-    queue!(out,
+    queue!(
+        out,
         MoveTo(pos_col, 18),
         SetForegroundColor(fg),
         SetBackgroundColor(bg),
@@ -108,7 +111,8 @@ pub fn render_pattern_select(
     // ── Navigation hint ───────────────────────────────────────────────────────
     let hint = "Enter: select   Esc: back";
     let hint_col = (TERMINAL_WIDTH.saturating_sub(hint.chars().count() as u16)) / 2;
-    queue!(out,
+    queue!(
+        out,
         MoveTo(hint_col, 20),
         SetForegroundColor(dim),
         SetBackgroundColor(bg),
@@ -130,7 +134,10 @@ mod tests {
         render_pattern_select(&mut buf, 0, &EN, &ColorScheme::default()).unwrap();
         let s = String::from_utf8_lossy(&buf);
         // Should contain the first pattern name (Holy Crap)
-        assert!(s.contains("Holy Crap"), "Expected first pattern name in output");
+        assert!(
+            s.contains("Holy Crap"),
+            "Expected first pattern name in output"
+        );
     }
 
     #[test]

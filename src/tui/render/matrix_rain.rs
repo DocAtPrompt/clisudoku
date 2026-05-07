@@ -32,7 +32,8 @@ pub fn render_matrix_rain(
                     // Real game content already rendered beneath — nothing to do.
                 }
                 RainCell::Blank => {
-                    queue!(out,
+                    queue!(
+                        out,
                         MoveTo(col_off + col as u16, row_off + row as u16),
                         SetBackgroundColor(bg),
                         SetForegroundColor(bg),
@@ -41,11 +42,12 @@ pub fn render_matrix_rain(
                 }
                 RainCell::Rain(ch, level) => {
                     let fg = match level {
-                        0 => Color::White,      // head — brightest flash
-                        1 => Color::Green,      // near trail
-                        _ => Color::DarkGreen,  // far trail — fading
+                        0 => Color::White,     // head — brightest flash
+                        1 => Color::Green,     // near trail
+                        _ => Color::DarkGreen, // far trail — fading
                     };
-                    queue!(out,
+                    queue!(
+                        out,
                         MoveTo(col_off + col as u16, row_off + row as u16),
                         SetBackgroundColor(bg),
                         SetForegroundColor(fg),

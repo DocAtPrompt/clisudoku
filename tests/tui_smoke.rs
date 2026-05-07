@@ -1,6 +1,6 @@
 // tests/tui_smoke.rs
 use clisudoku::i18n::EN;
-use clisudoku::puzzle::{Grid, GameState};
+use clisudoku::puzzle::{GameState, Grid};
 use clisudoku::tui::anim::AnimState;
 use clisudoku::tui::colors::ColorScheme;
 use clisudoku::tui::digit_style::RetroStyle;
@@ -12,8 +12,9 @@ use clisudoku::tui::render::{render_frame, Screen};
 #[test]
 fn render_game_screen_does_not_panic() {
     let grid = Grid::from_str(
-        "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-    ).unwrap();
+        "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+    )
+    .unwrap();
     let state = GameState::new(grid);
     let mut buf = Vec::new();
 
@@ -42,7 +43,8 @@ fn render_game_screen_does_not_panic() {
         &ColorScheme::default(),
         &RetroStyle,
         &EN,
-    ).unwrap();
+    )
+    .unwrap();
 
     assert!(!buf.is_empty());
     let s = String::from_utf8_lossy(&buf);
@@ -62,6 +64,7 @@ fn render_start_screen_does_not_panic() {
         &ColorScheme::default(),
         &RetroStyle,
         &EN,
-    ).unwrap();
+    )
+    .unwrap();
     assert!(!buf.is_empty());
 }

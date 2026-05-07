@@ -9,14 +9,16 @@ pub struct PuzzleGenerator {
 
 /// Result of a pattern-constrained generation.
 pub struct GeneratorResult {
-    pub grid:             Grid,
-    pub difficulty:       Difficulty,
+    pub grid: Grid,
+    pub difficulty: Difficulty,
     /// True when cells outside the pattern were added to reach unique solvability.
     pub used_extra_cells: bool,
 }
 
 impl PuzzleGenerator {
-    pub fn new(seed: u64) -> Self { Self { seed } }
+    pub fn new(seed: u64) -> Self {
+        Self { seed }
+    }
 
     pub fn generate(&self, difficulty: Difficulty, symmetry: bool) -> Grid {
         if difficulty == Difficulty::Expert {
@@ -63,7 +65,9 @@ impl PuzzleGenerator {
                 };
 
                 if !solvable(&puzzle) {
-                    if let Some(v) = prev1 { puzzle.set_given(r1, c1, v); }
+                    if let Some(v) = prev1 {
+                        puzzle.set_given(r1, c1, v);
+                    }
                     if let Some((r2, c2, Some(v))) = mirror_state {
                         puzzle.set_given(r2, c2, v);
                     }
@@ -75,7 +79,10 @@ impl PuzzleGenerator {
             loop {
                 let mut changed = false;
                 let mut indices: Vec<usize> = (0..81)
-                    .filter(|&i| { let (r, c) = (i / 9, i % 9); !puzzle.get(r, c).is_empty() })
+                    .filter(|&i| {
+                        let (r, c) = (i / 9, i % 9);
+                        !puzzle.get(r, c).is_empty()
+                    })
                     .collect();
                 shuffle(&mut indices, &mut rng);
 
@@ -86,11 +93,15 @@ impl PuzzleGenerator {
                     if self.is_uniquely_solvable_full(&puzzle) {
                         changed = true; // cell successfully removed
                     } else {
-                        if let Some(v) = prev_val { puzzle.set_given(row, col, v); }
+                        if let Some(v) = prev_val {
+                            puzzle.set_given(row, col, v);
+                        }
                     }
                 }
 
-                if !changed { break; } // converged — no further reduction possible
+                if !changed {
+                    break;
+                } // converged — no further reduction possible
             }
         } else {
             let mut indices: Vec<usize> = (0..81).collect();
@@ -103,7 +114,9 @@ impl PuzzleGenerator {
                 puzzle.clear(row, col);
 
                 if !solvable(&puzzle) {
-                    if let Some(v) = prev_val { puzzle.set_given(row, col, v); }
+                    if let Some(v) = prev_val {
+                        puzzle.set_given(row, col, v);
+                    }
                 }
             }
         }
@@ -212,7 +225,13 @@ impl PuzzleGenerator {
             .find(|&(r, c)| grid.get(r, c).is_empty());
 
         let (row, col) = match empty {
-            None => return if grid.is_solved() { Some(grid.clone()) } else { None },
+            None => {
+                return if grid.is_solved() {
+                    Some(grid.clone())
+                } else {
+                    None
+                }
+            }
             Some(pos) => pos,
         };
 
@@ -250,10 +269,7 @@ impl PuzzleGenerator {
     /// 4. Ansatz C: if < 17 givens remain, add the minimum number of non-pattern
     ///    cells back until the puzzle is uniquely solvable.
     /// 5. Classify difficulty from the strategies the solver actually used.
-    pub fn generate_with_pattern(
-        &self,
-        pattern: &crate::pattern::Pattern,
-    ) -> GeneratorResult {
+    pub fn generate_with_pattern(&self, pattern: &crate::pattern::Pattern) -> GeneratorResult {
         let mut rng = LcgRng::new(self.seed);
         let full = self.fill_grid(&mut rng).expect("fill_grid failed");
 
@@ -285,7 +301,10 @@ impl PuzzleGenerator {
 
         // Step 4 (Ansatz C): if still < 17 givens, add non-pattern cells.
         let given_count = (0..81)
-            .filter(|&i| { let (r, c) = (i / 9, i % 9); puzzle.get(r, c).is_given() })
+            .filter(|&i| {
+                let (r, c) = (i / 9, i % 9);
+                puzzle.get(r, c).is_given()
+            })
             .count();
         let mut used_extra_cells = false;
         if given_count < 17 {
@@ -319,7 +338,11 @@ impl PuzzleGenerator {
         let solve_result = crate::solver::Solver::new().solve(result.clone());
         let difficulty = classify(&solve_result.used_strategies);
 
-        GeneratorResult { grid: result, difficulty, used_extra_cells }
+        GeneratorResult {
+            grid: result,
+            difficulty,
+            used_extra_cells,
+        }
     }
 
     /// Check uniqueness by counting solutions via backtracking, short-circuiting at 2.
@@ -331,7 +354,9 @@ impl PuzzleGenerator {
     }
 
     fn count_solutions(grid: &mut Grid, count: &mut u8) {
-        if *count > 1 { return; } // short-circuit
+        if *count > 1 {
+            return;
+        } // short-circuit
         let empty = (0..9)
             .flat_map(|r| (0..9).map(move |c| (r, c)))
             .find(|&(r, c)| grid.get(r, c).is_empty());
@@ -345,7 +370,9 @@ impl PuzzleGenerator {
                         grid.set_filled(row, col, digit);
                         Self::count_solutions(grid, count);
                         grid.clear(row, col);
-                        if *count > 1 { return; }
+                        if *count > 1 {
+                            return;
+                        }
                     }
                 }
             }
@@ -354,21 +381,40 @@ impl PuzzleGenerator {
 }
 
 fn is_valid_placement(grid: &Grid, row: usize, col: usize, digit: u8) -> bool {
-    for c in 0..9 { if grid.get(row, c).value() == Some(digit) { return false; } }
-    for r in 0..9 { if grid.get(r, col).value() == Some(digit) { return false; } }
+    for c in 0..9 {
+        if grid.get(row, c).value() == Some(digit) {
+            return false;
+        }
+    }
+    for r in 0..9 {
+        if grid.get(r, col).value() == Some(digit) {
+            return false;
+        }
+    }
     let (br, bc) = Grid::box_start(Grid::box_idx(row, col));
-    for dr in 0..3 { for dc in 0..3 {
-        if grid.get(br+dr, bc+dc).value() == Some(digit) { return false; }
-    }}
+    for dr in 0..3 {
+        for dc in 0..3 {
+            if grid.get(br + dr, bc + dc).value() == Some(digit) {
+                return false;
+            }
+        }
+    }
     true
 }
 
 /// Minimal LCG RNG for deterministic seeds — no external deps.
-struct LcgRng { state: u64 }
+struct LcgRng {
+    state: u64,
+}
 impl LcgRng {
-    fn new(seed: u64) -> Self { Self { state: seed ^ 0x12345678 } }
+    fn new(seed: u64) -> Self {
+        Self {
+            state: seed ^ 0x12345678,
+        }
+    }
     fn next_u64(&mut self) -> u64 {
-        self.state = self.state
+        self.state = self
+            .state
             .wrapping_mul(6364136223846793005)
             .wrapping_add(1442695040888963407);
         self.state
@@ -400,7 +446,8 @@ mod tests {
     #[test]
     fn generates_solvable_easy_puzzle() {
         let grid = PuzzleGenerator::new(42).generate(Difficulty::Easy, false);
-        let given_count = (0..9).flat_map(|r| (0..9).map(move |c| (r, c)))
+        let given_count = (0..9)
+            .flat_map(|r| (0..9).map(move |c| (r, c)))
             .filter(|&(r, c)| grid.get(r, c).is_given())
             .count();
         assert!(given_count >= 17, "too few givens: {}", given_count);
@@ -472,8 +519,10 @@ mod tests {
         let grid = PuzzleGenerator::new(7).generate(Difficulty::Extreme, false);
         let solver = Solver::for_difficulty(&Difficulty::Extreme);
         let result = solver.solve(grid);
-        assert!(result.grid.is_solved(),
-            "Extreme-capped solver must solve an Extreme-generated puzzle");
+        assert!(
+            result.grid.is_solved(),
+            "Extreme-capped solver must solve an Extreme-generated puzzle"
+        );
         // The generated puzzle should require at least a medium-level strategy.
         // If it only used NakedSingle/HiddenSingle the generator did not push
         // hard enough — but this is seed-dependent so we accept Easy too.
@@ -485,9 +534,12 @@ mod tests {
     fn pattern_puzzle_difficulty_is_classified() {
         use crate::pattern::PATTERNS;
         let result = PuzzleGenerator::new(99).generate_with_pattern(&PATTERNS[1]); // Checker
-        // difficulty must be one of the valid variants (not None)
+                                                                                   // difficulty must be one of the valid variants (not None)
         let _ = result.difficulty; // just verifying it compiles and is accessible
-        assert!(crate::solver::Solver::new().solve(result.grid).grid.is_solved());
+        assert!(crate::solver::Solver::new()
+            .solve(result.grid)
+            .grid
+            .is_solved());
     }
 
     #[test]
@@ -515,14 +567,21 @@ mod tests {
         // at 20–26 depending on the seed. We accept anything ≤ 27 as proof that
         // the multi-pass loop is working correctly.
         let grid = PuzzleGenerator::new(42).generate(Difficulty::BareMinimum, false);
-        let given_count = (0..9).flat_map(|r| (0..9).map(move |c| (r, c)))
+        let given_count = (0..9)
+            .flat_map(|r| (0..9).map(move |c| (r, c)))
             .filter(|&(r, c)| grid.get(r, c).is_given())
             .count();
         assert!(given_count >= 17, "too few givens: {}", given_count);
-        assert!(given_count <= 27,
-            "Bare Minimum produced {} givens — multi-pass loop not converging", given_count);
+        assert!(
+            given_count <= 27,
+            "Bare Minimum produced {} givens — multi-pass loop not converging",
+            given_count
+        );
         // Must still be uniquely solvable
         let result = Solver::new().solve(grid);
-        assert!(result.grid.is_solved(), "BareMinimum puzzle must be solvable");
+        assert!(
+            result.grid.is_solved(),
+            "BareMinimum puzzle must be solvable"
+        );
     }
 }

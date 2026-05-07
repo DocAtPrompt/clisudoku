@@ -24,7 +24,11 @@ pub fn digit_display_lines(digit: u8, style: &dyn DigitStyle) -> [String; 3] {
 /// 3-row note display, each row 7 chars: " N N N " (digit or space per candidate).
 pub fn note_display_lines(notes: u16) -> [String; 3] {
     let n = |d: u8| -> char {
-        if notes & (1u16 << d) != 0 { char::from(b'0' + d) } else { ' ' }
+        if notes & (1u16 << d) != 0 {
+            char::from(b'0' + d)
+        } else {
+            ' '
+        }
     };
     [
         format!(" {} {} {} ", n(1), n(2), n(3)),
@@ -67,7 +71,7 @@ mod tests {
 
     #[test]
     fn notes_all_set_shows_all_digits() {
-        let all_notes: u16 = 0b1111111110;  // bits 1-9 set
+        let all_notes: u16 = 0b1111111110; // bits 1-9 set
         let lines = note_display_lines(all_notes);
         assert_eq!(lines[0], " 1 2 3 ");
         assert_eq!(lines[1], " 4 5 6 ");

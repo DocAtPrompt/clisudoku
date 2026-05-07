@@ -38,26 +38,36 @@ fn is_grid_consistent(grid: &Grid) -> bool {
         for cell in cells {
             if let Some(v) = cell.value() {
                 let bit = 1u16 << v;
-                if seen & bit != 0 { return false; }
+                if seen & bit != 0 {
+                    return false;
+                }
                 seen |= bit;
             }
         }
         true
     };
-    (0..9).all(|i| valid_house(grid.row(i)) && valid_house(grid.col(i)) && valid_house(grid.box_cells(i)))
+    (0..9).all(|i| {
+        valid_house(grid.row(i)) && valid_house(grid.col(i)) && valid_house(grid.box_cells(i))
+    })
 }
 
 fn is_valid_placement(grid: &Grid, row: usize, col: usize, digit: u8) -> bool {
     for c in 0..9 {
-        if grid.get(row, c).value() == Some(digit) { return false; }
+        if grid.get(row, c).value() == Some(digit) {
+            return false;
+        }
     }
     for r in 0..9 {
-        if grid.get(r, col).value() == Some(digit) { return false; }
+        if grid.get(r, col).value() == Some(digit) {
+            return false;
+        }
     }
     let (br, bc) = Grid::box_start(Grid::box_idx(row, col));
     for dr in 0..3 {
         for dc in 0..3 {
-            if grid.get(br + dr, bc + dc).value() == Some(digit) { return false; }
+            if grid.get(br + dr, bc + dc).value() == Some(digit) {
+                return false;
+            }
         }
     }
     true
@@ -71,19 +81,24 @@ mod tests {
     #[test]
     fn solves_easy_puzzle() {
         let grid = Grid::from_str(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-        ).unwrap();
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        )
+        .unwrap();
         let result = solve_backtracking(grid).unwrap();
         assert!(result.is_solved());
-        assert_eq!(result.to_str(), "534678912672195348198342567859761423426853791713924856961537284287419635345286179");
+        assert_eq!(
+            result.to_str(),
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+        );
     }
 
     #[test]
     fn solves_hard_puzzle() {
         // Note: the puzzle from the spec had an invalid box conflict; using a known-valid hard puzzle
         let grid = Grid::from_str(
-            "000000000000003085001020000000507000004000100090000000500000073002010000000040009"
-        ).unwrap();
+            "000000000000003085001020000000507000004000100090000000500000073002010000000040009",
+        )
+        .unwrap();
         let result = solve_backtracking(grid);
         assert!(result.is_some(), "backtracking failed on hard puzzle");
         assert!(result.unwrap().is_solved());

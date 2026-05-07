@@ -1,5 +1,8 @@
+use crate::puzzle::{
+    event::GameEvent,
+    grid::{CellKind, Grid},
+};
 use serde::{Deserialize, Serialize};
-use crate::puzzle::{event::GameEvent, grid::{CellKind, Grid}};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct HistoryEntry {
@@ -33,7 +36,9 @@ impl GameState {
         }
     }
 
-    pub fn grid(&self) -> &Grid { &self.grid }
+    pub fn grid(&self) -> &Grid {
+        &self.grid
+    }
 
     /// Returns the 16-bit note bitmask for the cell at `(row, col)`.
     /// Bit `d` (1-indexed) is set when digit `d` is marked as a candidate.
@@ -41,7 +46,9 @@ impl GameState {
         self.notes[Self::idx(row, col)]
     }
 
-    fn idx(row: usize, col: usize) -> usize { row * 9 + col }
+    fn idx(row: usize, col: usize) -> usize {
+        row * 9 + col
+    }
 
     /// All cell indices in the same row, column, and 3×3 box as `(row, col)`,
     /// excluding `(row, col)` itself.
@@ -52,20 +59,31 @@ impl GameState {
         // Row
         for c in 0..9 {
             let i = row * 9 + c;
-            if i != origin && !seen[i] { seen[i] = true; peers.push(i); }
+            if i != origin && !seen[i] {
+                seen[i] = true;
+                peers.push(i);
+            }
         }
         // Column
         for r in 0..9 {
             let i = r * 9 + col;
-            if i != origin && !seen[i] { seen[i] = true; peers.push(i); }
+            if i != origin && !seen[i] {
+                seen[i] = true;
+                peers.push(i);
+            }
         }
         // Box
         let br = (row / 3) * 3;
         let bc = (col / 3) * 3;
-        for dr in 0..3 { for dc in 0..3 {
-            let i = (br + dr) * 9 + (bc + dc);
-            if i != origin && !seen[i] { seen[i] = true; peers.push(i); }
-        }}
+        for dr in 0..3 {
+            for dc in 0..3 {
+                let i = (br + dr) * 9 + (bc + dc);
+                if i != origin && !seen[i] {
+                    seen[i] = true;
+                    peers.push(i);
+                }
+            }
+        }
         peers.into_iter()
     }
 
@@ -79,7 +97,9 @@ impl GameState {
             GameEvent::ClearCell { row, col } => (*row, *col),
             GameEvent::ToggleNote { row, col, .. } => (*row, *col),
         };
-        if self.grid.get(row, col).is_given() { return; }
+        if self.grid.get(row, col).is_given() {
+            return;
+        }
         let prev_cell = self.grid.get(row, col);
         let prev_notes = self.notes[Self::idx(row, col)];
         self.redo_stack.clear();
@@ -113,7 +133,12 @@ impl GameState {
                 vec![]
             }
         };
-        self.undo_stack.push(HistoryEntry { event, prev_cell, prev_notes, peer_note_changes });
+        self.undo_stack.push(HistoryEntry {
+            event,
+            prev_cell,
+            prev_notes,
+            peer_note_changes,
+        });
     }
 
     pub fn undo(&mut self) {
@@ -176,9 +201,13 @@ impl GameState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::puzzle::{event::GameEvent, grid::{CellKind, Grid}};
+    use crate::puzzle::{
+        event::GameEvent,
+        grid::{CellKind, Grid},
+    };
 
-    const EASY: &str = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+    const EASY: &str =
+        "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
 
     fn easy_state() -> GameState {
         GameState::new(Grid::from_str(EASY).unwrap())
@@ -187,21 +216,33 @@ mod tests {
     #[test]
     fn set_digit_on_empty_cell() {
         let mut s = easy_state();
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         assert_eq!(s.grid().get(0, 2), CellKind::Filled(4));
     }
 
     #[test]
     fn set_digit_ignores_given() {
         let mut s = easy_state();
-        s.apply(GameEvent::SetDigit { row: 0, col: 0, digit: 9 }); // Given(5)
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 0,
+            digit: 9,
+        }); // Given(5)
         assert_eq!(s.grid().get(0, 0), CellKind::Given(5));
     }
 
     #[test]
     fn undo_set_digit() {
         let mut s = easy_state();
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         s.undo();
         assert_eq!(s.grid().get(0, 2), CellKind::Empty);
     }
@@ -209,7 +250,11 @@ mod tests {
     #[test]
     fn redo_after_undo() {
         let mut s = easy_state();
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         s.undo();
         s.redo();
         assert_eq!(s.grid().get(0, 2), CellKind::Filled(4));
@@ -218,9 +263,17 @@ mod tests {
     #[test]
     fn new_action_clears_redo() {
         let mut s = easy_state();
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         s.undo();
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 6 });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 6,
+        });
         s.redo(); // nothing to redo
         assert_eq!(s.grid().get(0, 2), CellKind::Filled(6));
     }
@@ -228,16 +281,28 @@ mod tests {
     #[test]
     fn toggle_note_on_off() {
         let mut s = easy_state();
-        s.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         assert!(s.has_note(0, 2, 4));
-        s.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         assert!(!s.has_note(0, 2, 4));
     }
 
     #[test]
     fn undo_toggle_note() {
         let mut s = easy_state();
-        s.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         s.undo();
         assert!(!s.has_note(0, 2, 4));
     }
@@ -245,8 +310,16 @@ mod tests {
     #[test]
     fn clear_cell_removes_digit_and_notes() {
         let mut s = easy_state();
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
-        s.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 5 });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
+        s.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 2,
+            digit: 5,
+        });
         s.apply(GameEvent::ClearCell { row: 0, col: 2 });
         assert_eq!(s.grid().get(0, 2), CellKind::Empty);
         assert!(!s.has_note(0, 2, 5));
@@ -255,8 +328,16 @@ mod tests {
     #[test]
     fn undo_clear_restores_digit_and_notes() {
         let mut s = easy_state();
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
-        s.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 5 });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
+        s.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 2,
+            digit: 5,
+        });
         s.apply(GameEvent::ClearCell { row: 0, col: 2 });
         s.undo();
         assert_eq!(s.grid().get(0, 2), CellKind::Filled(4));
@@ -268,13 +349,28 @@ mod tests {
         let mut s = easy_state();
         // EASY row 0: 530070000 — col 2,3,5,6,7,8 are empty.
         // Place notes for digit 4 in peers of (0,2):
-        s.apply(GameEvent::ToggleNote { row: 1, col: 2, digit: 4 }); // same column
-        s.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 4 }); // same row, different box
-        // Place digit 4 at (0,2).
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::ToggleNote {
+            row: 1,
+            col: 2,
+            digit: 4,
+        }); // same column
+        s.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 5,
+            digit: 4,
+        }); // same row, different box
+            // Place digit 4 at (0,2).
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         // Peer notes for 4 must be cleared.
         assert!(!s.has_note(0, 2, 4), "placed cell notes should be cleared");
-        assert!(!s.has_note(1, 2, 4), "same-column peer note should be cleared");
+        assert!(
+            !s.has_note(1, 2, 4),
+            "same-column peer note should be cleared"
+        );
         assert!(!s.has_note(0, 5, 4), "same-row peer note should be cleared");
     }
 
@@ -282,20 +378,42 @@ mod tests {
     fn undo_set_digit_restores_peer_notes() {
         let mut s = easy_state();
         // EASY row 0: 530070000 — (0,5) is empty; row 1: 600195000 — (1,2) is empty.
-        s.apply(GameEvent::ToggleNote { row: 1, col: 2, digit: 4 });
-        s.apply(GameEvent::ToggleNote { row: 0, col: 5, digit: 4 });
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::ToggleNote {
+            row: 1,
+            col: 2,
+            digit: 4,
+        });
+        s.apply(GameEvent::ToggleNote {
+            row: 0,
+            col: 5,
+            digit: 4,
+        });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         s.undo();
         // After undo, peer notes are restored.
-        assert!(s.has_note(1, 2, 4), "peer note should be restored after undo");
-        assert!(s.has_note(0, 5, 4), "peer note should be restored after undo");
+        assert!(
+            s.has_note(1, 2, 4),
+            "peer note should be restored after undo"
+        );
+        assert!(
+            s.has_note(0, 5, 4),
+            "peer note should be restored after undo"
+        );
         assert_eq!(s.grid().get(0, 2), CellKind::Empty);
     }
 
     #[test]
     fn serialization_round_trip() {
         let mut s = easy_state();
-        s.apply(GameEvent::SetDigit { row: 0, col: 2, digit: 4 });
+        s.apply(GameEvent::SetDigit {
+            row: 0,
+            col: 2,
+            digit: 4,
+        });
         s.elapsed_ms = 12345;
         let json = serde_json::to_string(&s).unwrap();
         let restored: GameState = serde_json::from_str(&json).unwrap();

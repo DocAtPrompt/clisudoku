@@ -5,22 +5,22 @@ use crossterm::ExecutableCommand;
 use std::io::stdout;
 
 const COLORS: &[(Color, &str)] = &[
-    (Color::Black,       "Black      "),
-    (Color::DarkGrey,    "DarkGrey   "),
-    (Color::DarkRed,     "DarkRed    "),
-    (Color::Red,         "Red        "),
-    (Color::DarkGreen,   "DarkGreen  "),
-    (Color::Green,       "Green      "),
-    (Color::DarkYellow,  "DarkYellow "),
-    (Color::Yellow,      "Yellow     "),
-    (Color::DarkBlue,    "DarkBlue   "),
-    (Color::Blue,        "Blue       "),
+    (Color::Black, "Black      "),
+    (Color::DarkGrey, "DarkGrey   "),
+    (Color::DarkRed, "DarkRed    "),
+    (Color::Red, "Red        "),
+    (Color::DarkGreen, "DarkGreen  "),
+    (Color::Green, "Green      "),
+    (Color::DarkYellow, "DarkYellow "),
+    (Color::Yellow, "Yellow     "),
+    (Color::DarkBlue, "DarkBlue   "),
+    (Color::Blue, "Blue       "),
     (Color::DarkMagenta, "DarkMagenta"),
-    (Color::Magenta,     "Magenta    "),
-    (Color::DarkCyan,    "DarkCyan   "),
-    (Color::Cyan,        "Cyan       "),
-    (Color::Grey,        "Grey       "),
-    (Color::White,       "White      "),
+    (Color::Magenta, "Magenta    "),
+    (Color::DarkCyan, "DarkCyan   "),
+    (Color::Cyan, "Cyan       "),
+    (Color::Grey, "Grey       "),
+    (Color::White, "White      "),
 ];
 
 fn main() {
@@ -62,18 +62,18 @@ fn main() {
     println!("\n─── Aktuell im Spiel verwendete Farben ───\n");
 
     let used = &[
-        (Color::Black,      "ui_background"),
-        (Color::Grey,       "grid_border / ui_text_dim"),
-        (Color::White,      "grid_box / digit_given / ui_text"),
-        (Color::DarkGrey,   "grid_cell"),
-        (Color::DarkBlue,   "cell_active_bg / ui_cursor_bg"),
-        (Color::Cyan,       "digit_user"),
-        (Color::Red,        "digit_error"),
-        (Color::Yellow,     "digit_highlight / note_highlight"),
-        (Color::Green,      "digit_scan"),
+        (Color::Black, "ui_background"),
+        (Color::Grey, "grid_border / ui_text_dim"),
+        (Color::White, "grid_box / digit_given / ui_text"),
+        (Color::DarkGrey, "grid_cell"),
+        (Color::DarkBlue, "cell_active_bg / ui_cursor_bg"),
+        (Color::Cyan, "digit_user"),
+        (Color::Red, "digit_error"),
+        (Color::Yellow, "digit_highlight / note_highlight"),
+        (Color::Green, "digit_scan"),
         (Color::DarkYellow, "firework particle (dim)"),
-        (Color::DarkCyan,   "firework particle (dim)"),
-        (Color::Magenta,    "firework particle"),
+        (Color::DarkCyan, "firework particle (dim)"),
+        (Color::Magenta, "firework particle"),
     ];
 
     for (color, label) in used {

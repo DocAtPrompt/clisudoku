@@ -1,17 +1,21 @@
 // src/tui/generating.rs
 
-use std::sync::mpsc;
-use std::thread;
-use std::time::Instant;
 use crate::generator::{Difficulty, PuzzleGenerator};
 use crate::pattern::Pattern;
 use crate::puzzle::Grid;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Instant;
 
 /// Message sent from the generator thread to the main thread.
 pub enum GenMsg {
     Done(Grid, Difficulty),
     /// Intermediate progress from the BareMinimum multi-attempt generator.
-    BareMinimumProgress { done: usize, total: usize, best_count: usize },
+    BareMinimumProgress {
+        done: usize,
+        total: usize,
+        best_count: usize,
+    },
 }
 
 /// Spawn a background thread that generates one puzzle with the given seed.
@@ -39,7 +43,8 @@ pub fn spawn_bare_minimum(seed: u64, attempts: usize) -> mpsc::Receiver<GenMsg> 
             // Derive a distinct seed per attempt using a LCG step.
             let s = seed.wrapping_add((i as u64).wrapping_mul(0x9e3779b97f4a7c15));
             let grid = PuzzleGenerator::new(s).generate(Difficulty::BareMinimum, false);
-            let count = (0..9).flat_map(|r| (0..9).map(move |c| (r, c)))
+            let count = (0..9)
+                .flat_map(|r| (0..9).map(move |c| (r, c)))
                 .filter(|&(r, c)| grid.get(r, c).is_given())
                 .count();
             if count < best_count {
@@ -75,40 +80,71 @@ pub const BARE_MINIMUM_ATTEMPTS: usize = 5;
 
 /// Cyclic verb list for the generating message "baking sudoku..."
 pub const VERBS: &[&str] = &[
-    "generating", "frying",    "baking",    "roasting",   "shoveling",  "tinkering",
-    "brewing",    "distilling","cooking",   "boiling",    "simmering",  "grilling",
-    "toasting",   "smoking",   "seasoning", "marinating", "kneading",   "blending",
-    "mixing",     "stirring",  "whipping",  "grinding",   "fermenting", "percolating",
-    "crafting",   "forging",   "spinning",  "shuffling",  "sculpting",  "chiseling",
-    "polishing",  "weaving",   "knitting",  "mining",     "hatching",   "conjuring",
-    "assembling", "composing",
+    "generating",
+    "frying",
+    "baking",
+    "roasting",
+    "shoveling",
+    "tinkering",
+    "brewing",
+    "distilling",
+    "cooking",
+    "boiling",
+    "simmering",
+    "grilling",
+    "toasting",
+    "smoking",
+    "seasoning",
+    "marinating",
+    "kneading",
+    "blending",
+    "mixing",
+    "stirring",
+    "whipping",
+    "grinding",
+    "fermenting",
+    "percolating",
+    "crafting",
+    "forging",
+    "spinning",
+    "shuffling",
+    "sculpting",
+    "chiseling",
+    "polishing",
+    "weaving",
+    "knitting",
+    "mining",
+    "hatching",
+    "conjuring",
+    "assembling",
+    "composing",
 ];
 
 /// All state needed by AppScreen::Generating.
 pub struct GeneratingState {
-    pub pattern:       Pattern,
-    pub rx:            mpsc::Receiver<GenMsg>,
-    pub seed:          u64,
-    pub started_at:    Instant,
+    pub pattern: Pattern,
+    pub rx: mpsc::Receiver<GenMsg>,
+    pub seed: u64,
+    pub started_at: Instant,
     /// Shuffled indices into VERBS; cycles when exhausted.
-    pub verb_order:    Vec<usize>,
+    pub verb_order: Vec<usize>,
     /// Current position in verb_order.
-    pub verb_pos:      usize,
+    pub verb_pos: usize,
     /// True for ~1 second after a timeout triggers a new seed.
     pub show_new_seed: bool,
     /// When show_new_seed was set (to expire it after 1 s).
-    pub new_seed_at:   Option<Instant>,
+    pub new_seed_at: Option<Instant>,
     /// True when entered from --pattern CLI flag (Esc → DifficultySelect).
     /// False when entered from PatternSelect screen (Esc → PatternSelect).
-    pub from_cli:      bool,
+    pub from_cli: bool,
     /// True when generating a BareMinimum puzzle (multi-attempt mode).
-    pub bare_minimum:  bool,
+    pub bare_minimum: bool,
     /// True when generating an Expert puzzle (single-attempt mode).
-    pub expert:        bool,
+    pub expert: bool,
     /// Completed attempt count for BareMinimum progress display.
-    pub bm_done:       usize,
+    pub bm_done: usize,
     /// Total attempt count for BareMinimum progress display.
-    pub bm_total:      usize,
+    pub bm_total: usize,
     /// Best (fewest) given count seen so far across BareMinimum attempts.
     pub bm_best_count: usize,
 }
@@ -130,10 +166,10 @@ impl GeneratingState {
             show_new_seed: false,
             new_seed_at: None,
             from_cli,
-            bare_minimum:  false,
-            expert:        false,
-            bm_done:       0,
-            bm_total:      0,
+            bare_minimum: false,
+            expert: false,
+            bm_done: 0,
+            bm_total: 0,
             bm_best_count: 0,
         }
     }
@@ -147,7 +183,11 @@ impl GeneratingState {
         let mut verb_order: Vec<usize> = (0..n).collect();
         lcg_shuffle(&mut verb_order, seed);
         // Dummy pattern — never used in bare-minimum mode.
-        let dummy = Pattern { name_en: "", mask: [false; 81], cell_count: 0 };
+        let dummy = Pattern {
+            name_en: "",
+            mask: [false; 81],
+            cell_count: 0,
+        };
         GeneratingState {
             pattern: dummy,
             rx,
@@ -158,10 +198,10 @@ impl GeneratingState {
             show_new_seed: false,
             new_seed_at: None,
             from_cli: false,
-            bare_minimum:  true,
-            expert:        false,
-            bm_done:       0,
-            bm_total:      BARE_MINIMUM_ATTEMPTS,
+            bare_minimum: true,
+            expert: false,
+            bm_done: 0,
+            bm_total: BARE_MINIMUM_ATTEMPTS,
             bm_best_count: 0,
         }
     }
@@ -238,7 +278,9 @@ pub fn random_seed() -> u64 {
 fn lcg_shuffle(v: &mut Vec<usize>, seed: u64) {
     let mut state = seed ^ 0x12345678;
     for i in (1..v.len()).rev() {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         let j = (state as usize) % (i + 1);
         v.swap(i, j);
     }
@@ -262,7 +304,9 @@ mod tests {
                 }
                 Ok(GenMsg::BareMinimumProgress { .. }) => { /* ignore progress in this test */ }
                 Err(std::sync::mpsc::TryRecvError::Empty) => {
-                    if std::time::Instant::now() > deadline { panic!("timeout"); }
+                    if std::time::Instant::now() > deadline {
+                        panic!("timeout");
+                    }
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
                 Err(e) => panic!("{e}"),

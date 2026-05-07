@@ -28,8 +28,7 @@ pub fn render_boss(out: &mut impl Write) -> io::Result<()> {
         .or_else(|_| env::var("USERNAME"))
         .unwrap_or_else(|_| "user".into());
     let hostname = detect_hostname();
-    let home = env::var("HOME")
-        .unwrap_or_else(|_| format!("/home/{}", username));
+    let home = env::var("HOME").unwrap_or_else(|_| format!("/home/{}", username));
 
     // Visible (non-hidden) home directory entries, sorted.
     let mut entries: Vec<String> = fs::read_dir(&home)
@@ -46,7 +45,11 @@ pub fn render_boss(out: &mut impl Write) -> io::Result<()> {
 
     // ── Fill screen with black ────────────────────────────────────────────────
     let blank = " ".repeat(cols as usize);
-    queue!(out, SetBackgroundColor(Color::Black), SetForegroundColor(Color::White))?;
+    queue!(
+        out,
+        SetBackgroundColor(Color::Black),
+        SetForegroundColor(Color::White)
+    )?;
     for r in 0..rows {
         queue!(out, MoveTo(0, r), Print(&blank))?;
     }
@@ -59,7 +62,8 @@ pub fn render_boss(out: &mut impl Write) -> io::Result<()> {
     row += 2; // blank line after
 
     // ls invocation
-    queue!(out,
+    queue!(
+        out,
         MoveTo(0, row),
         SetForegroundColor(Color::White),
         Print(format!("{}{}", prompt, "ls"))
@@ -90,7 +94,8 @@ pub fn render_boss(out: &mut impl Write) -> io::Result<()> {
 
     // New prompt with block cursor
     if row < rows {
-        queue!(out,
+        queue!(
+            out,
             MoveTo(0, row),
             SetForegroundColor(Color::White),
             Print(format!("{}▋", prompt))
@@ -129,18 +134,20 @@ fn last_login_line() -> String {
     // Simple manual formatting — avoid a chrono dependency.
     // Offset by ~15 minutes to look like the login was a bit earlier.
     let login_secs = secs.saturating_sub(900);
-    let days  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    let months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    let days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    let months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
 
     // Days since Unix epoch → weekday (Zeller-lite).
     let day_of_week = ((login_secs / 86400 + 4) % 7) as usize; // epoch was Thursday
-    // Approximate month/day — good enough for an easter egg.
+                                                               // Approximate month/day — good enough for an easter egg.
     let day_of_year = (login_secs % (365 * 86400)) / 86400;
-    let month_idx   = (day_of_year / 30).min(11) as usize;
-    let day         = (day_of_year % 30) + 1;
-    let hour        = (login_secs % 86400) / 3600;
-    let min         = (login_secs % 3600) / 60;
-    let sec         = login_secs % 60;
+    let month_idx = (day_of_year / 30).min(11) as usize;
+    let day = (day_of_year % 30) + 1;
+    let hour = (login_secs % 86400) / 3600;
+    let min = (login_secs % 3600) / 60;
+    let sec = login_secs % 60;
 
     format!(
         "Last login: {} {} {:2} {:02}:{:02}:{:02} on ttys003",

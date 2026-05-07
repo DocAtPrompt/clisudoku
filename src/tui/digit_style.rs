@@ -43,8 +43,13 @@ mod tests {
         for d in 1u8..=9 {
             let rows = style.digit_rows(d);
             for row in &rows {
-                assert_eq!(row.chars().count(), 3,
-                    "digit {} row {:?} is not 3 chars", d, row);
+                assert_eq!(
+                    row.chars().count(),
+                    3,
+                    "digit {} row {:?} is not 3 chars",
+                    d,
+                    row
+                );
             }
         }
     }

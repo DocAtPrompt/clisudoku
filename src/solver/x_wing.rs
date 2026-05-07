@@ -10,13 +10,17 @@ pub fn find_x_wings(cands: &CandidateGrid) -> Vec<Elimination> {
             .collect();
 
         for r1 in 0..9 {
-            if row_cols[r1].len() != 2 { continue; }
+            if row_cols[r1].len() != 2 {
+                continue;
+            }
             for r2 in (r1 + 1)..9 {
                 if row_cols[r2] == row_cols[r1] {
                     let c1 = row_cols[r1][0];
                     let c2 = row_cols[r1][1];
                     for r in 0..9 {
-                        if r == r1 || r == r2 { continue; }
+                        if r == r1 || r == r2 {
+                            continue;
+                        }
                         for &c in &[c1, c2] {
                             if cands.has(r, c, digit) {
                                 elims.push(Elimination {
@@ -38,13 +42,17 @@ pub fn find_x_wings(cands: &CandidateGrid) -> Vec<Elimination> {
             .collect();
 
         for c1 in 0..9 {
-            if col_rows[c1].len() != 2 { continue; }
+            if col_rows[c1].len() != 2 {
+                continue;
+            }
             for c2 in (c1 + 1)..9 {
                 if col_rows[c2] == col_rows[c1] {
                     let r1 = col_rows[c1][0];
                     let r2 = col_rows[c1][1];
                     for c in 0..9 {
-                        if c == c1 || c == c2 { continue; }
+                        if c == c1 || c == c2 {
+                            continue;
+                        }
                         for &r in &[r1, r2] {
                             if cands.has(r, c, digit) {
                                 elims.push(Elimination {
@@ -75,10 +83,13 @@ mod tests {
     #[test]
     fn no_panic_no_false_positives() {
         let grid = Grid::from_str(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-        ).unwrap();
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        )
+        .unwrap();
         let cands = CandidateGrid::from_grid(&grid);
         let elims = find_x_wings(&cands);
-        for e in &elims { assert!(cands.has(e.row, e.col, e.digit)); }
+        for e in &elims {
+            assert!(cands.has(e.row, e.col, e.digit));
+        }
     }
 }

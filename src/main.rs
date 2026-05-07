@@ -1,10 +1,10 @@
 use clisudoku::{
     i18n::Language,
-    puzzle::{Grid, GameState},
+    puzzle::{GameState, Grid},
     solver::backtracking::solve_backtracking,
     timer::SystemClock,
-    tui::App,
     tui::colors::Theme,
+    tui::App,
 };
 use std::env;
 
@@ -82,17 +82,15 @@ fn main() {
     // --pattern <81chars> — load a designer pattern directly.
     if let Some(pos) = args.iter().position(|a| a == "--pattern") {
         match args.get(pos + 1) {
-            Some(s) => {
-                match clisudoku::pattern::Pattern::from_cli_str(s) {
-                    Ok(pattern) => {
-                        app.start_generating(pattern, true);
-                    }
-                    Err(e) => {
-                        eprintln!("Invalid pattern string: {}", e);
-                        std::process::exit(1);
-                    }
+            Some(s) => match clisudoku::pattern::Pattern::from_cli_str(s) {
+                Ok(pattern) => {
+                    app.start_generating(pattern, true);
                 }
-            }
+                Err(e) => {
+                    eprintln!("Invalid pattern string: {}", e);
+                    std::process::exit(1);
+                }
+            },
             None => {
                 eprintln!("Option --pattern requires an 81-character string.");
                 std::process::exit(1);
@@ -163,7 +161,11 @@ fn load_puzzle(app: &mut App, s: &str) {
         Ok(g) => g,
         Err(e) => {
             // Unrecoverable parse error (e.g. > 81 cells) — show start screen with notice.
-            let msg = app.language.strings().puzzle_invalid.replacen("{}", &e.to_string(), 1);
+            let msg = app
+                .language
+                .strings()
+                .puzzle_invalid
+                .replacen("{}", &e.to_string(), 1);
             app.set_start_notice(msg);
             return;
         }
@@ -175,7 +177,11 @@ fn load_puzzle(app: &mut App, s: &str) {
         .filter(|&(r, c)| grid.get(r, c).is_given())
         .count();
     if given_count < 17 {
-        let msg = app.language.strings().puzzle_few_givens.replacen("{}", &given_count.to_string(), 1);
+        let msg =
+            app.language
+                .strings()
+                .puzzle_few_givens
+                .replacen("{}", &given_count.to_string(), 1);
         app.set_start_notice(msg);
         return;
     }

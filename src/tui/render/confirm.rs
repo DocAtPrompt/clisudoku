@@ -8,11 +8,11 @@ use crossterm::{
 use std::io::{self, Write};
 
 /// Dialog visual constants.
-const BORDER_FG:  Color = Color::Cyan;
-const DIALOG_BG:  Color = Color::DarkGrey;
-const SHADOW_FG:  Color = Color::DarkGrey;
-const SHADOW_BG:  Color = Color::Black;
-const SHADOW_CH:  char  = '░';
+const BORDER_FG: Color = Color::Cyan;
+const DIALOG_BG: Color = Color::DarkGrey;
+const SHADOW_FG: Color = Color::DarkGrey;
+const SHADOW_BG: Color = Color::Black;
+const SHADOW_CH: char = '░';
 
 /// Render a two-line modal confirmation dialog at `(row_off, col_off)`.
 ///
@@ -40,36 +40,52 @@ pub fn render_confirm(
     let box_w = (inner + 6) as u16;
 
     // ── Top border ────────────────────────────────────────────────────────────
-    queue!(out,
+    queue!(
+        out,
         MoveTo(col_off, row_off),
-        SetForegroundColor(BORDER_FG), SetBackgroundColor(DIALOG_BG),
+        SetForegroundColor(BORDER_FG),
+        SetBackgroundColor(DIALOG_BG),
         Print(format!("┌{}┐", border_h))
     )?;
 
     // ── Content rows + right shadow ───────────────────────────────────────────
     for (i, text) in [title, options].iter().enumerate() {
-        queue!(out,
+        queue!(
+            out,
             MoveTo(col_off, row_off + 1 + i as u16),
-            SetForegroundColor(BORDER_FG), SetBackgroundColor(DIALOG_BG), Print('│'),
-            SetForegroundColor(Color::White), SetBackgroundColor(DIALOG_BG),
+            SetForegroundColor(BORDER_FG),
+            SetBackgroundColor(DIALOG_BG),
+            Print('│'),
+            SetForegroundColor(Color::White),
+            SetBackgroundColor(DIALOG_BG),
             Print(format!("  {:<inner$}  ", text, inner = inner)),
-            SetForegroundColor(BORDER_FG), SetBackgroundColor(DIALOG_BG), Print('│'),
-            SetForegroundColor(SHADOW_FG), SetBackgroundColor(SHADOW_BG), Print(SHADOW_CH)
+            SetForegroundColor(BORDER_FG),
+            SetBackgroundColor(DIALOG_BG),
+            Print('│'),
+            SetForegroundColor(SHADOW_FG),
+            SetBackgroundColor(SHADOW_BG),
+            Print(SHADOW_CH)
         )?;
     }
 
     // ── Bottom border + right shadow ──────────────────────────────────────────
-    queue!(out,
+    queue!(
+        out,
         MoveTo(col_off, row_off + 3),
-        SetForegroundColor(BORDER_FG), SetBackgroundColor(DIALOG_BG),
+        SetForegroundColor(BORDER_FG),
+        SetBackgroundColor(DIALOG_BG),
         Print(format!("└{}┘", border_h)),
-        SetForegroundColor(SHADOW_FG), SetBackgroundColor(SHADOW_BG), Print(SHADOW_CH)
+        SetForegroundColor(SHADOW_FG),
+        SetBackgroundColor(SHADOW_BG),
+        Print(SHADOW_CH)
     )?;
 
     // ── Bottom shadow row ─────────────────────────────────────────────────────
-    queue!(out,
+    queue!(
+        out,
         MoveTo(col_off + 1, row_off + 4),
-        SetForegroundColor(SHADOW_FG), SetBackgroundColor(SHADOW_BG),
+        SetForegroundColor(SHADOW_FG),
+        SetBackgroundColor(SHADOW_BG),
         Print(SHADOW_CH.to_string().repeat(box_w as usize))
     )?;
 
@@ -84,7 +100,14 @@ mod tests {
     #[test]
     fn confirm_render_shows_title_and_options() {
         let mut buf = Vec::new();
-        render_confirm(&mut buf, (5, 10), "Clear this cell?", "[Y]es  [N]o", &ColorScheme::default()).unwrap();
+        render_confirm(
+            &mut buf,
+            (5, 10),
+            "Clear this cell?",
+            "[Y]es  [N]o",
+            &ColorScheme::default(),
+        )
+        .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("Clear this cell?"));
         assert!(s.contains("[Y]es"));
@@ -94,7 +117,14 @@ mod tests {
     #[test]
     fn confirm_render_contains_shadow_char() {
         let mut buf = Vec::new();
-        render_confirm(&mut buf, (0, 0), "Hi?", "[Y]es  [N]o", &ColorScheme::default()).unwrap();
+        render_confirm(
+            &mut buf,
+            (0, 0),
+            "Hi?",
+            "[Y]es  [N]o",
+            &ColorScheme::default(),
+        )
+        .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains(SHADOW_CH));
     }
@@ -102,7 +132,14 @@ mod tests {
     #[test]
     fn confirm_border_chars_present() {
         let mut buf = Vec::new();
-        render_confirm(&mut buf, (0, 0), "Hi?", "[Y]es  [N]o", &ColorScheme::default()).unwrap();
+        render_confirm(
+            &mut buf,
+            (0, 0),
+            "Hi?",
+            "[Y]es  [N]o",
+            &ColorScheme::default(),
+        )
+        .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains('┌'));
         assert!(s.contains('└'));

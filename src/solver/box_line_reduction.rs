@@ -9,7 +9,9 @@ pub fn find_box_line_reductions(cands: &CandidateGrid) -> Vec<Elimination> {
     for r in 0..9 {
         for digit in 1u8..=9 {
             let positions: Vec<usize> = (0..9).filter(|&c| cands.has(r, c, digit)).collect();
-            if positions.is_empty() { continue; }
+            if positions.is_empty() {
+                continue;
+            }
             let boxes: HashSet<usize> = positions.iter().map(|&c| Grid::box_idx(r, c)).collect();
             if boxes.len() == 1 {
                 let b = *boxes.iter().next().unwrap();
@@ -35,7 +37,9 @@ pub fn find_box_line_reductions(cands: &CandidateGrid) -> Vec<Elimination> {
     for c in 0..9 {
         for digit in 1u8..=9 {
             let positions: Vec<usize> = (0..9).filter(|&r| cands.has(r, c, digit)).collect();
-            if positions.is_empty() { continue; }
+            if positions.is_empty() {
+                continue;
+            }
             let boxes: HashSet<usize> = positions.iter().map(|&r| Grid::box_idx(r, c)).collect();
             if boxes.len() == 1 {
                 let b = *boxes.iter().next().unwrap();
@@ -71,10 +75,13 @@ mod tests {
     #[test]
     fn no_panic_no_false_positives() {
         let grid = Grid::from_str(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-        ).unwrap();
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        )
+        .unwrap();
         let cands = CandidateGrid::from_grid(&grid);
         let elims = find_box_line_reductions(&cands);
-        for e in &elims { assert!(cands.has(e.row, e.col, e.digit)); }
+        for e in &elims {
+            assert!(cands.has(e.row, e.col, e.digit));
+        }
     }
 }

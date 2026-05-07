@@ -6,14 +6,20 @@ pub fn find_hidden_pairs(cands: &CandidateGrid) -> Vec<Elimination> {
 
     let check_house = |cells: &[(usize, usize)], elims: &mut Vec<Elimination>| {
         for d1 in 1u8..=9 {
-            let pos1: Vec<(usize, usize)> = cells.iter()
+            let pos1: Vec<(usize, usize)> = cells
+                .iter()
                 .filter(|&&(r, c)| cands.has(r, c, d1))
-                .cloned().collect();
-            if pos1.len() != 2 { continue; }
+                .cloned()
+                .collect();
+            if pos1.len() != 2 {
+                continue;
+            }
             for d2 in (d1 + 1)..=9 {
-                let pos2: Vec<(usize, usize)> = cells.iter()
+                let pos2: Vec<(usize, usize)> = cells
+                    .iter()
                     .filter(|&&(r, c)| cands.has(r, c, d2))
-                    .cloned().collect();
+                    .cloned()
+                    .collect();
                 if pos2 == pos1 {
                     for &(r, c) in &pos1 {
                         for d in 1u8..=9 {
@@ -58,8 +64,9 @@ mod tests {
     #[test]
     fn no_panic_no_false_positives() {
         let grid = Grid::from_str(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-        ).unwrap();
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        )
+        .unwrap();
         let cands = CandidateGrid::from_grid(&grid);
         let elims = find_hidden_pairs(&cands);
         for e in &elims {

@@ -1,8 +1,8 @@
 // src/hint/mod.rs
 pub mod strategies;
 
-use crate::puzzle::{CellKind, Grid};
 use crate::puzzle::game_state::GameState;
+use crate::puzzle::{CellKind, Grid};
 
 // ── Hint ──────────────────────────────────────────────────────────────────────
 
@@ -11,23 +11,23 @@ use crate::puzzle::game_state::GameState;
 #[derive(Debug, Clone)]
 pub struct Hint {
     /// Cells explaining WHY the hint works — green/cyan border.
-    pub cause_cells:     Vec<(usize, usize)>,
+    pub cause_cells: Vec<(usize, usize)>,
     /// Cells where a candidate can be eliminated — red/magenta border.
-    pub elim_cells:      Vec<(usize, usize)>,
+    pub elim_cells: Vec<(usize, usize)>,
     /// The cell where the player should act — blinking yellow background.
-    pub target_cell:     (usize, usize),
+    pub target_cell: (usize, usize),
     /// Digit being eliminated (used in explanation text placeholders).
-    pub elim_digit:      Option<u8>,
+    pub elim_digit: Option<u8>,
     /// Digit that goes into the target cell.
-    pub target_digit:    Option<u8>,
+    pub target_digit: Option<u8>,
     /// Pre-formatted English explanation.
-    pub explanation_en:  String,
+    pub explanation_en: String,
     /// Pre-formatted German explanation.
-    pub explanation_de:  String,
+    pub explanation_de: String,
     /// Strategy name in English (for panel header).
-    pub name_en:         &'static str,
+    pub name_en: &'static str,
     /// Strategy name in German.
-    pub name_de:         &'static str,
+    pub name_de: &'static str,
 }
 
 // ── Strategy trait ────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ pub fn find_hint(state: &GameState, solution: &Grid) -> Option<Hint> {
         &NakedSingle,
         &HiddenSingle,
         &NotesHint,
-        &NotesValidator,  // must come before note-dependent strategies
+        &NotesValidator, // must come before note-dependent strategies
         &NakedPairs,
         &HiddenPairs,
         &PointingPairs,
@@ -108,9 +108,7 @@ pub fn most_constrained_cell(state: &GameState) -> Option<(usize, usize)> {
 pub fn all_empty_have_notes(state: &GameState) -> bool {
     for r in 0..9 {
         for c in 0..9 {
-            if matches!(state.grid().get(r, c), CellKind::Empty)
-                && state.notes_mask(r, c) == 0
-            {
+            if matches!(state.grid().get(r, c), CellKind::Empty) && state.notes_mask(r, c) == 0 {
                 return false;
             }
         }

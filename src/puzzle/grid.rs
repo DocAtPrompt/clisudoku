@@ -14,8 +14,12 @@ impl CellKind {
             CellKind::Given(v) | CellKind::Filled(v) => Some(v),
         }
     }
-    pub fn is_empty(self) -> bool { matches!(self, CellKind::Empty) }
-    pub fn is_given(self) -> bool { matches!(self, CellKind::Given(_)) }
+    pub fn is_empty(self) -> bool {
+        matches!(self, CellKind::Empty)
+    }
+    pub fn is_given(self) -> bool {
+        matches!(self, CellKind::Given(_))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,7 +30,9 @@ pub struct Grid {
 
 impl Grid {
     pub fn empty() -> Self {
-        Self { cells: [CellKind::Empty; 81] }
+        Self {
+            cells: [CellKind::Empty; 81],
+        }
     }
 
     pub fn from_str(s: &str) -> Result<Self, String> {
@@ -42,7 +48,11 @@ impl Grid {
         digits.resize(81, 0);
         let mut cells = [CellKind::Empty; 81];
         for (i, &v) in digits.iter().enumerate() {
-            cells[i] = if v == 0 { CellKind::Empty } else { CellKind::Given(v) };
+            cells[i] = if v == 0 {
+                CellKind::Empty
+            } else {
+                CellKind::Given(v)
+            };
         }
         Ok(Self { cells })
     }
@@ -58,7 +68,9 @@ impl Grid {
     }
 
     #[inline]
-    fn idx(row: usize, col: usize) -> usize { row * 9 + col }
+    fn idx(row: usize, col: usize) -> usize {
+        row * 9 + col
+    }
 
     pub fn get(&self, row: usize, col: usize) -> CellKind {
         self.cells[Self::idx(row, col)]
@@ -90,7 +102,9 @@ impl Grid {
         std::array::from_fn(|i| self.get(br + i / 3, bc + i % 3))
     }
 
-    pub fn box_idx(row: usize, col: usize) -> usize { (row / 3) * 3 + col / 3 }
+    pub fn box_idx(row: usize, col: usize) -> usize {
+        (row / 3) * 3 + col / 3
+    }
 
     pub fn box_start(box_idx: usize) -> (usize, usize) {
         ((box_idx / 3) * 3, (box_idx % 3) * 3)
@@ -99,11 +113,15 @@ impl Grid {
     pub fn is_solved(&self) -> bool {
         let valid = |cells: [CellKind; 9]| -> bool {
             let vals: Vec<u8> = cells.iter().filter_map(|c| c.value()).collect();
-            if vals.len() != 9 { return false; }
+            if vals.len() != 9 {
+                return false;
+            }
             let mut seen = 0u16;
             for v in vals {
                 let bit = 1u16 << v;
-                if seen & bit != 0 { return false; }
+                if seen & bit != 0 {
+                    return false;
+                }
                 seen |= bit;
             }
             true
@@ -116,8 +134,10 @@ impl Grid {
 mod tests {
     use super::*;
 
-    const EASY: &str = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
-    const EASY_SOL: &str = "534678912672195348198342567859761423426853791713924856961537284287419635345286179";
+    const EASY: &str =
+        "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+    const EASY_SOL: &str =
+        "534678912672195348198342567859761423426853791713924856961537284287419635345286179";
 
     #[test]
     fn from_str_round_trip() {

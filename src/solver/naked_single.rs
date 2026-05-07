@@ -8,7 +8,9 @@ pub fn find_naked_singles(grid: &Grid, cands: &CandidateGrid) -> Vec<SolveStep> 
             if grid.get(r, c).is_empty() && cands.count(r, c) == 1 {
                 let digit = cands.digits(r, c)[0];
                 steps.push(SolveStep {
-                    row: r, col: c, digit,
+                    row: r,
+                    col: c,
+                    digit,
                     strategy: Strategy::NakedSingle,
                     source_cells: vec![],
                 });
@@ -27,8 +29,9 @@ mod tests {
     #[test]
     fn finds_naked_single() {
         let mut grid = Grid::from_str(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-        ).unwrap();
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        )
+        .unwrap();
         // Place all of row 0 except (0,5): solution is 5,3,4,6,7,8,9,1,2
         grid.set_filled(0, 2, 4);
         grid.set_filled(0, 3, 6);
@@ -47,8 +50,9 @@ mod tests {
     #[test]
     fn no_panic_on_fresh_puzzle() {
         let grid = Grid::from_str(
-            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
-        ).unwrap();
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079",
+        )
+        .unwrap();
         let cands = CandidateGrid::from_grid(&grid);
         let steps = find_naked_singles(&grid, &cands);
         for s in &steps {

@@ -23,7 +23,8 @@ fn render_title(
     colors: &ColorScheme,
 ) -> io::Result<()> {
     for (i, line) in TITLE.lines().enumerate() {
-        queue!(out,
+        queue!(
+            out,
             MoveTo(col_off, row_off + i as u16),
             SetForegroundColor(colors.digit_given),
             SetBackgroundColor(colors.ui_background),
@@ -46,7 +47,8 @@ fn render_menu_items(
         } else {
             (colors.ui_text, colors.ui_background)
         };
-        queue!(out,
+        queue!(
+            out,
             MoveTo(col_off + 2, row_off + i as u16 * 2),
             SetForegroundColor(fg),
             SetBackgroundColor(bg),
@@ -65,7 +67,12 @@ pub fn render_start(
     colors: &ColorScheme,
 ) -> io::Result<()> {
     render_title(out, (row_off, col_off), colors)?;
-    let items = [strings.menu_new_game, strings.menu_language, strings.menu_theme, strings.menu_quit];
+    let items = [
+        strings.menu_new_game,
+        strings.menu_language,
+        strings.menu_theme,
+        strings.menu_quit,
+    ];
     let menu_row = row_off + 7; // 5 title lines + 2 blank rows
     render_menu_items(out, (menu_row, col_off), &items, selected, colors)
 }
@@ -85,7 +92,8 @@ pub fn render_difficulty(
     colors: &ColorScheme,
 ) -> io::Result<()> {
     // ── Title ────────────────────────────────────────────────────────────────
-    queue!(out,
+    queue!(
+        out,
         MoveTo(col_off, row_off),
         SetForegroundColor(colors.ui_text),
         SetBackgroundColor(colors.ui_background),
@@ -112,7 +120,8 @@ pub fn render_difficulty(
         } else {
             (colors.ui_text, colors.ui_background)
         };
-        queue!(out,
+        queue!(
+            out,
             MoveTo(col_off + 2, row_off + 2 + i as u16 * 2),
             SetForegroundColor(fg),
             SetBackgroundColor(bg),
@@ -124,7 +133,8 @@ pub fn render_difficulty(
     let sym_col = col_off + 18;
     let sym_row = row_off + 2; // aligned with first item; label + toggle fit in 2 rows
 
-    queue!(out,
+    queue!(
+        out,
         MoveTo(sym_col, sym_row),
         SetForegroundColor(colors.ui_text_dim),
         SetBackgroundColor(colors.ui_background),
@@ -138,11 +148,19 @@ pub fn render_difficulty(
     };
     // Pad to the longer of the two toggle values so width stays constant when
     // the user toggles (e.g. "on"/"off" → width 3, "ndiyo"/"hapana" → width 6).
-    let max_len = strings.toggle_on.chars().count()
+    let max_len = strings
+        .toggle_on
+        .chars()
+        .count()
         .max(strings.toggle_off.chars().count());
-    let val = if symmetry { strings.toggle_on } else { strings.toggle_off };
+    let val = if symmetry {
+        strings.toggle_on
+    } else {
+        strings.toggle_off
+    };
     let toggle_label = format!("[ {:width$} ]", val, width = max_len);
-    queue!(out,
+    queue!(
+        out,
         MoveTo(sym_col, sym_row + 1),
         SetForegroundColor(toggle_fg),
         SetBackgroundColor(toggle_bg),
@@ -159,13 +177,20 @@ pub fn render_language(
     strings: &'static Strings,
     colors: &ColorScheme,
 ) -> io::Result<()> {
-    queue!(out,
+    queue!(
+        out,
         MoveTo(col_off, row_off),
         SetForegroundColor(colors.ui_text),
         SetBackgroundColor(colors.ui_background),
         Print(strings.language_title)
     )?;
-    render_menu_items(out, (row_off + 2, col_off), LANGUAGE_NAMES, selected, colors)
+    render_menu_items(
+        out,
+        (row_off + 2, col_off),
+        LANGUAGE_NAMES,
+        selected,
+        colors,
+    )
 }
 
 /// Render the theme selection sub-menu.
@@ -176,7 +201,8 @@ pub fn render_theme(
     strings: &'static Strings,
     colors: &ColorScheme,
 ) -> io::Result<()> {
-    queue!(out,
+    queue!(
+        out,
         MoveTo(col_off, row_off),
         SetForegroundColor(colors.ui_text),
         SetBackgroundColor(colors.ui_background),
@@ -203,7 +229,16 @@ mod tests {
     #[test]
     fn difficulty_screen_render_does_not_panic() {
         let mut buf = Vec::new();
-        render_difficulty(&mut buf, (0, 0), 0, false, true, &EN, &ColorScheme::default()).unwrap();
+        render_difficulty(
+            &mut buf,
+            (0, 0),
+            0,
+            false,
+            true,
+            &EN,
+            &ColorScheme::default(),
+        )
+        .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("Easy"));
         assert!(s.contains("Medium"));
@@ -213,7 +248,16 @@ mod tests {
     #[test]
     fn difficulty_screen_shows_designer_option() {
         let mut buf = Vec::new();
-        render_difficulty(&mut buf, (0, 0), 4, false, true, &EN, &ColorScheme::default()).unwrap();  // was 3
+        render_difficulty(
+            &mut buf,
+            (0, 0),
+            4,
+            false,
+            true,
+            &EN,
+            &ColorScheme::default(),
+        )
+        .unwrap(); // was 3
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("Designer"), "Expected Designer option");
     }
@@ -221,21 +265,51 @@ mod tests {
     #[test]
     fn difficulty_screen_shows_extreme_option() {
         let mut buf = Vec::new();
-        render_difficulty(&mut buf, (0, 0), 3, false, true, &EN, &ColorScheme::default()).unwrap();
+        render_difficulty(
+            &mut buf,
+            (0, 0),
+            3,
+            false,
+            true,
+            &EN,
+            &ColorScheme::default(),
+        )
+        .unwrap();
         let s = String::from_utf8_lossy(&buf);
-        assert!(s.contains("Extreme"), "Expected Extreme option in difficulty screen");
+        assert!(
+            s.contains("Extreme"),
+            "Expected Extreme option in difficulty screen"
+        );
     }
 
     #[test]
     fn difficulty_screen_shows_symmetry_toggle() {
         let mut buf = Vec::new();
-        render_difficulty(&mut buf, (0, 0), 1, false, true, &EN, &ColorScheme::default()).unwrap();
+        render_difficulty(
+            &mut buf,
+            (0, 0),
+            1,
+            false,
+            true,
+            &EN,
+            &ColorScheme::default(),
+        )
+        .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("Symmetry"));
         assert!(s.contains("[ on")); // fixed-width: "[ on     ]"
 
         buf.clear();
-        render_difficulty(&mut buf, (0, 0), 1, true, false, &EN, &ColorScheme::default()).unwrap();
+        render_difficulty(
+            &mut buf,
+            (0, 0),
+            1,
+            true,
+            false,
+            &EN,
+            &ColorScheme::default(),
+        )
+        .unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("[ off"));
     }
