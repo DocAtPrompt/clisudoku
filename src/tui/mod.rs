@@ -625,6 +625,7 @@ impl App {
                 self.boss_mode = true;
                 self.needs_clear = true;
             }
+            AppAction::ToggleHelp => self.toggle_help(),
             AppAction::MoveUp => self.move_cursor(-1, 0),
             AppAction::MoveDown => self.move_cursor(1, 0),
             AppAction::MoveLeft => self.move_cursor(0, -1),
