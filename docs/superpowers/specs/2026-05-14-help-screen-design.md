@@ -380,7 +380,7 @@ All 13 project languages provided: EN, DE, ES, IT, FR, SL, EO, TP, LEET, SW, AF,
 | `help_close_hint` | `◄ ►  menjaj razdelek   ?  zapri` |
 | `help_group_navigation` | `Pomikanje` |
 | `help_group_quick_nav` | `Hitro pomikanje` |
-| `help_quick_nav_body` | `Pritisni Enter za izbiro bloka,\npotom 1–9 za celico.` |
+| `help_quick_nav_body` | `Pritisni Enter za izbiro bloka,\npotem 1–9 za celico.` |
 | `help_group_input` | `Vnos` |
 | `help_group_functions` | `Funkcije` |
 | `help_group_rules` | `Pravila Sudokuja` |
