@@ -16,7 +16,7 @@ use crate::timer::Clock;
 use crate::tui::anim::{AnimState, FireworkAnim, SweepAnim};
 use crate::tui::colors::{ColorScheme, Theme};
 use crate::tui::digit_style::{AwkwardRetroStyle, DigitStyle, RetroStyle};
-use crate::tui::input::{map_key_to_action, AppAction, NavMode, NavState};
+use crate::tui::input::{map_key_to_action, AppAction, KeyMap, NavMode, NavState};
 use crate::tui::render::start_screen::START_ITEM_COUNT;
 use crate::tui::render::{box_cells, box_cells_serpentine, col_cells, row_cells};
 use crate::tui::render::{render_frame, render_info_overlay, Screen};
@@ -47,6 +47,7 @@ pub enum AppScreen {
     Game,
     PatternSelect { selected: usize },
     Generating(crate::tui::generating::GeneratingState),
+    Help { section: usize },
 }
 
 /// Pending confirmation action.
@@ -90,6 +91,9 @@ pub struct App {
     pub theme: Theme,
     /// Whether newly generated puzzles should have 180° rotational symmetry.
     pub symmetry: bool,
+    /// Index into the difficulty list used as initial selection when opening
+    /// the DifficultySelect screen. 0=Easy, 1=Medium, 2=Hard, 3=Extreme, 4=Expert.
+    pub default_difficulty_index: usize,
     pub game_state: Option<GameState>,
     pub cursor: (usize, usize),
     pub nav_state: NavState,
@@ -141,6 +145,7 @@ pub struct App {
     pub mouse_mode: bool,
     /// Grid cell currently under the mouse cursor; `None` when not hovering a cell.
     pub hover_cell: Option<(usize, usize)>,
+    pub key_map: KeyMap,
 }
 
 impl App {
@@ -150,6 +155,7 @@ impl App {
             language: Language::detect(),
             theme: Theme::Dark,
             symmetry: true,
+            default_difficulty_index: 0,
             game_state: None,
             cursor: (0, 0),
             nav_state: NavState::default(),
@@ -179,6 +185,7 @@ impl App {
             drain_input: false,
             mouse_mode: false,
             hover_cell: None,
+            key_map: KeyMap::default(),
         }
     }
 
@@ -259,6 +266,10 @@ impl App {
                 self.handle_pattern_action(action, s);
             }
             AppScreen::Generating(_) => self.handle_generating_action(action),
+            AppScreen::Help { section } => {
+                let s = *section;
+                self.handle_help_action(action, s);
+            }
         }
     }
 
@@ -277,7 +288,7 @@ impl App {
             AppAction::Enter => match selected {
                 0 => {
                     self.screen = AppScreen::DifficultySelect {
-                        selected: 0,
+                        selected: self.default_difficulty_index,
                         sym_focused: false,
                     };
                     self.needs_clear = true;
@@ -472,6 +483,23 @@ impl App {
         }
     }
 
+    fn handle_help_action(&mut self, action: AppAction, section: usize) {
+        match action {
+            AppAction::ToggleHelp | AppAction::Back => self.toggle_help(),
+            AppAction::MoveLeft => {
+                self.screen = AppScreen::Help {
+                    section: if section == 0 { 2 } else { section - 1 },
+                };
+            }
+            AppAction::MoveRight => {
+                self.screen = AppScreen::Help {
+                    section: (section + 1) % 3,
+                };
+            }
+            _ => {}
+        }
+    }
+
     fn handle_generating_action(&mut self, action: AppAction) {
         if matches!(action, AppAction::Back) {
             let (bare_minimum, expert, from_cli, pat_selected) =
@@ -597,6 +625,7 @@ impl App {
                 self.boss_mode = true;
                 self.needs_clear = true;
             }
+            AppAction::ToggleHelp => self.toggle_help(),
             AppAction::MoveUp => self.move_cursor(-1, 0),
             AppAction::MoveDown => self.move_cursor(1, 0),
             AppAction::MoveLeft => self.move_cursor(0, -1),
@@ -908,6 +937,31 @@ impl App {
         self.cursor = (new_r, new_c);
         self.nav_state.mode = NavMode::Input;
         self.nav_state.box_idx = None;
+    }
+
+    pub fn set_digit_style_retro(&mut self) {
+        self.style = Box::new(RetroStyle);
+        self.awkward_style = false;
+    }
+
+    pub fn set_digit_style_awkward(&mut self) {
+        self.style = Box::new(AwkwardRetroStyle);
+        self.awkward_style = true;
+    }
+
+    // ── Help screen toggle ────────────────────────────────────────────────────
+
+    fn toggle_help(&mut self) {
+        if matches!(self.screen, AppScreen::Help { .. }) {
+            self.screen = if self.game_state.is_some() {
+                AppScreen::Game
+            } else {
+                AppScreen::Start { selected: 0 }
+            };
+        } else if matches!(self.screen, AppScreen::Start { .. } | AppScreen::Game) {
+            self.screen = AppScreen::Help { section: 0 };
+        }
+        self.needs_clear = true;
     }
 
     // ── Digit style toggle ────────────────────────────────────────────────────
@@ -1294,6 +1348,13 @@ impl App {
                         if key.kind == crossterm::event::KeyEventKind::Press
                             || key.kind == crossterm::event::KeyEventKind::Repeat =>
                     {
+                        // `?` opens/closes help regardless of hint/overlay state.
+                        if key.code == crossterm::event::KeyCode::Char('?') {
+                            self.toggle_help();
+                            needs_render = true;
+                            continue;
+                        }
+
                         // Active hint: any key dismisses it (key is consumed, not forwarded).
                         if self.active_hint.is_some() {
                             self.active_hint = None;
@@ -1332,7 +1393,7 @@ impl App {
                             if key.code == crossterm::event::KeyCode::Char('#') {
                                 self.toggle_digit_style();
                             } else {
-                                let action = map_key_to_action(key, &self.nav_state);
+                                let action = map_key_to_action(key, &self.nav_state, &self.key_map);
                                 self.handle_action(action);
                             }
                         }
@@ -1524,6 +1585,14 @@ impl App {
                     self.style.as_ref(),
                     strings,
                 )
+            }
+            AppScreen::Help { section } => {
+                return crate::tui::render::help::render_help(
+                    out,
+                    *section,
+                    &self.colors,
+                    strings,
+                );
             }
             AppScreen::Game => {
                 if let Some(state) = &self.game_state {
@@ -1935,5 +2004,11 @@ mod tests {
             app.screen,
             AppScreen::DifficultySelect { selected: 4, sym_focused: false }
         ));
+    }
+
+    #[test]
+    fn default_difficulty_index_is_zero() {
+        let app = App::new(Box::new(FakeClock { ms: 0 }));
+        assert_eq!(app.default_difficulty_index, 0);
     }
 }
