@@ -1,5 +1,6 @@
 // src/tui/render/mod.rs
 pub mod boss;
+pub mod help;
 pub mod cell;
 pub mod confirm;
 pub mod firework;

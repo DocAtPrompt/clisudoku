@@ -47,6 +47,7 @@ pub enum AppScreen {
     Game,
     PatternSelect { selected: usize },
     Generating(crate::tui::generating::GeneratingState),
+    Help { section: usize },
 }
 
 /// Pending confirmation action.
@@ -265,6 +266,10 @@ impl App {
                 self.handle_pattern_action(action, s);
             }
             AppScreen::Generating(_) => self.handle_generating_action(action),
+            AppScreen::Help { section } => {
+                let s = *section;
+                self.handle_help_action(action, s);
+            }
         }
     }
 
@@ -473,6 +478,23 @@ impl App {
                     sym_focused: false,
                 };
                 self.needs_clear = true;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_help_action(&mut self, action: AppAction, section: usize) {
+        match action {
+            AppAction::ToggleHelp | AppAction::Back => self.toggle_help(),
+            AppAction::MoveLeft => {
+                self.screen = AppScreen::Help {
+                    section: if section == 0 { 2 } else { section - 1 },
+                };
+            }
+            AppAction::MoveRight => {
+                self.screen = AppScreen::Help {
+                    section: (section + 1) % 3,
+                };
             }
             _ => {}
         }
@@ -926,6 +948,21 @@ impl App {
         self.awkward_style = true;
     }
 
+    // ── Help screen toggle ────────────────────────────────────────────────────
+
+    fn toggle_help(&mut self) {
+        if matches!(self.screen, AppScreen::Help { .. }) {
+            self.screen = if self.game_state.is_some() {
+                AppScreen::Game
+            } else {
+                AppScreen::Start { selected: 0 }
+            };
+        } else if matches!(self.screen, AppScreen::Start { .. } | AppScreen::Game) {
+            self.screen = AppScreen::Help { section: 0 };
+        }
+        self.needs_clear = true;
+    }
+
     // ── Digit style toggle ────────────────────────────────────────────────────
 
     fn toggle_digit_style(&mut self) {
@@ -1310,6 +1347,13 @@ impl App {
                         if key.kind == crossterm::event::KeyEventKind::Press
                             || key.kind == crossterm::event::KeyEventKind::Repeat =>
                     {
+                        // `?` opens/closes help regardless of hint/overlay state.
+                        if key.code == crossterm::event::KeyCode::Char('?') {
+                            self.toggle_help();
+                            needs_render = true;
+                            continue;
+                        }
+
                         // Active hint: any key dismisses it (key is consumed, not forwarded).
                         if self.active_hint.is_some() {
                             self.active_hint = None;
@@ -1540,6 +1584,14 @@ impl App {
                     self.style.as_ref(),
                     strings,
                 )
+            }
+            AppScreen::Help { section } => {
+                return crate::tui::render::help::render_help(
+                    out,
+                    *section,
+                    &self.colors,
+                    strings,
+                );
             }
             AppScreen::Game => {
                 if let Some(state) = &self.game_state {
