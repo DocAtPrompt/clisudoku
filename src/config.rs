@@ -109,8 +109,7 @@ pub fn load(explicit_path: Option<&Path>) -> Result<Config, String> {
 }
 
 impl Config {
-    /// Apply this config to `app`. Returns Err with a human-readable message
-    /// on the first invalid value found.
+    /// Apply config values to `app`; returns Err on the first invalid value.
     pub fn apply_to(&self, app: &mut App) -> Result<(), String> {
         if let Some(ref t) = self.appearance.theme {
             app.theme = Theme::from_code(t)
