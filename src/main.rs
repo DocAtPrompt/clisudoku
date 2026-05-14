@@ -22,7 +22,7 @@ struct Cli {
     puzzle_file: Option<PathBuf>,
 
     /// Generate a puzzle from a custom cell pattern (81 chars: 1/* = given, ./0 = empty).
-    #[arg(long, value_name = "81CHARS")]
+    #[arg(short = 'p', long, value_name = "81CHARS")]
     pattern: Option<String>,
 
     /// Color theme. Valid: dark (default), light, high-contrast

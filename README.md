@@ -53,7 +53,7 @@ clisudoku [OPTIONS]
 Options:
   -s <PUZZLE>         Load puzzle from 81-char string (1-9 = given, 0/. = empty)
   -f <FILE>           Load puzzle from text file (same format as -s)
-  --pattern <81C>     Generate puzzle from a custom cell-pattern mask
+  -p, --pattern <81C> Generate puzzle from a custom cell-pattern mask
   -t <NAME>           Colour theme: dark (default) | light | high-contrast
   -l <CODE>           Language: en de es it fr sl eo tp leet sw af py id
   --difficulty <L>    Starting difficulty: easy medium hard extreme expert
@@ -68,7 +68,7 @@ Options:
 clisudoku -s 530070000600195000098000060800060003400803001700020006060000280000419005000080079
 
 # Generate a puzzle using a custom cell pattern (1/* = given position, ./0 = empty)
-clisudoku --pattern "1000100010001000100010001000100010001000100010001000100010001000100010001000100010001"
+clisudoku -p "1000100010001000100010001000100010001000100010001000100010001000100010001000100010001"
 
 # Light theme, German interface
 clisudoku -t light -l de
