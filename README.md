@@ -75,6 +75,9 @@ clisudoku -t light -l de
 
 # High-contrast theme, start on Hard
 clisudoku -t high-contrast --difficulty hard
+
+# Use a config file from a custom path
+clisudoku --config ~/dotfiles/clisudoku.toml
 ```
 
 ## Controls
