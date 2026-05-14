@@ -67,6 +67,9 @@ Options:
 # Start with a specific puzzle
 clisudoku -s 530070000600195000098000060800060003400803001700020006060000280000419005000080079
 
+# Generate a puzzle using a custom cell pattern (1/* = given position, ./0 = empty)
+clisudoku --pattern "1000100010001000100010001000100010001000100010001000100010001000100010001000100010001"
+
 # Light theme, German interface
 clisudoku -t light -l de
 
@@ -118,7 +121,35 @@ digit_style = "retro"   # retro | awkward-retro
 [keys]
 hint = "h"
 pause = " "
+scan = "s"
+errors = "e"
+undo = "z"
+redo = "y"
+
+# Override individual colours (applied on top of the chosen theme).
+# Valid colour names: Black, DarkGrey, Red, DarkRed, Green, DarkGreen,
+#   Yellow, DarkYellow, Blue, DarkBlue, Magenta, DarkMagenta,
+#   Cyan, DarkCyan, White, Grey
+[colors]
+digit_user = "Cyan"           # colour for digits you entered
+digit_given = "White"         # colour for pre-filled (given) digits
+digit_error = "Red"           # colour for conflicting digits
+digit_scan = "Magenta"        # colour for passive-scan highlights
+ui_cursor_bg = "DarkBlue"     # cursor / selected-tab background
+cell_active_box_bg = "DarkBlue"   # same-box highlight background
+hint_cause_border = "Green"   # hint: cause cell border
+hint_elim_border = "Red"      # hint: elimination cell border
+hint_target_bg = "Yellow"     # hint: target cell background
 ```
+
+## Upcoming
+
+Features planned for future releases:
+
+- **Statistics & history** — persistent game database with solve times, difficulty breakdown, and streaks
+- **Network challenge** — play head-to-head against others on the same puzzle in real time
+- **X-Sudoku** — diagonal constraint variant (both main diagonals must also contain 1–9)
+- **Killer Sudoku** — cage constraints with sum targets instead of given digits
 
 ## License
 
