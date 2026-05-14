@@ -69,11 +69,42 @@ pub enum AppAction {
     None,
 }
 
+/// Remappable single-key bindings. All fields store the character that
+/// triggers the action (case-insensitive for letter keys).
+#[derive(Debug, Clone)]
+pub struct KeyMap {
+    pub hint: char,
+    pub pause: char,
+    pub scan: char,
+    pub errors: char,
+    pub note_mode: char,   // default '0'
+    pub clear: char,       // default '-'
+    pub undo: char,
+    pub redo: char,
+    pub mouse_toggle: char,
+}
+
+impl Default for KeyMap {
+    fn default() -> Self {
+        Self {
+            hint: 'h',
+            pause: ' ',
+            scan: 's',
+            errors: 'e',
+            note_mode: '0',
+            clear: '-',
+            undo: 'u',
+            redo: 'r',
+            mouse_toggle: 'm',
+        }
+    }
+}
+
 /// Map a raw key event to an `AppAction`.
 ///
 /// The mapping depends on `NavState` because numpad digits have different
 /// meanings depending on whether a box has already been selected.
-pub fn map_key_to_action(key: KeyEvent, nav: &NavState) -> AppAction {
+pub fn map_key_to_action(key: KeyEvent, nav: &NavState, km: &KeyMap) -> AppAction {
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
     match key.code {
@@ -85,34 +116,40 @@ pub fn map_key_to_action(key: KeyEvent, nav: &NavState) -> AppAction {
         KeyCode::Enter => AppAction::Enter,
         KeyCode::Esc => AppAction::Back,
 
-        KeyCode::Char(' ') => AppAction::Pause,
-        KeyCode::Char('b') | KeyCode::Char('B') if !ctrl => AppAction::BossKey,
-        KeyCode::Char('m') | KeyCode::Char('M') if !ctrl => AppAction::ToggleMouseMode,
-        KeyCode::Char('s') | KeyCode::Char('S') if !ctrl => AppAction::ToggleScan,
-        KeyCode::Char('e') | KeyCode::Char('E') if !ctrl => AppAction::ToggleErrors,
-        KeyCode::Char('h') | KeyCode::Char('H') if !ctrl => AppAction::RequestHint,
-        KeyCode::Char('-') => AppAction::ClearCell,
-        KeyCode::Char('0') => AppAction::ToggleMode,
-
-        KeyCode::Char('u') if !ctrl => AppAction::Undo,
+        // Ctrl combos — not remappable
         KeyCode::Char('z') if ctrl => AppAction::Undo,
-        KeyCode::Char('r') if !ctrl => AppAction::Redo,
         KeyCode::Char('y') if ctrl => AppAction::Redo,
 
-        KeyCode::Char('y') | KeyCode::Char('Y') if !ctrl => AppAction::ConfirmYes,
-        KeyCode::Char('n') | KeyCode::Char('N') if !ctrl => AppAction::ConfirmNo,
+        KeyCode::Char(c) if !ctrl => {
+            let lc = c.to_ascii_lowercase();
+            if lc == km.hint.to_ascii_lowercase()         { return AppAction::RequestHint; }
+            if c == km.pause                              { return AppAction::Pause; }
+            if lc == km.scan.to_ascii_lowercase()         { return AppAction::ToggleScan; }
+            if lc == km.errors.to_ascii_lowercase()       { return AppAction::ToggleErrors; }
+            if c == km.note_mode                          { return AppAction::ToggleMode; }
+            if c == km.clear                              { return AppAction::ClearCell; }
+            if lc == km.undo.to_ascii_lowercase()         { return AppAction::Undo; }
+            if lc == km.redo.to_ascii_lowercase()         { return AppAction::Redo; }
+            if lc == km.mouse_toggle.to_ascii_lowercase() { return AppAction::ToggleMouseMode; }
 
-        KeyCode::Char(c @ '1'..='9') => {
-            let idx = (c as u8 - b'1') as usize; // 0-indexed (1→0, …, 9→8)
-            match nav.mode {
-                NavMode::Input => AppAction::Digit(c as u8 - b'0'),
-                NavMode::Navigation => {
-                    if nav.box_idx.is_none() {
-                        AppAction::NumpadBox(idx)
-                    } else {
-                        AppAction::NumpadCell(idx)
+            match c {
+                'b' | 'B' => AppAction::BossKey,
+                'y' | 'Y' => AppAction::ConfirmYes,
+                'n' | 'N' => AppAction::ConfirmNo,
+                c if c.is_ascii_digit() && c != '0' => {
+                    let idx = (c as u8 - b'1') as usize;
+                    match nav.mode {
+                        NavMode::Input => AppAction::Digit(c as u8 - b'0'),
+                        NavMode::Navigation => {
+                            if nav.box_idx.is_none() {
+                                AppAction::NumpadBox(idx)
+                            } else {
+                                AppAction::NumpadCell(idx)
+                            }
+                        }
                     }
                 }
+                _ => AppAction::None,
             }
         }
 
@@ -235,19 +272,19 @@ mod tests {
     #[test]
     fn arrow_keys_produce_move_actions() {
         assert_eq!(
-            map_key_to_action(key(KeyCode::Up), &NavState::default()),
+            map_key_to_action(key(KeyCode::Up), &NavState::default(), &KeyMap::default()),
             AppAction::MoveUp
         );
         assert_eq!(
-            map_key_to_action(key(KeyCode::Down), &NavState::default()),
+            map_key_to_action(key(KeyCode::Down), &NavState::default(), &KeyMap::default()),
             AppAction::MoveDown
         );
         assert_eq!(
-            map_key_to_action(key(KeyCode::Left), &NavState::default()),
+            map_key_to_action(key(KeyCode::Left), &NavState::default(), &KeyMap::default()),
             AppAction::MoveLeft
         );
         assert_eq!(
-            map_key_to_action(key(KeyCode::Right), &NavState::default()),
+            map_key_to_action(key(KeyCode::Right), &NavState::default(), &KeyMap::default()),
             AppAction::MoveRight
         );
     }
@@ -261,14 +298,14 @@ mod tests {
         };
         for d in 1u8..=9 {
             let code = KeyCode::Char(char::from(b'0' + d));
-            assert_eq!(map_key_to_action(key(code), &nav), AppAction::Digit(d));
+            assert_eq!(map_key_to_action(key(code), &nav, &KeyMap::default()), AppAction::Digit(d));
         }
     }
 
     #[test]
     fn zero_toggles_mode() {
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char('0')), &NavState::default()),
+            map_key_to_action(key(KeyCode::Char('0')), &NavState::default(), &KeyMap::default()),
             AppAction::ToggleMode
         );
     }
@@ -276,7 +313,7 @@ mod tests {
     #[test]
     fn minus_clears_cell() {
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char('-')), &NavState::default()),
+            map_key_to_action(key(KeyCode::Char('-')), &NavState::default(), &KeyMap::default()),
             AppAction::ClearCell
         );
     }
@@ -284,19 +321,19 @@ mod tests {
     #[test]
     fn undo_redo_keys() {
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char('u')), &NavState::default()),
+            map_key_to_action(key(KeyCode::Char('u')), &NavState::default(), &KeyMap::default()),
             AppAction::Undo
         );
         assert_eq!(
-            map_key_to_action(ctrl(KeyCode::Char('z')), &NavState::default()),
+            map_key_to_action(ctrl(KeyCode::Char('z')), &NavState::default(), &KeyMap::default()),
             AppAction::Undo
         );
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char('r')), &NavState::default()),
+            map_key_to_action(key(KeyCode::Char('r')), &NavState::default(), &KeyMap::default()),
             AppAction::Redo
         );
         assert_eq!(
-            map_key_to_action(ctrl(KeyCode::Char('y')), &NavState::default()),
+            map_key_to_action(ctrl(KeyCode::Char('y')), &NavState::default(), &KeyMap::default()),
             AppAction::Redo
         );
     }
@@ -304,7 +341,7 @@ mod tests {
     #[test]
     fn escape_goes_back() {
         assert_eq!(
-            map_key_to_action(key(KeyCode::Esc), &NavState::default()),
+            map_key_to_action(key(KeyCode::Esc), &NavState::default(), &KeyMap::default()),
             AppAction::Back
         );
     }
@@ -312,7 +349,7 @@ mod tests {
     #[test]
     fn space_pauses() {
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char(' ')), &NavState::default()),
+            map_key_to_action(key(KeyCode::Char(' ')), &NavState::default(), &KeyMap::default()),
             AppAction::Pause
         );
     }
@@ -324,7 +361,7 @@ mod tests {
             box_idx: None,
         };
         assert_eq!(
-            map_key_to_action(KeyEvent::new(KeyCode::Char('5'), KeyModifiers::NONE), &nav),
+            map_key_to_action(KeyEvent::new(KeyCode::Char('5'), KeyModifiers::NONE), &nav, &KeyMap::default()),
             AppAction::NumpadBox(4)
         );
     }
@@ -336,7 +373,7 @@ mod tests {
             box_idx: Some(4),
         };
         assert_eq!(
-            map_key_to_action(KeyEvent::new(KeyCode::Char('5'), KeyModifiers::NONE), &nav),
+            map_key_to_action(KeyEvent::new(KeyCode::Char('5'), KeyModifiers::NONE), &nav, &KeyMap::default()),
             AppAction::NumpadCell(4)
         );
     }
@@ -345,11 +382,11 @@ mod tests {
     fn h_key_maps_to_request_hint() {
         let nav = NavState::default();
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char('h')), &nav),
+            map_key_to_action(key(KeyCode::Char('h')), &nav, &KeyMap::default()),
             AppAction::RequestHint
         );
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char('H')), &nav),
+            map_key_to_action(key(KeyCode::Char('H')), &nav, &KeyMap::default()),
             AppAction::RequestHint
         );
     }
@@ -506,11 +543,11 @@ mod tests {
     fn m_key_maps_to_toggle_mouse_mode() {
         let nav = NavState::default();
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char('m')), &nav),
+            map_key_to_action(key(KeyCode::Char('m')), &nav, &KeyMap::default()),
             AppAction::ToggleMouseMode
         );
         assert_eq!(
-            map_key_to_action(key(KeyCode::Char('M')), &nav),
+            map_key_to_action(key(KeyCode::Char('M')), &nav, &KeyMap::default()),
             AppAction::ToggleMouseMode
         );
     }
@@ -569,5 +606,38 @@ mod tests {
             map_mouse_to_action(e, true),
             AppAction::MouseButton(MousePanelButton::NotesSolToggle)
         );
+    }
+}
+
+#[cfg(test)]
+mod keymap_tests {
+    use super::*;
+
+    #[test]
+    fn keymap_default_hint_is_h() {
+        assert_eq!(KeyMap::default().hint, 'h');
+    }
+
+    #[test]
+    fn keymap_default_pause_is_space() {
+        assert_eq!(KeyMap::default().pause, ' ');
+    }
+
+    #[test]
+    fn remapped_hint_fires_correct_action() {
+        let mut km = KeyMap::default();
+        km.hint = 'x';
+        let nav = NavState::default();
+        let key = KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE);
+        assert_eq!(map_key_to_action(key, &nav, &km), AppAction::RequestHint);
+    }
+
+    #[test]
+    fn remapped_hint_old_key_no_longer_fires() {
+        let mut km = KeyMap::default();
+        km.hint = 'x';
+        let nav = NavState::default();
+        let key = KeyEvent::new(KeyCode::Char('h'), KeyModifiers::NONE);
+        assert_eq!(map_key_to_action(key, &nav, &km), AppAction::None);
     }
 }

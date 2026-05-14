@@ -16,7 +16,7 @@ use crate::timer::Clock;
 use crate::tui::anim::{AnimState, FireworkAnim, SweepAnim};
 use crate::tui::colors::{ColorScheme, Theme};
 use crate::tui::digit_style::{AwkwardRetroStyle, DigitStyle, RetroStyle};
-use crate::tui::input::{map_key_to_action, AppAction, NavMode, NavState};
+use crate::tui::input::{map_key_to_action, AppAction, KeyMap, NavMode, NavState};
 use crate::tui::render::start_screen::START_ITEM_COUNT;
 use crate::tui::render::{box_cells, box_cells_serpentine, col_cells, row_cells};
 use crate::tui::render::{render_frame, render_info_overlay, Screen};
@@ -141,6 +141,7 @@ pub struct App {
     pub mouse_mode: bool,
     /// Grid cell currently under the mouse cursor; `None` when not hovering a cell.
     pub hover_cell: Option<(usize, usize)>,
+    pub key_map: KeyMap,
 }
 
 impl App {
@@ -179,6 +180,7 @@ impl App {
             drain_input: false,
             mouse_mode: false,
             hover_cell: None,
+            key_map: KeyMap::default(),
         }
     }
 
@@ -1332,7 +1334,7 @@ impl App {
                             if key.code == crossterm::event::KeyCode::Char('#') {
                                 self.toggle_digit_style();
                             } else {
-                                let action = map_key_to_action(key, &self.nav_state);
+                                let action = map_key_to_action(key, &self.nav_state, &self.key_map);
                                 self.handle_action(action);
                             }
                         }
