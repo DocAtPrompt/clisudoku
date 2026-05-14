@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use crossterm::style::Color;
 use serde::Deserialize;
+use crate::i18n::Language;
+use crate::tui::App;
+use crate::tui::colors::{ColorScheme, Theme};
+use crate::tui::input::KeyMap;
 
 // ── Serde structs ─────────────────────────────────────────────────────────────
 
@@ -104,6 +108,107 @@ pub fn load(explicit_path: Option<&Path>) -> Result<Config, String> {
         .map_err(|e| format!("Config file {} parse error: {}", path.display(), e))
 }
 
+impl Config {
+    /// Apply this config to `app`. Returns Err with a human-readable message
+    /// on the first invalid value found.
+    pub fn apply_to(&self, app: &mut App) -> Result<(), String> {
+        if let Some(ref t) = self.appearance.theme {
+            app.theme = Theme::from_code(t)
+                .ok_or_else(|| format!("Unknown theme '{}'. Valid: dark, light, high-contrast", t))?;
+            app.colors = ColorScheme::for_theme(app.theme);
+        }
+        if let Some(ref l) = self.appearance.language {
+            app.language = Language::from_code(l)
+                .ok_or_else(|| format!("Unknown language code '{}'", l))?;
+        }
+        if let Some(ref ds) = self.appearance.digit_style {
+            match ds.as_str() {
+                "retro"         => app.set_digit_style_retro(),
+                "awkward-retro" => app.set_digit_style_awkward(),
+                other => return Err(format!(
+                    "Unknown digit_style '{}'. Valid: retro, awkward-retro", other
+                )),
+            }
+        }
+        if let Some(ref d) = self.appearance.difficulty {
+            app.default_difficulty_index = parse_difficulty_index(d)?;
+        }
+
+        for (key, val) in &self.colors {
+            let color = parse_color(val)?;
+            apply_color_field(&mut app.colors, key, color)
+                .ok_or_else(|| format!("Unknown color key '{}' in [colors]", key))?;
+        }
+
+        for (action, key_str) in &self.keys {
+            let ch = parse_key(key_str)?;
+            apply_key_binding(&mut app.key_map, action, ch)
+                .ok_or_else(|| format!("Unknown key action '{}' in [keys]", action))?;
+        }
+
+        Ok(())
+    }
+}
+
+fn parse_difficulty_index(s: &str) -> Result<usize, String> {
+    match s {
+        "easy"    => Ok(0),
+        "medium"  => Ok(1),
+        "hard"    => Ok(2),
+        "extreme" => Ok(3),
+        "expert"  => Ok(4),
+        other => Err(format!(
+            "Unknown difficulty '{}'. Valid: easy, medium, hard, extreme, expert", other
+        )),
+    }
+}
+
+fn apply_color_field(cs: &mut ColorScheme, key: &str, color: Color) -> Option<()> {
+    match key {
+        "ui_background"        => cs.ui_background = color,
+        "grid_border"          => cs.grid_border = color,
+        "grid_box"             => cs.grid_box = color,
+        "grid_cell"            => cs.grid_cell = color,
+        "cell_normal_bg"       => cs.cell_normal_bg = color,
+        "cell_active_bg"       => cs.cell_active_bg = color,
+        "cell_active_box_bg"   => cs.cell_active_box_bg = color,
+        "cell_active_cross_bg" => cs.cell_active_cross_bg = color,
+        "digit_given"          => cs.digit_given = color,
+        "digit_user"           => cs.digit_user = color,
+        "digit_error"          => cs.digit_error = color,
+        "digit_highlight"      => cs.digit_highlight = color,
+        "note_normal"          => cs.note_normal = color,
+        "note_highlight"       => cs.note_highlight = color,
+        "digit_scan"           => cs.digit_scan = color,
+        "ui_text"              => cs.ui_text = color,
+        "ui_text_dim"          => cs.ui_text_dim = color,
+        "ui_cursor_bg"         => cs.ui_cursor_bg = color,
+        "ui_cursor_fg"         => cs.ui_cursor_fg = color,
+        "hint_cause_border"    => cs.hint_cause_border = color,
+        "hint_elim_border"     => cs.hint_elim_border = color,
+        "hint_target_bg"       => cs.hint_target_bg = color,
+        "hover_bg"             => cs.hover_bg = color,
+        _ => return None,
+    }
+    Some(())
+}
+
+fn apply_key_binding(km: &mut KeyMap, action: &str, ch: char) -> Option<()> {
+    match action {
+        "hint"         => km.hint = ch,
+        "pause"        => km.pause = ch,
+        "scan"         => km.scan = ch,
+        "errors"       => km.errors = ch,
+        "note_mode"    => km.note_mode = ch,
+        "clear"        => km.clear = ch,
+        "undo"         => km.undo = ch,
+        "redo"         => km.redo = ch,
+        "mouse_toggle" => km.mouse_toggle = ch,
+        _ => return None,
+    }
+    Some(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,5 +266,61 @@ mod tests {
         let tmp = std::path::Path::new("/tmp/clisudoku_nonexistent_test_config.toml");
         let cfg = load(Some(tmp)).unwrap();
         assert!(cfg.appearance.theme.is_none());
+    }
+
+    #[test]
+    fn apply_appearance_theme_overrides_app() {
+        use crate::tui::App;
+        use crate::tui::colors::Theme;
+        use crate::timer::FakeClock;
+
+        let mut cfg = Config::default();
+        cfg.appearance.theme = Some("light".to_string());
+
+        let mut app = App::new(Box::new(FakeClock { ms: 0 }));
+        cfg.apply_to(&mut app).unwrap();
+
+        assert_eq!(app.theme, Theme::Light);
+    }
+
+    #[test]
+    fn apply_color_override_changes_color_field() {
+        use crate::tui::App;
+        use crate::timer::FakeClock;
+        use crossterm::style::Color;
+
+        let mut cfg = Config::default();
+        cfg.colors.insert("digit_given".to_string(), "Cyan".to_string());
+
+        let mut app = App::new(Box::new(FakeClock { ms: 0 }));
+        cfg.apply_to(&mut app).unwrap();
+
+        assert_eq!(app.colors.digit_given, Color::Cyan);
+    }
+
+    #[test]
+    fn apply_invalid_color_returns_err() {
+        use crate::tui::App;
+        use crate::timer::FakeClock;
+
+        let mut cfg = Config::default();
+        cfg.colors.insert("digit_given".to_string(), "Turquoise".to_string());
+
+        let mut app = App::new(Box::new(FakeClock { ms: 0 }));
+        assert!(cfg.apply_to(&mut app).is_err());
+    }
+
+    #[test]
+    fn apply_key_override_changes_keymap() {
+        use crate::tui::App;
+        use crate::timer::FakeClock;
+
+        let mut cfg = Config::default();
+        cfg.keys.insert("hint".to_string(), "x".to_string());
+
+        let mut app = App::new(Box::new(FakeClock { ms: 0 }));
+        cfg.apply_to(&mut app).unwrap();
+
+        assert_eq!(app.key_map.hint, 'x');
     }
 }

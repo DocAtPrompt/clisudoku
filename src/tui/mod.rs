@@ -916,6 +916,16 @@ impl App {
         self.nav_state.box_idx = None;
     }
 
+    pub fn set_digit_style_retro(&mut self) {
+        self.style = Box::new(RetroStyle);
+        self.awkward_style = false;
+    }
+
+    pub fn set_digit_style_awkward(&mut self) {
+        self.style = Box::new(AwkwardRetroStyle);
+        self.awkward_style = true;
+    }
+
     // ── Digit style toggle ────────────────────────────────────────────────────
 
     fn toggle_digit_style(&mut self) {
