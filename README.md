@@ -95,7 +95,7 @@ clisudoku -t high-contrast --difficulty hard
 | `?` | Help screen (controls, rules, colour reference) |
 | `Q` / `Esc` | Quit / Back |
 
-Numpad navigation: press a numpad key to jump to a 3×3 box, then press again to pick the cell inside it.
+**Quick navigation:** press `Enter` + a numpad key to select a 3×3 box, then another numpad key to land on the exact cell — no arrow-key hammering needed.
 
 ## Difficulty levels
 
