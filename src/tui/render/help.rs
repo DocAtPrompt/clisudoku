@@ -156,9 +156,8 @@ fn render_controls_lines(strings: &Strings) -> Vec<String> {
     let mut v: Vec<String> = Vec::new();
     v.push(String::new());
     push_group(&mut v, strings.help_group_navigation);
-    v.push(format!("  \u{2191}\u{2193}\u{2190}\u{2192}     move cursor"));
-    v.push(format!("  Enter     select box (numpad mode)"));
-    v.push(format!("  1\u{2013}9       select cell within box"));
+    v.push(strings.ctrl_move.to_string());
+    v.push(strings.ctrl_goto.to_string());
     v.push(String::new());
     push_group(&mut v, strings.help_group_quick_nav);
     for line in strings.help_quick_nav_body.split('\n') {
@@ -166,16 +165,21 @@ fn render_controls_lines(strings: &Strings) -> Vec<String> {
     }
     v.push(String::new());
     push_group(&mut v, strings.help_group_input);
-    v.push(format!("  1\u{2013}9       enter digit"));
-    v.push(format!("  0         toggle note mode"));
-    v.push(format!("  -         clear cell"));
-    v.push(format!("  u / r     undo / redo"));
+    v.push(strings.ctrl_digit.to_string());
+    v.push(strings.ctrl_mode.to_string());
+    v.push(strings.ctrl_clear.to_string());
+    v.push(strings.ctrl_undo.to_string());
+    v.push(strings.ctrl_redo.to_string());
     v.push(String::new());
     push_group(&mut v, strings.help_group_functions);
-    v.push(format!("  h  hint            s  scan mode"));
-    v.push(format!("  e  show errors     Space  pause"));
-    v.push(format!("  m  mouse toggle    b  boss key"));
-    v.push(format!("  Esc  quit to start    ?  this screen"));
+    v.push(strings.ctrl_hint.to_string());
+    v.push(strings.ctrl_scan.to_string());
+    v.push(strings.ctrl_errors.to_string());
+    v.push(strings.ctrl_pause.to_string());
+    v.push(strings.ctrl_mouse.to_string());
+    v.push(strings.ctrl_boss.to_string());
+    v.push(strings.ctrl_quit.to_string());
+    v.push(strings.ctrl_help.to_string());
     v.push(String::new());
     v
 }
@@ -215,9 +219,9 @@ fn render_colors_section(
     start_row: u16,
     available: usize,
 ) -> io::Result<()> {
-    // 11 swatches rendered in pairs (2 per row).
-    // Each entry: (swatch_fg, swatch_bg, swatch_char, label)
-    let swatches: &[(Color, Color, char, &str)] = &[
+    // Cell/digit swatches (pairs), then blank line, then hint swatches (one per row).
+    type Swatch<'a> = (Color, Color, char, &'a str);
+    let cell: &[Swatch] = &[
         (colors.digit_given,        colors.cell_normal_bg,       '\u{2588}', strings.help_color_given),
         (colors.digit_user,         colors.cell_normal_bg,       '\u{2588}', strings.help_color_user),
         (colors.digit_error,        colors.cell_normal_bg,       '\u{2588}', strings.help_color_error),
@@ -226,62 +230,108 @@ fn render_colors_section(
         (colors.digit_user,         colors.cell_active_box_bg,   '\u{2588}', strings.help_color_box),
         (colors.digit_scan,         colors.cell_normal_bg,       '\u{2588}', strings.help_color_scan),
         (colors.digit_user,         colors.hover_bg,             '\u{2588}', strings.help_color_hover),
-        (colors.hint_cause_border,  colors.cell_normal_bg,       '\u{2590}', strings.help_color_hint_cause),
-        (colors.hint_elim_border,   colors.cell_normal_bg,       '\u{2590}', strings.help_color_hint_elim),
-        (colors.digit_user,         colors.hint_target_bg,       '\u{2588}', strings.help_color_hint_target),
+    ];
+    // Hint-related: border colors (▐) and fill target (█) — shown individually.
+    let hint: &[Swatch] = &[
+        (colors.hint_cause_border,  colors.cell_normal_bg,  '\u{2590}', strings.help_color_hint_cause),
+        (colors.hint_elim_border,   colors.cell_normal_bg,  '\u{2590}', strings.help_color_hint_elim),
+        (colors.digit_user,         colors.hint_target_bg,  '\u{2588}', strings.help_color_hint_target),
     ];
 
     let mut row_idx: usize = 0;
 
-    // Blank line
+    // Blank opener
     blank_row(out, bg, fg, width, start_row + row_idx as u16)?;
     row_idx += 1;
 
+    // Cell swatches in pairs
     let mut i = 0;
-    while i < swatches.len() && row_idx < available {
-        let (fg0, bg0, ch0, label0) = swatches[i];
+    while i < cell.len() && row_idx < available {
+        render_swatch_pair(out, bg, fg, width, start_row + row_idx as u16,
+                           cell[i], if i + 1 < cell.len() { Some(cell[i + 1]) } else { None })?;
+        row_idx += 1;
+        i += 2;
+    }
+
+    // Blank separator before hint colors
+    if row_idx < available {
+        blank_row(out, bg, fg, width, start_row + row_idx as u16)?;
+        row_idx += 1;
+    }
+
+    // Hint swatches — one per row (full width)
+    for &(sfg, sbg, ch, label) in hint {
+        if row_idx >= available { break; }
+        let label_len = label.chars().count();
+        let pad = width.saturating_sub(3 + 1 + 2 + label_len + 1);
         queue!(
             out,
             MoveTo(0, start_row + row_idx as u16),
             SetBackgroundColor(bg),
             SetForegroundColor(fg),
             Print("\u{2551}  "),
-            SetForegroundColor(fg0),
-            SetBackgroundColor(bg0),
-            Print(ch0),
+            SetForegroundColor(sfg),
+            SetBackgroundColor(sbg),
+            Print(ch),
             SetBackgroundColor(bg),
             SetForegroundColor(fg),
-            Print(format!("  {:<20}", label0)),
+            Print(format!("  {}", label)),
+            Print(" ".repeat(pad)),
+            Print("\u{2551}"),
         )?;
-        if i + 1 < swatches.len() {
-            let (fg1, bg1, ch1, label1) = swatches[i + 1];
-            let used = 3 + 1 + 2 + 20 + 1 + 2 + label1.chars().count() + 1;
-            queue!(
-                out,
-                SetForegroundColor(fg1),
-                SetBackgroundColor(bg1),
-                Print(ch1),
-                SetBackgroundColor(bg),
-                SetForegroundColor(fg),
-                Print(format!("  {}", label1)),
-                Print(" ".repeat(width.saturating_sub(used))),
-                Print("\u{2551}"),
-            )?;
-        } else {
-            let used = 3 + 1 + 2 + 20;
-            queue!(
-                out,
-                Print(" ".repeat(width.saturating_sub(used + 1))),
-                Print("\u{2551}"),
-            )?;
-        }
         row_idx += 1;
-        i += 2;
     }
 
     while row_idx < available {
         blank_row(out, bg, fg, width, start_row + row_idx as u16)?;
         row_idx += 1;
+    }
+    Ok(())
+}
+
+fn render_swatch_pair(
+    out: &mut impl Write,
+    bg: Color,
+    fg: Color,
+    width: usize,
+    row: u16,
+    left: (Color, Color, char, &str),
+    right: Option<(Color, Color, char, &str)>,
+) -> io::Result<()> {
+    let (fg0, bg0, ch0, label0) = left;
+    queue!(
+        out,
+        MoveTo(0, row),
+        SetBackgroundColor(bg),
+        SetForegroundColor(fg),
+        Print("\u{2551}  "),
+        SetForegroundColor(fg0),
+        SetBackgroundColor(bg0),
+        Print(ch0),
+        SetBackgroundColor(bg),
+        SetForegroundColor(fg),
+        Print(format!("  {:<20}", label0)),
+    )?;
+    if let Some((fg1, bg1, ch1, label1)) = right {
+        let used = 3 + 1 + 2 + 20 + 1 + 2 + label1.chars().count() + 1;
+        queue!(
+            out,
+            SetForegroundColor(fg1),
+            SetBackgroundColor(bg1),
+            Print(ch1),
+            SetBackgroundColor(bg),
+            SetForegroundColor(fg),
+            Print(format!("  {}", label1)),
+            Print(" ".repeat(width.saturating_sub(used))),
+            Print("\u{2551}"),
+        )?;
+    } else {
+        let used = 3 + 1 + 2 + 20;
+        queue!(
+            out,
+            Print(" ".repeat(width.saturating_sub(used + 1))),
+            Print("\u{2551}"),
+        )?;
     }
     Ok(())
 }
