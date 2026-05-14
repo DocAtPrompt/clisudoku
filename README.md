@@ -19,7 +19,7 @@ Some programs just feel right when they run in a terminal — no mouse required,
 - **3 colour themes** — Dark (default) · Light · High Contrast (colourblind-safe)
 - **13 interface languages** — EN · DE · ES · IT · FR · SL · EO · TP · Leet · SW · AF · PY · ID
 - **2 digit styles** — Retro · Awkward-Retro
-- **Boss key** — instant blank screen (`B`)
+- **Boss key** — disguises the game as a terminal session showing your home directory (`B`)
 - **Configurable keybindings** — via `~/.config/clisudoku/config.toml`
 - **Load a custom puzzle** — paste an 81-char string or point to a file
 - **Custom cell patterns** — generate puzzles from an 81-char pattern mask
@@ -94,7 +94,7 @@ clisudoku --config ~/dotfiles/clisudoku.toml
 | `E` | Toggle error highlighting |
 | `Space` | Pause |
 | `M` | Toggle mouse mode |
-| `B` | Boss key (blank screen) |
+| `B` | Boss key — disguises game as a terminal session |
 | `?` | Help screen (controls, rules, colour reference) |
 | `Q` / `Esc` | Quit / Back |
 
