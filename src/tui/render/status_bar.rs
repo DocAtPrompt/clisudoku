@@ -134,6 +134,7 @@ pub fn render_panel(
             (strings.ctrl_pause.into(), d, false),
             (strings.ctrl_boss.into(), d, false),
             (strings.ctrl_quit.into(), d, false),
+            (strings.ctrl_help.into(), d, false),
         ]);
     }
 
