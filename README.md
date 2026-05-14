@@ -57,6 +57,7 @@ Options:
   -t <NAME>           Colour theme: dark (default) | light | high-contrast
   -l <CODE>           Language: en de es it fr sl eo tp leet sw af py id
   --difficulty <L>    Starting difficulty: easy medium hard extreme expert
+                      (Just 17 is only selectable from the in-game menu)
   --digit-style <S>   Digit style: retro (default) | awkward-retro
   --config <PATH>     Config file (default: ~/.config/clisudoku/config.toml)
 ```
@@ -88,7 +89,7 @@ clisudoku --config ~/dotfiles/clisudoku.toml
 | `1`–`9` | Enter digit |
 | `0` | Toggle notes / digit mode |
 | `-` | Clear cell |
-| `Z` / `Y` | Undo / Redo |
+| `U` / `R` | Undo / Redo |
 | `H` | Request hint |
 | `S` | Toggle passive scan |
 | `E` | Toggle error highlighting |

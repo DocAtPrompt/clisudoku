@@ -29,7 +29,7 @@ struct Cli {
     #[arg(short = 't', long, value_name = "NAME")]
     theme: Option<String>,
 
-    /// Interface language code. Valid: en de fr it es pt nl pl cs ru ja zh ko
+    /// Interface language code. Valid: en de es it fr sl eo tp leet sw af py id
     #[arg(short = 'l', long, value_name = "CODE")]
     language: Option<String>,
 
