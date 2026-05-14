@@ -17,16 +17,33 @@ navigable with ◄/►. All text is fully i18n-translated across all 13 language
 | `◄` / `►` | Previous / next section (wraps around) |
 
 `?` is **not remappable** — it is handled in the non-remappable `match c` branch
-of `map_key_to_action`, alongside `b` (BossKey).
+of `map_key_to_action`, alongside `b` (BossKey):
+
+```rust
+'?' => AppAction::ToggleHelp,
+```
+
+This arm must be inserted before the catch-all `_ => AppAction::None`.
+
+### Priority in the event loop
+
+`ToggleHelp` must be intercepted in `App::run()` **before** the hint/overlay
+dismissal block, so that pressing `?` while a hint is active opens Help rather
+than dismissing the hint. Concretely, in `run()`:
+
+```rust
+// Before the hint-dismiss / overlay-dismiss block:
+if let AppAction::ToggleHelp = action {
+    return self.toggle_help();  // or inline the logic
+}
+// … existing hint/overlay dismissal …
+self.handle_action(action);
+```
+
+`toggle_help()` is a private helper on `App` (see Architecture below).
 
 Help can only be opened from `AppScreen::Start` and `AppScreen::Game`. Opening
 from any other screen (DifficultySelect, PatternSelect, etc.) is a no-op.
-
-When closing, the app returns to whichever screen it came from:
-- If `app.game_state.is_some()` → return to `AppScreen::Game`
-- Otherwise → return to `AppScreen::Start { selected: 0 }`
-
-No extra field needed on App — the return destination is inferred at close time.
 
 ---
 
@@ -46,10 +63,10 @@ AppScreen::Help { section: usize }
 AppAction::ToggleHelp
 ```
 
-Handled globally at the top of `App::handle_action`, before per-screen dispatch:
+### toggle_help() helper
 
 ```rust
-if let AppAction::ToggleHelp = action {
+fn toggle_help(&mut self) {
     if matches!(self.screen, AppScreen::Help { .. }) {
         self.screen = if self.game_state.is_some() {
             AppScreen::Game
@@ -59,22 +76,43 @@ if let AppAction::ToggleHelp = action {
     } else if matches!(self.screen, AppScreen::Start { .. } | AppScreen::Game) {
         self.screen = AppScreen::Help { section: 0 };
     }
-    return;
 }
 ```
 
-`AppAction::Back` (Esc) from Help screen is handled in `handle_help_action` —
-same logic: return to Game or Start.
+When closing, the return destination is inferred from `game_state.is_some()` —
+no extra field needed on App.
 
-`AppAction::MoveLeft` / `MoveRight` in `handle_help_action` cycle sections
-(wrapping: 0 → 2 → 1 → 0).
+### handle_help_action
+
+```rust
+fn handle_help_action(&mut self, action: AppAction, section: usize) {
+    match action {
+        AppAction::ToggleHelp | AppAction::Back => self.toggle_help(),
+        AppAction::MoveLeft => {
+            self.screen = AppScreen::Help {
+                section: if section == 0 { 2 } else { section - 1 },
+            };
+        }
+        AppAction::MoveRight => {
+            self.screen = AppScreen::Help {
+                section: (section + 1) % 3,
+            };
+        }
+        _ => {}
+    }
+}
+```
+
+`handle_help_action` is added to the `match &self.screen` dispatch in
+`handle_action`, alongside all other per-screen handlers.
 
 ---
 
 ## Screen Layout
 
-Full-screen render, using the current ColorScheme. Width adapts to terminal size;
-minimum width 60 columns.
+Full-screen render using the current ColorScheme. The screen adapts to terminal
+width; the global minimum-size guard (already present) ensures the terminal is
+large enough before Help is ever rendered.
 
 ```
 ╔══════════════════════════════════════════════════════╗
@@ -109,8 +147,11 @@ minimum width 60 columns.
 ╚══════════════════════════════════════════════════════╝
 ```
 
-Active section tab is highlighted (ui_cursor_bg / ui_cursor_fg). Inactive tabs
-are dim (ui_text_dim). The bottom bar uses ui_text_dim.
+Active section tab is highlighted (`ui_cursor_bg` / `ui_cursor_fg`). Inactive
+tabs are dim (`ui_text_dim`). The bottom bar uses `ui_text_dim`.
+
+The Controls section reuses existing `ctrl_*` strings (already translated for
+all 13 languages) for the key descriptions.
 
 ### Section: Rules
 
@@ -139,9 +180,14 @@ are dim (ui_text_dim). The bottom bar uses ui_text_dim.
 
 ### Section: Colors
 
-Each color entry shows a filled block (█) in the actual color, followed by a
-label. Colors are read from `app.colors` (current ColorScheme) so they are
-accurate regardless of active theme.
+Each entry shows a filled block `█` in the foreground color on the relevant
+background, followed by a label. For hint cause and hint elimination — whose
+ColorScheme fields are border colors, not backgrounds — use `▐` (right half
+block) in the border color on `cell_normal_bg`, so the swatch still conveys the
+actual color without requiring a full cell border.
+
+Colors are read from `app.colors` (current ColorScheme) so they remain accurate
+regardless of active theme.
 
 ```
 ╠══════════════════════════════════════════════════════╣
@@ -152,7 +198,7 @@ accurate regardless of active theme.
 ║  █  Error                █  Active cell (cursor)     ║
 ║  █  Row/col highlight    █  Box highlight            ║
 ║  █  Scan match           █  Mouse hover              ║
-║  █  Hint: cause          █  Hint: elimination        ║
+║  ▐  Hint: cause          ▐  Hint: elimination        ║
 ║  █  Hint: target                                     ║
 ║                                                      ║
 ╠══════════════════════════════════════════════════════╣
@@ -161,39 +207,36 @@ accurate regardless of active theme.
 ```
 
 Color mapping:
-| Label | ColorScheme field |
-|---|---|
-| Given digit | `digit_given` fg on `cell_normal_bg` |
-| Your entry | `digit_user` fg on `cell_normal_bg` |
-| Error | `digit_error` fg on `cell_normal_bg` |
-| Active cell | `ui_cursor_fg` fg on `ui_cursor_bg` |
-| Row/col highlight | `digit_user` fg on `cell_active_cross_bg` |
-| Box highlight | `digit_user` fg on `cell_active_box_bg` |
-| Scan match | `digit_scan` fg on `cell_normal_bg` |
-| Mouse hover | `digit_user` fg on `hover_bg` |
-| Hint: cause | `grid_cell` fg on `cell_normal_bg`, border `hint_cause_border` |
-| Hint: elimination | `grid_cell` fg on `cell_normal_bg`, border `hint_elim_border` |
-| Hint: target | `digit_user` fg on `hint_target_bg` |
+
+| Label | Swatch char | Foreground | Background |
+|---|---|---|---|
+| Given digit | `█` | `digit_given` | `cell_normal_bg` |
+| Your entry | `█` | `digit_user` | `cell_normal_bg` |
+| Error | `█` | `digit_error` | `cell_normal_bg` |
+| Active cell | `█` | `ui_cursor_fg` | `ui_cursor_bg` |
+| Row/col highlight | `█` | `digit_user` | `cell_active_cross_bg` |
+| Box highlight | `█` | `digit_user` | `cell_active_box_bg` |
+| Scan match | `█` | `digit_scan` | `cell_normal_bg` |
+| Mouse hover | `█` | `digit_user` | `hover_bg` |
+| Hint: cause | `▐` | `hint_cause_border` | `cell_normal_bg` |
+| Hint: elimination | `▐` | `hint_elim_border` | `cell_normal_bg` |
+| Hint: target | `█` | `digit_user` | `hint_target_bg` |
 
 ---
 
 ## Panel Hint
 
 In `src/tui/render/status_bar.rs`, the controls list gains one new entry at the
-end:
-
-```
-?  help
-```
-
-Uses the new `strings.ctrl_help` i18n string (see below).
+end using the new `strings.ctrl_help` i18n string.
 
 ---
 
-## i18n — New Strings
+## i18n — New Strings (28 fields)
 
-19 new fields added to the `Strings` struct in `src/i18n/mod.rs`.
-All 13 languages are provided.
+28 new fields added to the `Strings` struct in `src/i18n/mod.rs`.
+All 13 project languages provided: EN, DE, ES, IT, FR, SL, EO, TP, LEET, SW, AF, PY, ID.
+
+### Master table (EN / DE)
 
 | Field | EN | DE |
 |---|---|---|
@@ -226,46 +269,8 @@ All 13 languages are provided.
 | `help_color_hint_elim` | `Hint: elimination` | `Hinweis: Elimination` |
 | `help_color_hint_target` | `Hint: target` | `Hinweis: Ziel` |
 
-> **Note:** The Controls section reuses existing `ctrl_*` strings already present
-> in all 13 languages. No duplication needed there.
+### ES (Español)
 
-### All 13 Languages — New String Values
-
-All values below follow the same pattern as existing translations in `mod.rs`.
-
-#### FR (Français)
-| Field | Value |
-|---|---|
-| `ctrl_help` | `  ?      aide` |
-| `help_title` | `AIDE` |
-| `help_section_controls` | `Contrôles` |
-| `help_section_rules` | `Règles` |
-| `help_section_colors` | `Couleurs` |
-| `help_close_hint` | `◄ ►  changer section   ?  fermer` |
-| `help_group_navigation` | `Navigation` |
-| `help_group_quick_nav` | `Navigation rapide` |
-| `help_quick_nav_body` | `Appuyez Entrée pour choisir une boîte,\npuis 1–9 pour la cellule.` |
-| `help_group_input` | `Saisie` |
-| `help_group_functions` | `Fonctions` |
-| `help_group_rules` | `Règles du Sudoku` |
-| `help_rules_body` | `Chaque ligne, colonne et boîte 3×3 doit\ncontenir les chiffres 1–9 une seule fois.` |
-| `help_group_notes` | `Notes` |
-| `help_notes_body` | `Mode notes (0): marquer les candidats.\nLes notes sont effacées automatiquement.` |
-| `help_group_hints` | `Indices` |
-| `help_hints_body` | `Appuyez h pour un indice. Les cellules\nmises en évidence montrent l'étape suivante.` |
-| `help_color_given` | `Chiffre donné` |
-| `help_color_user` | `Votre saisie` |
-| `help_color_error` | `Erreur` |
-| `help_color_cursor` | `Cellule active` |
-| `help_color_cross` | `Ligne/colonne` |
-| `help_color_box` | `Boîte` |
-| `help_color_scan` | `Scan` |
-| `help_color_hover` | `Survol souris` |
-| `help_color_hint_cause` | `Indice: cause` |
-| `help_color_hint_elim` | `Indice: élim.` |
-| `help_color_hint_target` | `Indice: cible` |
-
-#### ES (Español)
 | Field | Value |
 |---|---|
 | `ctrl_help` | `  ?      ayuda` |
@@ -297,7 +302,8 @@ All values below follow the same pattern as existing translations in `mod.rs`.
 | `help_color_hint_elim` | `Pista: elim.` |
 | `help_color_hint_target` | `Pista: objetivo` |
 
-#### IT (Italiano)
+### IT (Italiano)
+
 | Field | Value |
 |---|---|
 | `ctrl_help` | `  ?      aiuto` |
@@ -312,7 +318,7 @@ All values below follow the same pattern as existing translations in `mod.rs`.
 | `help_group_input` | `Inserimento` |
 | `help_group_functions` | `Funzioni` |
 | `help_group_rules` | `Regole del Sudoku` |
-| `help_rules_body` | `Ogni riga, colonna e riquadro 3×3 deve\ncontenere i cifre 1–9 esattamente una volta.` |
+| `help_rules_body` | `Ogni riga, colonna e riquadro 3×3 deve\ncontenere le cifre 1–9 esattamente una volta.` |
 | `help_group_notes` | `Note` |
 | `help_notes_body` | `Modalità note (0): segnare i candidati.\nLe note vengono cancellate automaticamente.` |
 | `help_group_hints` | `Suggerimenti` |
@@ -329,261 +335,302 @@ All values below follow the same pattern as existing translations in `mod.rs`.
 | `help_color_hint_elim` | `Sugger.: elim.` |
 | `help_color_hint_target` | `Sugger.: target` |
 
-#### PT (Português)
-| Field | Value |
-|---|---|
-| `ctrl_help` | `  ?      ajuda` |
-| `help_title` | `AJUDA` |
-| `help_section_controls` | `Controles` |
-| `help_section_rules` | `Regras` |
-| `help_section_colors` | `Cores` |
-| `help_close_hint` | `◄ ►  trocar seção   ?  fechar` |
-| `help_group_navigation` | `Navegação` |
-| `help_group_quick_nav` | `Navegação rápida` |
-| `help_quick_nav_body` | `Pressione Enter para escolher uma caixa,\ndepois 1–9 para a célula.` |
-| `help_group_input` | `Entrada` |
-| `help_group_functions` | `Funções` |
-| `help_group_rules` | `Regras do Sudoku` |
-| `help_rules_body` | `Cada linha, coluna e caixa 3×3 deve\nconter os dígitos 1–9 exatamente uma vez.` |
-| `help_group_notes` | `Notas` |
-| `help_notes_body` | `Modo notas (0): marcar candidatos.\nAs notas são apagadas automaticamente.` |
-| `help_group_hints` | `Dicas` |
-| `help_hints_body` | `Pressione h para uma dica. As células\ndestacadas mostram o próximo passo.` |
-| `help_color_given` | `Dígito dado` |
-| `help_color_user` | `Sua entrada` |
-| `help_color_error` | `Erro` |
-| `help_color_cursor` | `Célula ativa` |
-| `help_color_cross` | `Linha/coluna` |
-| `help_color_box` | `Caixa` |
-| `help_color_scan` | `Correspondência` |
-| `help_color_hover` | `Hover mouse` |
-| `help_color_hint_cause` | `Dica: causa` |
-| `help_color_hint_elim` | `Dica: elim.` |
-| `help_color_hint_target` | `Dica: alvo` |
+### FR (Français)
 
-#### NL (Nederlands)
 | Field | Value |
 |---|---|
-| `ctrl_help` | `  ?      help` |
-| `help_title` | `HELP` |
-| `help_section_controls` | `Bediening` |
-| `help_section_rules` | `Regels` |
-| `help_section_colors` | `Kleuren` |
-| `help_close_hint` | `◄ ►  sectie wisselen   ?  sluiten` |
-| `help_group_navigation` | `Navigatie` |
-| `help_group_quick_nav` | `Snelle navigatie` |
-| `help_quick_nav_body` | `Druk Enter om een vak te kiezen,\ndan 1–9 voor de cel.` |
+| `ctrl_help` | `  ?      aide` |
+| `help_title` | `AIDE` |
+| `help_section_controls` | `Contrôles` |
+| `help_section_rules` | `Règles` |
+| `help_section_colors` | `Couleurs` |
+| `help_close_hint` | `◄ ►  changer section   ?  fermer` |
+| `help_group_navigation` | `Navigation` |
+| `help_group_quick_nav` | `Navigation rapide` |
+| `help_quick_nav_body` | `Appuyez Entrée pour choisir une boîte,\npuis 1–9 pour la cellule.` |
+| `help_group_input` | `Saisie` |
+| `help_group_functions` | `Fonctions` |
+| `help_group_rules` | `Règles du Sudoku` |
+| `help_rules_body` | `Chaque ligne, colonne et boîte 3×3 doit\ncontenir les chiffres 1–9 une seule fois.` |
+| `help_group_notes` | `Notes` |
+| `help_notes_body` | `Mode notes (0): marquer les candidats.\nLes notes sont effacées automatiquement.` |
+| `help_group_hints` | `Indices` |
+| `help_hints_body` | `Appuyez h pour un indice. Les cellules\nmises en évidence montrent l'étape suivante.` |
+| `help_color_given` | `Chiffre donné` |
+| `help_color_user` | `Votre saisie` |
+| `help_color_error` | `Erreur` |
+| `help_color_cursor` | `Cellule active` |
+| `help_color_cross` | `Ligne/colonne` |
+| `help_color_box` | `Boîte` |
+| `help_color_scan` | `Scan` |
+| `help_color_hover` | `Survol souris` |
+| `help_color_hint_cause` | `Indice: cause` |
+| `help_color_hint_elim` | `Indice: élim.` |
+| `help_color_hint_target` | `Indice: cible` |
+
+### SL (Slovenščina)
+
+| Field | Value |
+|---|---|
+| `ctrl_help` | `  ?      pomoč` |
+| `help_title` | `POMOČ` |
+| `help_section_controls` | `Upravljanje` |
+| `help_section_rules` | `Pravila` |
+| `help_section_colors` | `Barve` |
+| `help_close_hint` | `◄ ►  menjaj razdelek   ?  zapri` |
+| `help_group_navigation` | `Pomikanje` |
+| `help_group_quick_nav` | `Hitro pomikanje` |
+| `help_quick_nav_body` | `Pritisni Enter za izbiro bloka,\npotom 1–9 za celico.` |
+| `help_group_input` | `Vnos` |
+| `help_group_functions` | `Funkcije` |
+| `help_group_rules` | `Pravila Sudokuja` |
+| `help_rules_body` | `Vsaka vrstica, stolpec in blok 3×3 mora\nvsebovati cifre 1–9 natanko enkrat.` |
+| `help_group_notes` | `Opombe` |
+| `help_notes_body` | `Način opomb (0): označi kandidate.\nOpombe se samodejno izbrišejo.` |
+| `help_group_hints` | `Namigi` |
+| `help_hints_body` | `Pritisni h za namig. Označene celice\npokažejo naslednji logični korak.` |
+| `help_color_given` | `Dana cifra` |
+| `help_color_user` | `Tvoj vnos` |
+| `help_color_error` | `Napaka` |
+| `help_color_cursor` | `Aktivna celica` |
+| `help_color_cross` | `Vrstica/stolpec` |
+| `help_color_box` | `Blok` |
+| `help_color_scan` | `Ujemanje` |
+| `help_color_hover` | `Lebdenje miške` |
+| `help_color_hint_cause` | `Namig: vzrok` |
+| `help_color_hint_elim` | `Namig: elim.` |
+| `help_color_hint_target` | `Namig: cilj` |
+
+### EO (Esperanto)
+
+| Field | Value |
+|---|---|
+| `ctrl_help` | `  ?      helpo` |
+| `help_title` | `HELPO` |
+| `help_section_controls` | `Kontroloj` |
+| `help_section_rules` | `Reguloj` |
+| `help_section_colors` | `Koloroj` |
+| `help_close_hint` | `◄ ►  ŝanĝi sekcion   ?  fermi` |
+| `help_group_navigation` | `Navigado` |
+| `help_group_quick_nav` | `Rapida navigado` |
+| `help_quick_nav_body` | `Premu Enter por elekti blokon,\nposte 1–9 por la ĉelo.` |
+| `help_group_input` | `Enigo` |
+| `help_group_functions` | `Funkcioj` |
+| `help_group_rules` | `Reguloj de Sudoku` |
+| `help_rules_body` | `Ĉiu vico, kolumno kaj bloko 3×3 devas\nenhavi ciferojn 1–9 ĝuste unufoje.` |
+| `help_group_notes` | `Notoj` |
+| `help_notes_body` | `Nota reĝimo (0): marki kandidatojn.\nNotoj foriĝas aŭtomate.` |
+| `help_group_hints` | `Sugestoj` |
+| `help_hints_body` | `Premu h por sugeston. Elstarigitaj\nĉeloj montras la sekvan paŝon.` |
+| `help_color_given` | `Donita cifero` |
+| `help_color_user` | `Via enigo` |
+| `help_color_error` | `Eraro` |
+| `help_color_cursor` | `Aktiva ĉelo` |
+| `help_color_cross` | `Vico/kolumno` |
+| `help_color_box` | `Bloko` |
+| `help_color_scan` | `Kongruo` |
+| `help_color_hover` | `Musa ŝvebo` |
+| `help_color_hint_cause` | `Sugesto: kaŭzo` |
+| `help_color_hint_elim` | `Sugesto: elim.` |
+| `help_color_hint_target` | `Sugesto: celo` |
+
+### TP (Toki Pona)
+
+| Field | Value |
+|---|---|
+| `ctrl_help` | `  ?      sona` |
+| `help_title` | `SONA` |
+| `help_section_controls` | `nasin luka` |
+| `help_section_rules` | `lawa` |
+| `help_section_colors` | `kule` |
+| `help_close_hint` | `◄ ►  ante   ?  pini` |
+| `help_group_navigation` | `tawa` |
+| `help_group_quick_nav` | `tawa pona` |
+| `help_quick_nav_body` | `o kepeken Enter tawa poki,\no kepeken 1–9 tawa seli.` |
+| `help_group_input` | `pana` |
+| `help_group_functions` | `pali` |
+| `help_group_rules` | `lawa pi nanpa` |
+| `help_rules_body` | `poki ale li wile jo e nanpa 1–9\nwan taso.` |
+| `help_group_notes` | `sitelen` |
+| `help_notes_body` | `nasin sitelen (0): o sitelen e nasin.\nsitelen li weka lon tenpo kama.` |
+| `help_group_hints` | `sona` |
+| `help_hints_body` | `o kepeken h tawa sona.\nseli mute li jo e pali kama.` |
+| `help_color_given` | `nanpa lon` |
+| `help_color_user` | `nanpa sina` |
+| `help_color_error` | `pakala` |
+| `help_color_cursor` | `seli ni` |
+| `help_color_cross` | `poka/anpa` |
+| `help_color_box` | `poki` |
+| `help_color_scan` | `sama` |
+| `help_color_hover` | `noka soweli` |
+| `help_color_hint_cause` | `sona: tan` |
+| `help_color_hint_elim` | `sona: weka` |
+| `help_color_hint_target` | `sona: pini` |
+
+### LEET (L33tsp34k)
+
+| Field | Value |
+|---|---|
+| `ctrl_help` | `  ?      h3lp` |
+| `help_title` | `H3LP` |
+| `help_section_controls` | `C0NTR0LZ` |
+| `help_section_rules` | `RUL3Z` |
+| `help_section_colors` | `C0L0RZ` |
+| `help_close_hint` | `◄ ►  sw1tch s3ct10n   ?  cl0s3` |
+| `help_group_navigation` | `N4V1G4T10N` |
+| `help_group_quick_nav` | `QU1CK N4V` |
+| `help_quick_nav_body` | `pr3ss 3nt3r t0 ch00s3 4 b0x,\nth3n 1–9 f0r th3 c3ll.` |
+| `help_group_input` | `1NPUT` |
+| `help_group_functions` | `FUNCT10NZ` |
+| `help_group_rules` | `SUDOKU RUL3Z` |
+| `help_rules_body` | `3v3ry r0w, c0lumn 4nd 3x3 b0x\nmu5t c0nt41n 1–9 3x4ctly 0nc3.` |
+| `help_group_notes` | `N0T3Z` |
+| `help_notes_body` | `n0t3 m0d3 (0): m4rk c4nd1d4t3z.\nn0t3z 4r3 cl34r3d 4ut0m4t1c4lly.` |
+| `help_group_hints` | `H1NTZ` |
+| `help_hints_body` | `pr3ss h f0r 4 h1nt. h1ghl1ght3d\nc3llz sh0w th3 n3xt st3p.` |
+| `help_color_given` | `g1v3n d1g1t` |
+| `help_color_user` | `ur 1nput` |
+| `help_color_error` | `3rr0r` |
+| `help_color_cursor` | `4ct1v3 c3ll` |
+| `help_color_cross` | `r0w/c0l` |
+| `help_color_box` | `b0x` |
+| `help_color_scan` | `sc4n m4tch` |
+| `help_color_hover` | `m0us3 h0v3r` |
+| `help_color_hint_cause` | `h1nt: c4us3` |
+| `help_color_hint_elim` | `h1nt: 3l1m.` |
+| `help_color_hint_target` | `h1nt: t4rg3t` |
+
+### SW (Kiswahili)
+
+| Field | Value |
+|---|---|
+| `ctrl_help` | `  ?      msaada` |
+| `help_title` | `MSAADA` |
+| `help_section_controls` | `Vidhibiti` |
+| `help_section_rules` | `Kanuni` |
+| `help_section_colors` | `Rangi` |
+| `help_close_hint` | `◄ ►  badilisha sehemu   ?  funga` |
+| `help_group_navigation` | `Uabiri` |
+| `help_group_quick_nav` | `Uabiri wa haraka` |
+| `help_quick_nav_body` | `Bonyeza Enter kuchagua sanduku,\nkisha 1–9 kwa seli.` |
+| `help_group_input` | `Ingizo` |
+| `help_group_functions` | `Vitendo` |
+| `help_group_rules` | `Kanuni za Sudoku` |
+| `help_rules_body` | `Kila safu, safu wima na sanduku 3×3 lazima\liche na nambari 1–9 mara moja tu.` |
+| `help_group_notes` | `Maelezo` |
+| `help_notes_body` | `Hali ya maelezo (0): weka alama kandideti.\nMaelezo husafishwa kiotomatiki.` |
+| `help_group_hints` | `Vidokezo` |
+| `help_hints_body` | `Bonyeza h kupata kidokezo. Seli\nzilizoangaziwa zinaonyesha hatua inayofuata.` |
+| `help_color_given` | `Nambari iliyopewa` |
+| `help_color_user` | `Ingizo lako` |
+| `help_color_error` | `Kosa` |
+| `help_color_cursor` | `Seli inayofanya kazi` |
+| `help_color_cross` | `Safu/safu wima` |
+| `help_color_box` | `Sanduku` |
+| `help_color_scan` | `Mechi ya skani` |
+| `help_color_hover` | `Kuangalia panya` |
+| `help_color_hint_cause` | `Kidokezo: sababu` |
+| `help_color_hint_elim` | `Kidokezo: elim.` |
+| `help_color_hint_target` | `Kidokezo: lengo` |
+
+### AF (Afrikaans)
+
+| Field | Value |
+|---|---|
+| `ctrl_help` | `  ?      hulp` |
+| `help_title` | `HULP` |
+| `help_section_controls` | `Kontroles` |
+| `help_section_rules` | `Reëls` |
+| `help_section_colors` | `Kleure` |
+| `help_close_hint` | `◄ ►  wissel afdeling   ?  sluit` |
+| `help_group_navigation` | `Navigasie` |
+| `help_group_quick_nav` | `Vinnige navigasie` |
+| `help_quick_nav_body` | `Druk Enter om 'n blok te kies,\ndan 1–9 vir die sel.` |
 | `help_group_input` | `Invoer` |
-| `help_group_functions` | `Functies` |
-| `help_group_rules` | `Sudokuregels` |
-| `help_rules_body` | `Elke rij, kolom en 3×3-vak moet\nde cijfers 1–9 precies één keer bevatten.` |
-| `help_group_notes` | `Notities` |
-| `help_notes_body` | `Notitiemodus (0): kandidaten markeren.\nNotities worden automatisch gewist.` |
-| `help_group_hints` | `Hints` |
-| `help_hints_body` | `Druk h voor een hint. Gemarkeerde cellen\ntonen de volgende logische stap.` |
-| `help_color_given` | `Gegeven cijfer` |
-| `help_color_user` | `Jouw invoer` |
+| `help_group_functions` | `Funksies` |
+| `help_group_rules` | `Sudoku-reëls` |
+| `help_rules_body` | `Elke ry, kolom en 3×3-blok moet\nsyfers 1–9 presies een keer bevat.` |
+| `help_group_notes` | `Notas` |
+| `help_notes_body` | `Nota-modus (0): merk kandidate.\nNotas word outomaties gevee.` |
+| `help_group_hints` | `Leidrade` |
+| `help_hints_body` | `Druk h vir 'n leidraad. Gemerkte\nselle wys die volgende stap.` |
+| `help_color_given` | `Gegewe syfer` |
+| `help_color_user` | `Jou invoer` |
 | `help_color_error` | `Fout` |
-| `help_color_cursor` | `Actieve cel` |
-| `help_color_cross` | `Rij/kolom` |
-| `help_color_box` | `Vak` |
-| `help_color_scan` | `Scan-match` |
-| `help_color_hover` | `Muishover` |
-| `help_color_hint_cause` | `Hint: oorzaak` |
-| `help_color_hint_elim` | `Hint: elim.` |
-| `help_color_hint_target` | `Hint: doel` |
+| `help_color_cursor` | `Aktiewe sel` |
+| `help_color_cross` | `Ry/kolom` |
+| `help_color_box` | `Blok` |
+| `help_color_scan` | `Skandeermatch` |
+| `help_color_hover` | `Muis-sweef` |
+| `help_color_hint_cause` | `Leidraad: oorsaak` |
+| `help_color_hint_elim` | `Leidraad: elim.` |
+| `help_color_hint_target` | `Leidraad: doel` |
 
-#### PL (Polski)
+### PY (Zhōngwén Pīnyīn)
+
 | Field | Value |
 |---|---|
-| `ctrl_help` | `  ?      pomoc` |
-| `help_title` | `POMOC` |
-| `help_section_controls` | `Sterowanie` |
-| `help_section_rules` | `Zasady` |
-| `help_section_colors` | `Kolory` |
-| `help_close_hint` | `◄ ►  zmień sekcję   ?  zamknij` |
-| `help_group_navigation` | `Nawigacja` |
-| `help_group_quick_nav` | `Szybka nawigacja` |
-| `help_quick_nav_body` | `Naciśnij Enter, aby wybrać pole,\npotem 1–9 dla komórki.` |
-| `help_group_input` | `Wprowadzanie` |
-| `help_group_functions` | `Funkcje` |
-| `help_group_rules` | `Zasady Sudoku` |
-| `help_rules_body` | `Każdy wiersz, kolumna i kwadrat 3×3 musi\nzawierać cyfry 1–9 dokładnie jeden raz.` |
-| `help_group_notes` | `Notatki` |
-| `help_notes_body` | `Tryb notatek (0): zaznaczaj kandydatów.\nNotatki są usuwane automatycznie.` |
-| `help_group_hints` | `Podpowiedzi` |
-| `help_hints_body` | `Naciśnij h, aby uzyskać podpowiedź.\nPodświetlone komórki pokazują kolejny krok.` |
-| `help_color_given` | `Cyfra podana` |
-| `help_color_user` | `Twój wpis` |
-| `help_color_error` | `Błąd` |
-| `help_color_cursor` | `Aktywna kom.` |
-| `help_color_cross` | `Wiersz/kolumna` |
-| `help_color_box` | `Kwadrat` |
-| `help_color_scan` | `Dopasowanie` |
-| `help_color_hover` | `Hover myszy` |
-| `help_color_hint_cause` | `Podp.: przyczyna` |
-| `help_color_hint_elim` | `Podp.: elim.` |
-| `help_color_hint_target` | `Podp.: cel` |
+| `ctrl_help` | `  ?      bāngzhù` |
+| `help_title` | `BĀNGZHÙ` |
+| `help_section_controls` | `Cāozuò` |
+| `help_section_rules` | `Guīzé` |
+| `help_section_colors` | `Yánsè` |
+| `help_close_hint` | `◄ ►  qiēhuàn zhāngjié   ?  guānbì` |
+| `help_group_navigation` | `Dǎoháng` |
+| `help_group_quick_nav` | `Kuàisù dǎoháng` |
+| `help_quick_nav_body` | `Àn Enter xuǎnzé yīgè gōnggé,\nránhòu àn 1–9 xuǎnzé gézǐ.` |
+| `help_group_input` | `Shūrù` |
+| `help_group_functions` | `Gōngnéng` |
+| `help_group_rules` | `Shùdú guīzé` |
+| `help_rules_body` | `Měi háng, liè hé 3×3 gōnggé\nbìxū gè hán shùzì 1–9 yī cì.` |
+| `help_group_notes` | `Bìjì` |
+| `help_notes_body` | `Bìjì móshì (0): biāojì hòuxuǎn shùzì.\nBìjì zài tián rù shùzì hòu zìdòng qīngchú.` |
+| `help_group_hints` | `Tíshì` |
+| `help_hints_body` | `Àn h huòqǔ tíshì. Gāoliàng de gézǐ\nxiǎnshì xià yī bù luójí bùzhòu.` |
+| `help_color_given` | `Yǐ gěi shùzì` |
+| `help_color_user` | `Nǐ de shūrù` |
+| `help_color_error` | `Cuòwù` |
+| `help_color_cursor` | `Dāngqián gézǐ` |
+| `help_color_cross` | `Háng/liè` |
+| `help_color_box` | `Gōnggé` |
+| `help_color_scan` | `Sǎomiáo pǐpèi` |
+| `help_color_hover` | `Shǔbiāo xuánfú` |
+| `help_color_hint_cause` | `Tíshì: yuányīn` |
+| `help_color_hint_elim` | `Tíshì: páichú` |
+| `help_color_hint_target` | `Tíshì: mùbiāo` |
 
-#### CS (Čeština)
+### ID (Bahasa Indonesia)
+
 | Field | Value |
 |---|---|
-| `ctrl_help` | `  ?      nápověda` |
-| `help_title` | `NÁPOVĚDA` |
-| `help_section_controls` | `Ovládání` |
-| `help_section_rules` | `Pravidla` |
-| `help_section_colors` | `Barvy` |
-| `help_close_hint` | `◄ ►  přepnout sekci   ?  zavřít` |
-| `help_group_navigation` | `Navigace` |
-| `help_group_quick_nav` | `Rychlá navigace` |
-| `help_quick_nav_body` | `Stiskni Enter pro výběr čtverce,\npak 1–9 pro buňku.` |
-| `help_group_input` | `Vstup` |
-| `help_group_functions` | `Funkce` |
-| `help_group_rules` | `Pravidla Sudoku` |
-| `help_rules_body` | `Každý řádek, sloupec a čtverec 3×3 musí\nobsahovat číslice 1–9 právě jednou.` |
-| `help_group_notes` | `Poznámky` |
-| `help_notes_body` | `Režim poznámek (0): označit kandidáty.\nPoznámky se automaticky mažou.` |
-| `help_group_hints` | `Nápovědy` |
-| `help_hints_body` | `Stiskni h pro nápovědu. Zvýrazněné\nbuňky ukazují další logický krok.` |
-| `help_color_given` | `Zadaná číslice` |
-| `help_color_user` | `Tvůj vstup` |
-| `help_color_error` | `Chyba` |
-| `help_color_cursor` | `Aktivní buňka` |
-| `help_color_cross` | `Řádek/sloupec` |
-| `help_color_box` | `Čtverec` |
-| `help_color_scan` | `Shoda` |
-| `help_color_hover` | `Hover myši` |
-| `help_color_hint_cause` | `Náp.: příčina` |
-| `help_color_hint_elim` | `Náp.: elim.` |
-| `help_color_hint_target` | `Náp.: cíl` |
-
-#### RU (Русский)
-| Field | Value |
-|---|---|
-| `ctrl_help` | `  ?      справка` |
-| `help_title` | `СПРАВКА` |
-| `help_section_controls` | `Управление` |
-| `help_section_rules` | `Правила` |
-| `help_section_colors` | `Цвета` |
-| `help_close_hint` | `◄ ►  сменить раздел   ?  закрыть` |
-| `help_group_navigation` | `Навигация` |
-| `help_group_quick_nav` | `Быстрая навигация` |
-| `help_quick_nav_body` | `Нажмите Enter для выбора блока,\nзатем 1–9 для ячейки.` |
-| `help_group_input` | `Ввод` |
-| `help_group_functions` | `Функции` |
-| `help_group_rules` | `Правила судоку` |
-| `help_rules_body` | `Каждая строка, столбец и блок 3×3 должны\nсодержать цифры 1–9 ровно по одному разу.` |
-| `help_group_notes` | `Заметки` |
-| `help_notes_body` | `Режим заметок (0): отмечать кандидатов.\nЗаметки удаляются автоматически.` |
-| `help_group_hints` | `Подсказки` |
-| `help_hints_body` | `Нажмите h для подсказки. Выделенные\nячейки показывают следующий шаг.` |
-| `help_color_given` | `Данная цифра` |
-| `help_color_user` | `Ваш ввод` |
-| `help_color_error` | `Ошибка` |
-| `help_color_cursor` | `Активная яч.` |
-| `help_color_cross` | `Строка/столбец` |
-| `help_color_box` | `Блок` |
-| `help_color_scan` | `Совпадение` |
-| `help_color_hover` | `Наведение` |
-| `help_color_hint_cause` | `Подск.: причина` |
-| `help_color_hint_elim` | `Подск.: элим.` |
-| `help_color_hint_target` | `Подск.: цель` |
-
-#### JA (日本語)
-| Field | Value |
-|---|---|
-| `ctrl_help` | `  ?      ヘルプ` |
-| `help_title` | `ヘルプ` |
-| `help_section_controls` | `操作` |
-| `help_section_rules` | `ルール` |
-| `help_section_colors` | `色` |
-| `help_close_hint` | `◄ ►  セクション切替   ?  閉じる` |
-| `help_group_navigation` | `ナビゲーション` |
-| `help_group_quick_nav` | `クイック操作` |
-| `help_quick_nav_body` | `Enterでブロックを選択し、\n1–9でそのマスを選択。` |
-| `help_group_input` | `入力` |
-| `help_group_functions` | `機能` |
-| `help_group_rules` | `数独のルール` |
-| `help_rules_body` | `各行・列・3×3ブロックに\n1〜9の数字を一度ずつ入れる。` |
-| `help_group_notes` | `メモ` |
-| `help_notes_body` | `メモモード(0): 候補数字をメモ。\nメモは自動で削除されます。` |
-| `help_group_hints` | `ヒント` |
-| `help_hints_body` | `hキーでヒントを表示。\n強調されたマスが次のステップ。` |
-| `help_color_given` | `与えられた数字` |
-| `help_color_user` | `入力した数字` |
-| `help_color_error` | `エラー` |
-| `help_color_cursor` | `選択中のマス` |
-| `help_color_cross` | `行・列` |
-| `help_color_box` | `ブロック` |
-| `help_color_scan` | `スキャン一致` |
-| `help_color_hover` | `マウスホバー` |
-| `help_color_hint_cause` | `ヒント: 原因` |
-| `help_color_hint_elim` | `ヒント: 除外` |
-| `help_color_hint_target` | `ヒント: 対象` |
-
-#### ZH (中文)
-| Field | Value |
-|---|---|
-| `ctrl_help` | `  ?      帮助` |
-| `help_title` | `帮助` |
-| `help_section_controls` | `操作` |
-| `help_section_rules` | `规则` |
-| `help_section_colors` | `颜色` |
-| `help_close_hint` | `◄ ►  切换章节   ?  关闭` |
-| `help_group_navigation` | `导航` |
-| `help_group_quick_nav` | `快速导航` |
-| `help_quick_nav_body` | `按 Enter 选择一个宫格，\n然后按 1–9 选择其中的格子。` |
-| `help_group_input` | `输入` |
-| `help_group_functions` | `功能` |
-| `help_group_rules` | `数独规则` |
-| `help_rules_body` | `每行、每列和每个 3×3 宫格\n必须各包含数字 1–9 一次。` |
-| `help_group_notes` | `笔记` |
-| `help_notes_body` | `笔记模式 (0): 标记候选数字。\n笔记在填入数字后自动清除。` |
-| `help_group_hints` | `提示` |
-| `help_hints_body` | `按 h 获取提示。高亮的格子\n显示下一个逻辑步骤。` |
-| `help_color_given` | `已给数字` |
-| `help_color_user` | `您的输入` |
-| `help_color_error` | `错误` |
-| `help_color_cursor` | `当前格子` |
-| `help_color_cross` | `行/列` |
-| `help_color_box` | `宫格` |
-| `help_color_scan` | `扫描匹配` |
-| `help_color_hover` | `鼠标悬停` |
-| `help_color_hint_cause` | `提示: 原因` |
-| `help_color_hint_elim` | `提示: 排除` |
-| `help_color_hint_target` | `提示: 目标` |
-
-#### KO (한국어)
-| Field | Value |
-|---|---|
-| `ctrl_help` | `  ?      도움말` |
-| `help_title` | `도움말` |
-| `help_section_controls` | `조작` |
-| `help_section_rules` | `규칙` |
-| `help_section_colors` | `색상` |
-| `help_close_hint` | `◄ ►  섹션 전환   ?  닫기` |
-| `help_group_navigation` | `이동` |
-| `help_group_quick_nav` | `빠른 이동` |
-| `help_quick_nav_body` | `Enter로 상자를 선택하고,\n1–9로 그 안의 칸을 선택합니다.` |
-| `help_group_input` | `입력` |
-| `help_group_functions` | `기능` |
-| `help_group_rules` | `스도쿠 규칙` |
-| `help_rules_body` | `각 행, 열, 3×3 상자에\n1–9가 정확히 한 번씩 들어가야 합니다.` |
-| `help_group_notes` | `메모` |
-| `help_notes_body` | `메모 모드 (0): 후보 숫자 표시.\n메모는 숫자 입력 시 자동 삭제됩니다.` |
-| `help_group_hints` | `힌트` |
-| `help_hints_body` | `h를 눌러 힌트를 받으세요.\n강조된 칸이 다음 논리 단계를 보여줍니다.` |
-| `help_color_given` | `주어진 숫자` |
-| `help_color_user` | `내 입력` |
-| `help_color_error` | `오류` |
-| `help_color_cursor` | `활성 칸` |
-| `help_color_cross` | `행/열` |
-| `help_color_box` | `상자` |
-| `help_color_scan` | `스캔 일치` |
-| `help_color_hover` | `마우스 호버` |
-| `help_color_hint_cause` | `힌트: 원인` |
-| `help_color_hint_elim` | `힌트: 제거` |
-| `help_color_hint_target` | `힌트: 목표` |
+| `ctrl_help` | `  ?      bantuan` |
+| `help_title` | `BANTUAN` |
+| `help_section_controls` | `Kontrol` |
+| `help_section_rules` | `Aturan` |
+| `help_section_colors` | `Warna` |
+| `help_close_hint` | `◄ ►  ganti bagian   ?  tutup` |
+| `help_group_navigation` | `Navigasi` |
+| `help_group_quick_nav` | `Navigasi cepat` |
+| `help_quick_nav_body` | `Tekan Enter untuk memilih kotak,\nlalu 1–9 untuk sel di dalamnya.` |
+| `help_group_input` | `Input` |
+| `help_group_functions` | `Fungsi` |
+| `help_group_rules` | `Aturan Sudoku` |
+| `help_rules_body` | `Setiap baris, kolom, dan kotak 3×3 harus\nmengandung angka 1–9 tepat satu kali.` |
+| `help_group_notes` | `Catatan` |
+| `help_notes_body` | `Mode catatan (0): tandai kandidat angka.\nCatatan dihapus otomatis saat angka dimasukkan.` |
+| `help_group_hints` | `Petunjuk` |
+| `help_hints_body` | `Tekan h untuk petunjuk. Sel yang\ndisorot menunjukkan langkah berikutnya.` |
+| `help_color_given` | `Angka yang diberikan` |
+| `help_color_user` | `Masukan Anda` |
+| `help_color_error` | `Kesalahan` |
+| `help_color_cursor` | `Sel aktif` |
+| `help_color_cross` | `Baris/kolom` |
+| `help_color_box` | `Kotak` |
+| `help_color_scan` | `Kecocokan pindai` |
+| `help_color_hover` | `Hover mouse` |
+| `help_color_hint_cause` | `Petunjuk: penyebab` |
+| `help_color_hint_elim` | `Petunjuk: elim.` |
+| `help_color_hint_target` | `Petunjuk: target` |
 
 ---
 
@@ -591,17 +638,17 @@ All values below follow the same pattern as existing translations in `mod.rs`.
 
 | File | Change |
 |------|--------|
-| `src/tui/input.rs` | Add `AppAction::ToggleHelp`; add `'?' => AppAction::ToggleHelp` in non-remappable match |
-| `src/tui/mod.rs` | Add `AppScreen::Help { section: usize }`; add `ToggleHelp` global handler; add `handle_help_action` |
-| `src/tui/render/mod.rs` | Add `AppScreen::Help` dispatch to `render_help` |
-| `src/tui/render/help.rs` | New: full help screen renderer, 3 sections |
+| `src/tui/input.rs` | Add `AppAction::ToggleHelp`; add `'?' => AppAction::ToggleHelp` in non-remappable match (before `_ => AppAction::None`) |
+| `src/tui/mod.rs` | Add `AppScreen::Help { section: usize }` to enum; add `toggle_help()` private helper; intercept `ToggleHelp` in `run()` before hint/overlay dismissal; add `AppScreen::Help { section }` arm to `handle_action` dispatch calling `handle_help_action`; add `AppScreen::Help { section }` arm to `render_current()` match |
+| `src/tui/render/mod.rs` | Add `AppScreen::Help { section }` dispatch calling `render::help::render_help(...)` directly (no separate `Screen` enum variant needed — follow the direct-call pattern) |
+| `src/tui/render/help.rs` | New file: `render_help(out, section, colors, strings)` — renders all three sections |
 | `src/tui/render/status_bar.rs` | Add `ctrl_help` entry to controls list |
-| `src/i18n/mod.rs` | Add 27 new string fields to `Strings` struct; provide values for all 13 languages |
+| `src/i18n/mod.rs` | Add 28 new `&'static str` fields to `Strings` struct; provide values for all 13 language constants (EN, DE, ES, IT, FR, SL, EO, TP, LEET, SW, AF, PY, ID) |
 
 ---
 
 ## Error Handling
 
-No error paths — the help screen is read-only and stateless. Terminal too small
-(<60 cols or <20 rows): fall through to the existing "terminal too small" screen
-(already handled globally).
+No error paths — the help screen is read-only and stateless. Terminal too small:
+the existing global minimum-size guard runs before any screen renders; the Help
+screen is never rendered below the global minimum.
