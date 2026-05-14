@@ -1138,9 +1138,11 @@ impl App {
             }
         }
 
-        // Full puzzle solved → firework
+        // Full puzzle solved → firework + freeze timer
         if grid.is_solved() {
             self.anim.firework = Some(FireworkAnim::new());
+            self.paused_elapsed_ms = self.elapsed_ms();
+            self.game_start_ms = 0;
         } else {
             // All cells filled but solution wrong → hint overlay (shown at most once).
             let all_filled =
