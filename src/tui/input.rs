@@ -66,6 +66,8 @@ pub enum AppAction {
     MouseSelectCell(usize, usize),
     /// Mouse left-clicked on a panel button.
     MouseButton(MousePanelButton),
+    /// `?` key: open/close help screen.
+    ToggleHelp,
     None,
 }
 
@@ -149,6 +151,7 @@ pub fn map_key_to_action(key: KeyEvent, nav: &NavState, km: &KeyMap) -> AppActio
                         }
                     }
                 }
+                '?' => AppAction::ToggleHelp,
                 _ => AppAction::None,
             }
         }
