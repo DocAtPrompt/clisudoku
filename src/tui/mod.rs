@@ -90,6 +90,9 @@ pub struct App {
     pub theme: Theme,
     /// Whether newly generated puzzles should have 180° rotational symmetry.
     pub symmetry: bool,
+    /// Index into the difficulty list used as initial selection when opening
+    /// the DifficultySelect screen. 0=Easy, 1=Medium, 2=Hard, 3=Extreme, 4=Expert.
+    pub default_difficulty_index: usize,
     pub game_state: Option<GameState>,
     pub cursor: (usize, usize),
     pub nav_state: NavState,
@@ -151,6 +154,7 @@ impl App {
             language: Language::detect(),
             theme: Theme::Dark,
             symmetry: true,
+            default_difficulty_index: 0,
             game_state: None,
             cursor: (0, 0),
             nav_state: NavState::default(),
@@ -279,7 +283,7 @@ impl App {
             AppAction::Enter => match selected {
                 0 => {
                     self.screen = AppScreen::DifficultySelect {
-                        selected: 0,
+                        selected: self.default_difficulty_index,
                         sym_focused: false,
                     };
                     self.needs_clear = true;
@@ -1937,5 +1941,11 @@ mod tests {
             app.screen,
             AppScreen::DifficultySelect { selected: 4, sym_focused: false }
         ));
+    }
+
+    #[test]
+    fn default_difficulty_index_is_zero() {
+        let app = App::new(Box::new(FakeClock { ms: 0 }));
+        assert_eq!(app.default_difficulty_index, 0);
     }
 }
