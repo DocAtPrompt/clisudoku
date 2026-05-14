@@ -322,4 +322,28 @@ mod tests {
 
         assert_eq!(app.key_map.hint, 'x');
     }
+
+    #[test]
+    fn all_color_fields_are_reachable() {
+        use crate::tui::colors::ColorScheme;
+        use crossterm::style::Color;
+
+        let field_names = [
+            "ui_background", "grid_border", "grid_box", "grid_cell",
+            "cell_normal_bg", "cell_active_bg", "cell_active_box_bg", "cell_active_cross_bg",
+            "digit_given", "digit_user", "digit_error", "digit_highlight",
+            "note_normal", "note_highlight", "digit_scan",
+            "ui_text", "ui_text_dim", "ui_cursor_bg", "ui_cursor_fg",
+            "hint_cause_border", "hint_elim_border", "hint_target_bg",
+            "hover_bg",
+        ];
+        let mut cs = ColorScheme::default();
+        for name in &field_names {
+            assert!(
+                apply_color_field(&mut cs, name, Color::Black).is_some(),
+                "apply_color_field: unknown field '{}'",
+                name
+            );
+        }
+    }
 }
