@@ -3,3 +3,14 @@
 .idea/
 *.swp
 .worktrees/
+
+# Internal development files
+CLAUDE.md
+Sudokuplanung.md
+docs/superpowers/
+memory/
+numbers.txt
+examples/
+.claire/
+.claude/
+.superpowers/
