@@ -8,8 +8,6 @@ A fully-featured Sudoku game that lives entirely in your terminal.
 
 Some programs just feel right when they run in a terminal — no mouse required, pure keyboard flow, instant response. Sudoku is one of them. This project grew out of a love for that kind of software: the kind where every key press does exactly what you expect, where the interface gets out of the way, and where you can sit down, focus, and think.
 
-*Built with love and support from Claude.*
-
 ## Features
 
 - **6 difficulty levels** — Easy · Medium · Hard · Extreme · Expert · Just 17
@@ -125,3 +123,7 @@ pause = " "
 ## License
 
 MIT
+
+---
+
+*Built with ❤️ and support from Claude.*
