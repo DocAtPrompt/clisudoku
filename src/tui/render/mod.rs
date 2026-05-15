@@ -172,24 +172,29 @@ pub fn render_frame(
         } => {
             // Suppress hover highlight while paused.
             let effective_hover = if *paused { None } else { *hover_cell };
-            grid::render_grid(
-                out,
-                (1, 2),
-                state,
-                *cursor,
-                *note_mode,
-                *paused,
-                nav,
-                anim,
-                *scan_digit,
-                *error_mode,
-                *solution,
-                *hint,
-                colors,
-                style,
-                *matrix_mode,
-                effective_hover,
-            )?;
+            // Skip grid re-render while firework is active: puzzle is solved so the grid
+            // is static, and skipping it prevents Windows Terminal from briefly showing
+            // grid content before the dim overlay covers it (top-down incremental render).
+            if anim.firework.is_none() {
+                grid::render_grid(
+                    out,
+                    (1, 2),
+                    state,
+                    *cursor,
+                    *note_mode,
+                    *paused,
+                    nav,
+                    anim,
+                    *scan_digit,
+                    *error_mode,
+                    *solution,
+                    *hint,
+                    colors,
+                    style,
+                    *matrix_mode,
+                    effective_hover,
+                )?;
+            }
             // Count filled cells and per-digit placements for the panel display.
             let mut digit_counts = [0u8; 10];
             let mut filled_count = 0u8;
