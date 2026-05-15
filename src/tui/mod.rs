@@ -145,6 +145,8 @@ pub struct App {
     pub mouse_mode: bool,
     /// Grid cell currently under the mouse cursor; `None` when not hovering a cell.
     pub hover_cell: Option<(usize, usize)>,
+    /// Panel button currently under the mouse cursor in mouse mode.
+    pub hover_panel: Option<crate::tui::input::MousePanelButton>,
     pub key_map: KeyMap,
 }
 
@@ -185,6 +187,7 @@ impl App {
             drain_input: false,
             mouse_mode: false,
             hover_cell: None,
+            hover_panel: None,
             key_map: KeyMap::default(),
         }
     }
@@ -1411,6 +1414,7 @@ impl App {
                                 // Pure hover: update position, no hint/warning dismissal.
                                 // needs_render is set below based on whether hover actually changed.
                                 self.hover_cell = Some((r, c));
+                                self.hover_panel = None;
                             }
                             AppAction::MouseSelectCell(..) | AppAction::MouseButton(_) => {
                                 // Clicks behave like key presses for hint/overlay dismissal.
@@ -1430,14 +1434,20 @@ impl App {
                                 needs_render = true;
                             }
                             _ => {
-                                // Move/drag outside the grid: clear the hover highlight
-                                // so it doesn't linger on the last in-grid position.
+                                // Move/drag outside the grid: update panel hover or clear.
                                 use crossterm::event::MouseEventKind;
                                 if matches!(
                                     mouse_event.kind,
                                     MouseEventKind::Moved | MouseEventKind::Drag(_)
                                 ) {
                                     self.hover_cell = None;
+                                    let prev_panel = self.hover_panel.clone();
+                                    self.hover_panel = crate::tui::input::hit_test_panel_button(
+                                        mouse_event.column, mouse_event.row,
+                                    );
+                                    if self.hover_panel != prev_panel {
+                                        needs_render = true;
+                                    }
                                 }
                             }
                         }
@@ -1627,6 +1637,7 @@ impl App {
                         matrix_mode: self.matrix_mode,
                         mouse_mode: self.mouse_mode,
                         hover_cell: self.hover_cell,
+                        hover_panel: self.hover_panel.clone(),
                     };
                     let screen = match &self.confirm_pending {
                         Some(ConfirmAction::QuitGame) => Screen::Confirm {

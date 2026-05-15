@@ -37,6 +37,7 @@ pub fn render_panel(
     // When `Some((name, explanation))`, replaces the controls section with hint text.
     hint_text: Option<(&str, &str)>,
     mouse_mode: bool,
+    hover_panel: Option<&crate::tui::input::MousePanelButton>,
 ) -> io::Result<()> {
     let time_str = format_elapsed_ms(elapsed_ms);
     let mode_label = if note_mode {
@@ -185,7 +186,7 @@ pub fn render_panel(
 
     // ── Mouse controls (replaces rows 18–34 when active and no hint showing) ─
     if mouse_mode && hint_text.is_none() {
-        render_mouse_controls(out, row_off, col_off, colors)?;
+        render_mouse_controls(out, row_off, col_off, colors, hover_panel)?;
     }
 
     // ── Bottom border ─────────────────────────────────────────────────────────
@@ -366,63 +367,92 @@ fn render_mouse_controls(
     row_off: u16,
     col_off: u16,
     colors: &ColorScheme,
+    hover_panel: Option<&crate::tui::input::MousePanelButton>,
 ) -> io::Result<()> {
+    use crate::tui::input::MousePanelButton;
+
     let b = colors.grid_border;
     let t = colors.ui_text;
     let d = colors.ui_text_dim;
     let bg = colors.ui_background;
+    let hbg = colors.hover_bg;
 
-    // Content rows 18–30 (terminal rows row_off+19 through row_off+31).
-    let lines: &[(&str, Color)] = &[
-        ("  Mouse Controls", t),               // content row 18
-        ("", d),                               // content row 19
-        ("┌────────┬───────┬───────┬───────┐", b), // content row 20
-        ("│ N/Sol  │  Undo │  Redo │  Clr  │", t), // content row 21
-        ("└────────┴───────┴───────┴───────┘", b), // content row 22
-        ("", d),                               // content row 23
-        ("┌──────────┬──────────┬──────────┐", b), // content row 24
-        ("│    1     │    2     │    3     │", t),  // content row 25
-        ("├──────────┼──────────┼──────────┤", b),  // content row 26
-        ("│    4     │    5     │    6     │", t),  // content row 27
-        ("├──────────┼──────────┼──────────┤", b),  // content row 28
-        ("│    7     │    8     │    9     │", t),  // content row 29
-        ("└──────────┴──────────┴──────────┘", b),  // content row 30
+    let btn_bg = |btn: &MousePanelButton| -> Color {
+        if hover_panel == Some(btn) { hbg } else { bg }
+    };
+
+    // ── Header rows (content rows 18–20, 22–23) ────────────────────────────────
+    let header: &[(&str, Color, u16)] = &[
+        ("  Mouse Controls", t, 18),
+        ("", d, 19),
+        ("┌────────┬───────┬───────┬───────┐", b, 20),
     ];
-
-    for (i, (text, fg)) in lines.iter().enumerate() {
-        let term_row = row_off + 1 + 18 + i as u16;
+    for &(text, fg, cr) in header {
         let cell: String = text.chars().take(34).collect();
-        queue!(
-            out,
-            MoveTo(col_off, term_row),
-            SetForegroundColor(b),
-            SetBackgroundColor(bg),
-            Print('║'),
-            SetForegroundColor(*fg),
-            SetBackgroundColor(bg),
-            Print(format!(" {:<34} ", cell)),
-            SetForegroundColor(b),
-            SetBackgroundColor(bg),
-            Print('║'),
-        )?;
+        queue!(out, MoveTo(col_off, row_off + 1 + cr),
+            SetBackgroundColor(bg), SetForegroundColor(b), Print('║'),
+            SetForegroundColor(fg), Print(format!(" {:<34} ", cell)),
+            SetForegroundColor(b), Print('║'))?;
     }
 
-    // Content rows 31–34: blank padding (terminal rows row_off+32 through row_off+35).
-    for i in 31usize..=34 {
-        let term_row = row_off + 1 + i as u16;
-        queue!(
-            out,
-            MoveTo(col_off, term_row),
-            SetForegroundColor(b),
-            SetBackgroundColor(bg),
-            Print('║'),
-            SetForegroundColor(d),
-            SetBackgroundColor(bg),
-            Print(format!(" {:<34} ", "")),
-            SetForegroundColor(b),
-            SetBackgroundColor(bg),
-            Print('║'),
-        )?;
+    // ── Action button row (content row 21) ────────────────────────────────────
+    // Layout: │ N/Sol  │  Undo │  Redo │  Clr  │  (34 chars, inside " ... ")
+    queue!(out, MoveTo(col_off, row_off + 1 + 21),
+        SetBackgroundColor(bg), SetForegroundColor(b), Print("║ "),
+        SetForegroundColor(b),  Print('│'),
+        SetBackgroundColor(btn_bg(&MousePanelButton::NotesSolToggle)), SetForegroundColor(t), Print(" N/Sol  "),
+        SetBackgroundColor(bg), SetForegroundColor(b), Print('│'),
+        SetBackgroundColor(btn_bg(&MousePanelButton::Undo)), SetForegroundColor(t), Print("  Undo "),
+        SetBackgroundColor(bg), SetForegroundColor(b), Print('│'),
+        SetBackgroundColor(btn_bg(&MousePanelButton::Redo)), SetForegroundColor(t), Print("  Redo "),
+        SetBackgroundColor(bg), SetForegroundColor(b), Print('│'),
+        SetBackgroundColor(btn_bg(&MousePanelButton::Clear)), SetForegroundColor(t), Print("  Clr  "),
+        SetBackgroundColor(bg), SetForegroundColor(b), Print("│ ║"))?;
+
+    // ── Footer of action box + digit box header (content rows 22–24) ──────────
+    let mid: &[(&str, Color, u16)] = &[
+        ("└────────┴───────┴───────┴───────┘", b, 22),
+        ("", d, 23),
+        ("┌──────────┬──────────┬──────────┐", b, 24),
+    ];
+    for &(text, fg, cr) in mid {
+        let cell: String = text.chars().take(34).collect();
+        queue!(out, MoveTo(col_off, row_off + 1 + cr),
+            SetBackgroundColor(bg), SetForegroundColor(b), Print('║'),
+            SetForegroundColor(fg), Print(format!(" {:<34} ", cell)),
+            SetForegroundColor(b), Print('║'))?;
+    }
+
+    // ── Digit rows (content rows 25, 27, 29) ──────────────────────────────────
+    // Each row: │  d  │  d+1  │  d+2  │  (three 10-char cells, 34 chars total)
+    for row_idx in 0..3u8 {
+        let cr = 25 + row_idx as u16 * 2;
+        let d1 = row_idx * 3 + 1;
+        queue!(out, MoveTo(col_off, row_off + 1 + cr),
+            SetBackgroundColor(bg), SetForegroundColor(b), Print("║ "),
+            SetForegroundColor(b), Print('│'),
+            SetBackgroundColor(btn_bg(&MousePanelButton::Digit(d1))),   SetForegroundColor(t), Print(format!("    {}     ", d1)),
+            SetBackgroundColor(bg), SetForegroundColor(b), Print('│'),
+            SetBackgroundColor(btn_bg(&MousePanelButton::Digit(d1+1))), SetForegroundColor(t), Print(format!("    {}     ", d1+1)),
+            SetBackgroundColor(bg), SetForegroundColor(b), Print('│'),
+            SetBackgroundColor(btn_bg(&MousePanelButton::Digit(d1+2))), SetForegroundColor(t), Print(format!("    {}     ", d1+2)),
+            SetBackgroundColor(bg), SetForegroundColor(b), Print("│ ║"))?;
+
+        // separator / bottom border row
+        let sep = if row_idx < 2 { "├──────────┼──────────┼──────────┤" }
+                  else           { "└──────────┴──────────┴──────────┘" };
+        queue!(out, MoveTo(col_off, row_off + 1 + cr + 1),
+            SetBackgroundColor(bg), SetForegroundColor(b), Print('║'),
+            SetForegroundColor(b), Print(format!(" {:<34} ", sep)),
+            SetForegroundColor(b), Print('║'))?;
+    }
+
+    // ── Blank padding rows 31–34 ──────────────────────────────────────────────
+    for i in 31u16..=34 {
+        queue!(out, MoveTo(col_off, row_off + 1 + i),
+            SetBackgroundColor(bg), SetForegroundColor(b), Print('║'),
+            SetForegroundColor(d), Print(format!(" {:<34} ", "")),
+            SetForegroundColor(b), Print('║'))?;
     }
 
     Ok(())
@@ -481,6 +511,7 @@ mod tests {
             0,
             None,
             false,
+            None,
         )
         .unwrap();
     }
@@ -549,6 +580,7 @@ mod tests {
             0,
             None,
             false,
+            None,
         )
         .unwrap();
         let s = String::from_utf8_lossy(&buf);
@@ -576,6 +608,7 @@ mod tests {
             0,
             Some(("Naked Single", "Only 5 fits in this cell.")),
             false,
+            None,
         )
         .unwrap();
         let s = String::from_utf8_lossy(&buf);
@@ -618,6 +651,7 @@ mod tests {
             0,
             None,
             false,
+            None,
         )
         .unwrap();
         let s = String::from_utf8_lossy(&buf);

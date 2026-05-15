@@ -71,6 +71,8 @@ pub enum Screen<'a> {
         /// Grid cell currently under the mouse cursor; `None` when mouse mode
         /// is off, game is paused, or no hover event received yet.
         hover_cell: Option<(usize, usize)>,
+        /// Panel button under the mouse cursor in mouse mode.
+        hover_panel: Option<crate::tui::input::MousePanelButton>,
     },
     PatternSelect {
         selected: usize,
@@ -166,6 +168,7 @@ pub fn render_frame(
             matrix_mode,
             mouse_mode,
             hover_cell,
+            hover_panel,
         } => {
             // Suppress hover highlight while paused.
             let effective_hover = if *paused { None } else { *hover_cell };
@@ -229,6 +232,7 @@ pub fn render_frame(
                 *hint_count,
                 hint_text,
                 *mouse_mode,
+                hover_panel.as_ref(),
             )?;
             if *paused {
                 render_paused_overlay(out, strings.resume_hint, colors)?;

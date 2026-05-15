@@ -35,9 +35,11 @@ const GRID_COL: u16 = 2;
 const GRID_W: u16 = 73;
 const GRID_H: u16 = 37;
 // Absolute terminal column/row bounds for clipping particles.
+// CLIP_ROW_MIN is kept 2 rows below GRID_ROW to prevent particles from
+// touching the top border rows, which causes flickering on Windows Terminal.
 const CLIP_COL_MIN: i16 = GRID_COL as i16;
 const CLIP_COL_MAX: i16 = (GRID_COL + GRID_W - 1) as i16;
-const CLIP_ROW_MIN: i16 = GRID_ROW as i16;
+const CLIP_ROW_MIN: i16 = GRID_ROW as i16 + 2;
 const CLIP_ROW_MAX: i16 = (GRID_ROW + GRID_H - 1) as i16;
 
 // ── Public entry point ────────────────────────────────────────────────────────
