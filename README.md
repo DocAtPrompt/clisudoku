@@ -10,7 +10,7 @@ Some programs just feel right when they run in a terminal — no mouse required,
 
 ## Features
 
-- **6 difficulty levels** — Easy · Medium · Hard · Extreme · Expert · Just 17
+- **6 difficulty levels** — Easy · Medium · Hard · Extreme · Expert · Sparse
 - **Hint system** — step-by-step hints with cause / elimination / target highlighting (20+ strategies)
 - **Notes mode** — pencil marks per cell, auto-cleared on digit entry
 - **Undo / redo** — full move history
@@ -57,7 +57,7 @@ Options:
   -t <NAME>           Colour theme: dark (default) | light | high-contrast
   -l <CODE>           Language: en de es it fr sl eo tp leet sw af py id
   --difficulty <L>    Starting difficulty: easy medium hard extreme expert
-                      (Just 17 is only selectable from the in-game menu)
+                      (Sparse is only selectable from the in-game menu)
   --digit-style <S>   Digit style: retro (default) | awkward-retro
   --config <PATH>     Config file (default: ~/.config/clisudoku/config.toml)
 ```
@@ -110,7 +110,7 @@ clisudoku --config ~/dotfiles/clisudoku.toml
 | Hard | X-Wing |
 | Extreme | Swordfish, Jellyfish |
 | Expert | XY-Wing, XYZ-Wing, chains, unique rectangles, … |
-| Just 17 | Exactly 17 clues — the mathematical minimum for a unique solution |
+| Sparse | As few clues as possible — near the theoretical minimum of 17 |
 
 ## Configuration
 
