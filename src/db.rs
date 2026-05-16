@@ -2,6 +2,8 @@ use rusqlite::{Connection, Result};
 use std::path::Path;
 
 pub struct Database {
+    /// `pub(crate)` so tests can issue raw queries for schema verification.
+    /// Production code must use the public API methods only.
     pub(crate) conn: Connection,
 }
 
