@@ -414,7 +414,7 @@ impl App {
 
     fn handle_save_dialog_action(&mut self, action: AppAction) {
         // stub — implemented in Task 12
-        if matches!(action, AppAction::Escape) {
+        if matches!(action, AppAction::Back) {
             let has_saves = self.compute_has_saves();
             self.screen = AppScreen::Start { selected: 0, has_saves };
             self.needs_clear = true;
