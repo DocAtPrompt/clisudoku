@@ -74,10 +74,13 @@ impl Database {
     ) -> rusqlite::Result<()> {
         let state_json = serde_json::to_string(state)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-        self.conn.execute(
+        let changed = self.conn.execute(
             "UPDATE saves SET state_json=?1, elapsed_ms=?2, last_saved_at=?3 WHERE id=?4",
             rusqlite::params![state_json, elapsed_ms as i64, last_saved_at, id],
         )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
         Ok(())
     }
 
@@ -118,7 +121,10 @@ impl Database {
     }
 
     pub fn delete_save(&self, id: i64) -> rusqlite::Result<()> {
-        self.conn.execute("DELETE FROM saves WHERE id=?1", rusqlite::params![id])?;
+        let changed = self.conn.execute("DELETE FROM saves WHERE id=?1", rusqlite::params![id])?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
         Ok(())
     }
 
