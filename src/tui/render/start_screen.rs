@@ -14,8 +14,8 @@ pub const TITLE: &str = r#"   ____ _     ___ ____            _       _
  | |___| |___ | | ___) | |_| | (_| | (_) |   <| |_| |
   \____|_____|___|____/ \__,_|\__,_|\___/|_|\_\\__,_|"#;
 
-/// Number of items in the start menu (New Game / Language / Theme / Quit).
-pub const START_ITEM_COUNT: usize = 4;
+/// Number of items in the start menu (New Game / Continue / Highscores / Language / Theme / Quit).
+pub const START_ITEM_COUNT: usize = 6;
 
 fn render_title(
     out: &mut impl Write,
@@ -41,8 +41,22 @@ fn render_menu_items(
     selected: usize,
     colors: &ColorScheme,
 ) -> io::Result<()> {
+    render_menu_items_with_disabled(out, (row_off, col_off), items, selected, &[], colors)
+}
+
+fn render_menu_items_with_disabled(
+    out: &mut impl Write,
+    (row_off, col_off): (u16, u16),
+    items: &[&str],
+    selected: usize,
+    disabled: &[usize],
+    colors: &ColorScheme,
+) -> io::Result<()> {
     for (i, item) in items.iter().enumerate() {
-        let (fg, bg) = if i == selected {
+        let is_disabled = disabled.contains(&i);
+        let (fg, bg) = if is_disabled {
+            (colors.ui_text, colors.ui_background)
+        } else if i == selected {
             (colors.ui_cursor_fg, colors.ui_cursor_bg)
         } else {
             (colors.ui_text, colors.ui_background)
@@ -63,18 +77,22 @@ pub fn render_start(
     out: &mut impl Write,
     (row_off, col_off): (u16, u16),
     selected: usize,
+    has_saves: bool,
     strings: &'static Strings,
     colors: &ColorScheme,
 ) -> io::Result<()> {
     render_title(out, (row_off, col_off), colors)?;
-    let items = [
+    let items: [&str; 6] = [
         strings.menu_new_game,
+        strings.start_continue,
+        strings.start_highscores,
         strings.menu_language,
         strings.menu_theme,
         strings.menu_quit,
     ];
     let menu_row = row_off + 7; // 5 title lines + 2 blank rows
-    render_menu_items(out, (menu_row, col_off), &items, selected, colors)
+    let disabled: &[usize] = if has_saves { &[] } else { &[1] };
+    render_menu_items_with_disabled(out, (menu_row, col_off), &items, selected, disabled, colors)
 }
 
 /// Render the difficulty selection sub-menu.
@@ -220,10 +238,19 @@ mod tests {
     #[test]
     fn start_screen_render_does_not_panic() {
         let mut buf = Vec::new();
-        render_start(&mut buf, (0, 0), 0, &EN, &ColorScheme::default()).unwrap();
+        render_start(&mut buf, (0, 0), 0, false, &EN, &ColorScheme::default()).unwrap();
         let s = String::from_utf8_lossy(&buf);
         assert!(s.contains("New Game"));
         assert!(s.contains("Quit"));
+    }
+
+    #[test]
+    fn start_screen_shows_continue_and_highscores() {
+        let mut buf = Vec::new();
+        render_start(&mut buf, (0, 0), 0, true, &EN, &ColorScheme::default()).unwrap();
+        let s = String::from_utf8_lossy(&buf);
+        assert!(s.contains("Continue"));
+        assert!(s.contains("Highscores"));
     }
 
     #[test]

@@ -1,4 +1,5 @@
 pub mod config;
+pub mod db;
 pub mod generator;
 pub mod hint;
 pub mod i18n;

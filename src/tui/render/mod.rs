@@ -1,6 +1,8 @@
 // src/tui/render/mod.rs
 pub mod boss;
+pub mod continue_screen;
 pub mod help;
+pub mod highscores;
 pub mod cell;
 pub mod confirm;
 pub mod firework;
@@ -8,6 +10,7 @@ pub mod generating;
 pub mod grid;
 pub mod matrix_rain;
 pub mod pattern_select;
+pub mod save_dialog;
 pub mod start_screen;
 pub mod status_bar;
 
@@ -28,6 +31,7 @@ use std::io::{self, Write};
 pub enum Screen<'a> {
     Start {
         selected: usize,
+        has_saves: bool,
     },
     DifficultySelect {
         selected: usize,
@@ -92,6 +96,15 @@ pub enum Screen<'a> {
         /// Second line: the available key options.
         options: String,
     },
+    Continue {
+        selected: usize,
+        saves: &'a [crate::db::SaveSummary],
+    },
+    Highscores {
+        difficulty_tab: usize,
+        scores: &'a [crate::db::ScoreEntry],
+    },
+    SaveDialog,
 }
 
 /// Render the full terminal frame for the given screen.
@@ -106,8 +119,8 @@ pub fn render_frame(
     queue!(out, MoveTo(0, 0))?;
 
     match screen {
-        Screen::Start { selected } => {
-            start_screen::render_start(out, (2, 4), *selected, strings, colors)?;
+        Screen::Start { selected, has_saves } => {
+            start_screen::render_start(out, (2, 4), *selected, *has_saves, strings, colors)?;
         }
         Screen::DifficultySelect {
             selected,
@@ -254,6 +267,16 @@ pub fn render_frame(
         } => {
             render_frame(out, underneath, colors, style, strings)?;
             confirm::render_confirm(out, (17, 20), title, options, colors)?;
+        }
+        Screen::Continue { selected, saves } => {
+            continue_screen::render_continue(out, saves, *selected, colors, strings)?;
+        }
+        Screen::Highscores { difficulty_tab, scores } => {
+            highscores::render_highscores(out, scores, *difficulty_tab, colors, strings)?;
+        }
+        Screen::SaveDialog => {
+            // render_save_dialog is called directly from render_current with full data;
+            // this arm is intentionally empty.
         }
     }
 

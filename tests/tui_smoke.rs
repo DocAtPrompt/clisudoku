@@ -61,7 +61,7 @@ fn render_start_screen_does_not_panic() {
     let mut buf = Vec::new();
     render_frame(
         &mut buf,
-        &clisudoku::tui::render::Screen::Start { selected: 0 },
+        &clisudoku::tui::render::Screen::Start { selected: 0, has_saves: false },
         &ColorScheme::default(),
         &RetroStyle,
         &EN,
