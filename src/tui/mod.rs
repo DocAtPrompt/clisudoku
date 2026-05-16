@@ -148,6 +148,8 @@ pub struct App {
     /// Panel button currently under the mouse cursor in mouse mode.
     pub hover_panel: Option<crate::tui::input::MousePanelButton>,
     pub key_map: KeyMap,
+    /// SQLite database connection (None if DB could not be opened).
+    pub db: Option<crate::db::Database>,
 }
 
 impl App {
@@ -189,6 +191,7 @@ impl App {
             hover_cell: None,
             hover_panel: None,
             key_map: KeyMap::default(),
+            db: None,
         }
     }
 

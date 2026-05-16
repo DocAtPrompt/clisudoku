@@ -9,6 +9,11 @@ use crate::tui::input::KeyMap;
 
 // ── Serde structs ─────────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct StorageConfig {
+    pub db_path: Option<String>,
+}
+
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -17,6 +22,8 @@ pub struct Config {
     pub colors: HashMap<String, String>,
     #[serde(default)]
     pub keys: HashMap<String, String>,
+    #[serde(default)]
+    pub storage: StorageConfig,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -75,7 +82,7 @@ pub fn parse_key(s: &str) -> Result<char, String> {
 
 // ── Config loading ────────────────────────────────────────────────────────────
 
-fn dirs_or_home() -> Option<PathBuf> {
+pub fn dirs_or_home() -> Option<PathBuf> {
     if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
         return Some(PathBuf::from(xdg));
     }
@@ -265,6 +272,13 @@ mod tests {
         let tmp = std::path::Path::new("/tmp/clisudoku_nonexistent_test_config.toml");
         let cfg = load(Some(tmp)).unwrap();
         assert!(cfg.appearance.theme.is_none());
+    }
+
+    #[test]
+    fn storage_db_path_parsed_from_toml() {
+        let toml = "[storage]\ndb_path = \"/tmp/test.db\"\n";
+        let cfg: Config = toml::from_str(toml).unwrap();
+        assert_eq!(cfg.storage.db_path.as_deref(), Some("/tmp/test.db"));
     }
 
     #[test]

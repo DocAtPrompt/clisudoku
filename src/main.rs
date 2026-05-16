@@ -44,6 +44,10 @@ struct Cli {
     /// Path to config file (default: ~/.config/clisudoku/config.toml)
     #[arg(long, value_name = "PATH")]
     config: Option<PathBuf>,
+
+    /// Path to SQLite database file (overrides config).
+    #[arg(long, value_name = "PATH")]
+    db: Option<std::path::PathBuf>,
 }
 
 fn main() {
@@ -63,6 +67,25 @@ fn main() {
         eprintln!("Config error: {}", e);
         std::process::exit(1);
     }
+
+    // Resolve DB path: --db arg > config > default
+    let db_path: std::path::PathBuf = cli.db
+        .or_else(|| cfg.storage.db_path.as_deref().map(std::path::PathBuf::from))
+        .unwrap_or_else(|| {
+            clisudoku::config::dirs_or_home()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("clisudoku")
+                .join("clisudoku.db")
+        });
+
+    let db = match clisudoku::db::Database::open(&db_path) {
+        Ok(db) => Some(db),
+        Err(e) => {
+            eprintln!("Warning: could not open database {}: {}", db_path.display(), e);
+            None
+        }
+    };
+    app.db = db;
 
     // 2. CLI args override config (each arg is independent).
     if let Some(ref name) = cli.theme {
