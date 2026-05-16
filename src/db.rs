@@ -120,6 +120,58 @@ impl Database {
         rows.collect()
     }
 
+    pub fn insert_score(&self, score: &ScoreEntry) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT INTO scores (puzzle, puzzle_type, difficulty, time_ms, hint_count, error_count, scan_used, rating, started_at, finished_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![
+                score.puzzle,
+                score.puzzle_type,
+                score.difficulty,
+                score.time_ms as i64,
+                score.hint_count as i64,
+                score.error_count as i64,
+                score.scan_used as i64,
+                score.rating.map(|r| r as i64),
+                score.started_at,
+                score.finished_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_scores(&self, difficulty: Option<&str>, limit: usize) -> rusqlite::Result<Vec<ScoreEntry>> {
+        if let Some(diff) = difficulty {
+            let mut stmt = self.conn.prepare(
+                "SELECT id, puzzle, puzzle_type, difficulty, time_ms, hint_count, error_count, scan_used, rating, started_at, finished_at
+                 FROM scores WHERE difficulty=?1 ORDER BY time_ms ASC LIMIT ?2")?;
+            let rows = stmt.query_map(rusqlite::params![diff, limit as i64], Self::row_to_score)?;
+            rows.collect()
+        } else {
+            let mut stmt = self.conn.prepare(
+                "SELECT id, puzzle, puzzle_type, difficulty, time_ms, hint_count, error_count, scan_used, rating, started_at, finished_at
+                 FROM scores ORDER BY time_ms ASC LIMIT ?1")?;
+            let rows = stmt.query_map(rusqlite::params![limit as i64], Self::row_to_score)?;
+            rows.collect()
+        }
+    }
+
+    fn row_to_score(row: &rusqlite::Row<'_>) -> rusqlite::Result<ScoreEntry> {
+        Ok(ScoreEntry {
+            id: Some(row.get(0)?),
+            puzzle: row.get(1)?,
+            puzzle_type: row.get(2)?,
+            difficulty: row.get(3)?,
+            time_ms: row.get::<_, i64>(4)? as u64,
+            hint_count: row.get::<_, i64>(5)? as u32,
+            error_count: row.get::<_, i64>(6)? as u32,
+            scan_used: row.get::<_, i64>(7)? != 0,
+            rating: row.get::<_, Option<i64>>(8)?.map(|r| r as u8),
+            started_at: row.get(9)?,
+            finished_at: row.get(10)?,
+        })
+    }
+
     pub fn delete_save(&self, id: i64) -> rusqlite::Result<()> {
         let changed = self.conn.execute("DELETE FROM saves WHERE id=?1", rusqlite::params![id])?;
         if changed == 0 {
@@ -259,5 +311,61 @@ mod tests {
         db.save_game(EASY, "Classic", None, "Hard", &state, 0, "2026-01-03T00:00:00Z").unwrap();
         let list = db.list_saves().unwrap();
         assert_eq!(list[0].difficulty, "Hard"); // newest first
+    }
+
+    fn sample_score(difficulty: &str, time_ms: u64) -> ScoreEntry {
+        ScoreEntry {
+            id: None,
+            puzzle: EASY.to_string(),
+            puzzle_type: "Classic".to_string(),
+            difficulty: difficulty.to_string(),
+            time_ms,
+            hint_count: 1,
+            error_count: 0,
+            scan_used: false,
+            rating: Some(7),
+            started_at: "2026-01-01T00:00:00Z".to_string(),
+            finished_at: "2026-01-01T00:12:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn insert_and_list_scores() {
+        let (db, _dir) = temp_db();
+        db.insert_score(&sample_score("Easy", 60_000)).unwrap();
+        db.insert_score(&sample_score("Easy", 30_000)).unwrap();
+        let scores = db.list_scores(Some("Easy"), 10).unwrap();
+        assert_eq!(scores.len(), 2);
+        assert!(scores[0].time_ms < scores[1].time_ms); // ascending by time
+        assert_eq!(scores[0].rating, Some(7));
+    }
+
+    #[test]
+    fn list_scores_filters_by_difficulty() {
+        let (db, _dir) = temp_db();
+        db.insert_score(&sample_score("Easy", 30_000)).unwrap();
+        db.insert_score(&sample_score("Hard", 90_000)).unwrap();
+        assert_eq!(db.list_scores(Some("Easy"), 10).unwrap().len(), 1);
+        assert_eq!(db.list_scores(Some("Hard"), 10).unwrap().len(), 1);
+        assert_eq!(db.list_scores(None, 10).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn list_scores_respects_limit() {
+        let (db, _dir) = temp_db();
+        for i in 0..15u64 {
+            db.insert_score(&sample_score("Easy", i * 1000)).unwrap();
+        }
+        assert_eq!(db.list_scores(Some("Easy"), 10).unwrap().len(), 10);
+    }
+
+    #[test]
+    fn score_rating_none_roundtrip() {
+        let (db, _dir) = temp_db();
+        let mut s = sample_score("Easy", 10_000);
+        s.rating = None;
+        db.insert_score(&s).unwrap();
+        let scores = db.list_scores(Some("Easy"), 10).unwrap();
+        assert_eq!(scores[0].rating, None);
     }
 }
