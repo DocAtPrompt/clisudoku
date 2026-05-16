@@ -420,7 +420,9 @@ impl App {
                 if let Some(summary) = saves.get(selected) {
                     let id = summary.id;
                     if let Some(db) = &self.db {
-                        let _ = db.delete_save(id);
+                        if let Err(e) = db.delete_save(id) {
+                            eprintln!("Failed to delete save {}: {}", id, e);
+                        }
                     }
                     // Refresh list
                     let new_saves = self.db.as_ref()
@@ -1824,9 +1826,27 @@ impl App {
                     Ok(())
                 }
             }
-            AppScreen::Continue { .. } => Ok(()),
-            AppScreen::Highscores { .. } => Ok(()),
-            AppScreen::SaveDialog => Ok(()),
+            AppScreen::Continue { selected, saves } => render_frame(
+                out,
+                &Screen::Continue { selected: *selected, saves },
+                &self.colors,
+                self.style.as_ref(),
+                strings,
+            ),
+            AppScreen::Highscores { difficulty_tab, scores } => render_frame(
+                out,
+                &Screen::Highscores { difficulty_tab: *difficulty_tab, scores },
+                &self.colors,
+                self.style.as_ref(),
+                strings,
+            ),
+            AppScreen::SaveDialog => render_frame(
+                out,
+                &Screen::SaveDialog,
+                &self.colors,
+                self.style.as_ref(),
+                strings,
+            ),
         }?;
 
         // Matrix rain overlay — drawn over the grid area when active.
@@ -1890,7 +1910,6 @@ impl App {
         }
     }
 
-    #[allow(dead_code)]
     fn load_game_from_db(&mut self, entry: crate::db::SaveEntry) {
         let state: crate::puzzle::game_state::GameState =
             match serde_json::from_str(&entry.state_json) {
