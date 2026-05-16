@@ -14,6 +14,19 @@ pub enum Difficulty {
 
 use crate::solver::Strategy;
 
+impl Difficulty {
+    pub fn to_db_str(&self) -> &'static str {
+        match self {
+            Difficulty::Easy        => "Easy",
+            Difficulty::Medium      => "Medium",
+            Difficulty::Hard        => "Hard",
+            Difficulty::Extreme     => "Extreme",
+            Difficulty::Expert      => "Expert",
+            Difficulty::BareMinimum => "Sparse",
+        }
+    }
+}
+
 /// Classify a solved puzzle by the hardest strategy used.
 ///
 /// Priority (highest first): Expert > Extreme (Swordfish/Backtracking) > Hard > Medium > Easy.
@@ -90,5 +103,15 @@ mod tests {
     fn expert_dominates_swordfish_in_combined_use() {
         let used = vec![Strategy::NakedSingle, Strategy::Swordfish, Strategy::Expert];
         assert_eq!(classify(&used), Difficulty::Expert);
+    }
+
+    #[test]
+    fn to_db_str_covers_all_variants() {
+        assert_eq!(Difficulty::Easy.to_db_str(), "Easy");
+        assert_eq!(Difficulty::Medium.to_db_str(), "Medium");
+        assert_eq!(Difficulty::Hard.to_db_str(), "Hard");
+        assert_eq!(Difficulty::Extreme.to_db_str(), "Extreme");
+        assert_eq!(Difficulty::Expert.to_db_str(), "Expert");
+        assert_eq!(Difficulty::BareMinimum.to_db_str(), "Sparse");
     }
 }

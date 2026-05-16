@@ -65,6 +65,16 @@ pub enum GameCategory {
     BareMinimum,
 }
 
+impl GameCategory {
+    pub fn to_db_str(&self) -> &'static str {
+        match self {
+            GameCategory::Classic     => "Classic",
+            GameCategory::Design      => "Designer",
+            GameCategory::BareMinimum => "Sparse",
+        }
+    }
+}
+
 /// Per-game statistics tracked for database / post-game summary.
 #[derive(Debug, Clone, Default)]
 pub struct GameStats {
@@ -2026,5 +2036,12 @@ mod tests {
     fn default_difficulty_index_is_zero() {
         let app = App::new(Box::new(FakeClock { ms: 0 }));
         assert_eq!(app.default_difficulty_index, 0);
+    }
+
+    #[test]
+    fn game_category_to_db_str() {
+        assert_eq!(GameCategory::Classic.to_db_str(), "Classic");
+        assert_eq!(GameCategory::Design.to_db_str(), "Designer");
+        assert_eq!(GameCategory::BareMinimum.to_db_str(), "Sparse");
     }
 }
