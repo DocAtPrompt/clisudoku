@@ -68,6 +68,8 @@ pub enum AppAction {
     MouseButton(MousePanelButton),
     /// `?` key: open/close help screen.
     ToggleHelp,
+    /// Delete key: delete the selected item (e.g. a save slot).
+    Delete,
     None,
 }
 
@@ -117,6 +119,7 @@ pub fn map_key_to_action(key: KeyEvent, nav: &NavState, km: &KeyMap) -> AppActio
 
         KeyCode::Enter => AppAction::Enter,
         KeyCode::Esc => AppAction::Back,
+        KeyCode::Delete => AppAction::Delete,
 
         // Ctrl combos — not remappable
         KeyCode::Char('z') if ctrl => AppAction::Undo,

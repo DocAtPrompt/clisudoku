@@ -394,12 +394,54 @@ impl App {
         }
     }
 
-    fn handle_continue_action(&mut self, _action: AppAction, _selected: usize, _saves: Vec<crate::db::SaveSummary>) {
-        // stub — implemented in Task 10
-        if matches!(_action, AppAction::Back) {
-            let has_saves = self.compute_has_saves();
-            self.screen = AppScreen::Start { selected: 0, has_saves };
-            self.needs_clear = true;
+    fn handle_continue_action(&mut self, action: AppAction, selected: usize, saves: Vec<crate::db::SaveSummary>) {
+        match action {
+            AppAction::MoveUp => {
+                self.screen = AppScreen::Continue { selected: selected.saturating_sub(1), saves };
+            }
+            AppAction::MoveDown => {
+                self.screen = AppScreen::Continue {
+                    selected: (selected + 1).min(saves.len().saturating_sub(1)),
+                    saves,
+                };
+            }
+            AppAction::Enter => {
+                if let Some(summary) = saves.get(selected) {
+                    let id = summary.id;
+                    if let Some(db) = &self.db {
+                        match db.load_game(id) {
+                            Ok(entry) => { self.load_game_from_db(entry); }
+                            Err(e) => eprintln!("Failed to load save {}: {}", id, e),
+                        }
+                    }
+                }
+            }
+            AppAction::Delete => {
+                if let Some(summary) = saves.get(selected) {
+                    let id = summary.id;
+                    if let Some(db) = &self.db {
+                        let _ = db.delete_save(id);
+                    }
+                    // Refresh list
+                    let new_saves = self.db.as_ref()
+                        .and_then(|db| db.list_saves().ok())
+                        .unwrap_or_default();
+                    if new_saves.is_empty() {
+                        let has_saves = false;
+                        self.screen = AppScreen::Start { selected: 0, has_saves };
+                    } else {
+                        let new_sel = selected.min(new_saves.len() - 1);
+                        self.screen = AppScreen::Continue { selected: new_sel, saves: new_saves };
+                    }
+                    self.needs_clear = true;
+                }
+            }
+            AppAction::Back => {
+                let has_saves = self.compute_has_saves();
+                self.screen = AppScreen::Start { selected: 0, has_saves };
+                self.needs_clear = true;
+            }
+            _ => {}
         }
     }
 

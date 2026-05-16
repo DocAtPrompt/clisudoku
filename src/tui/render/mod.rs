@@ -1,5 +1,6 @@
 // src/tui/render/mod.rs
 pub mod boss;
+pub mod continue_screen;
 pub mod help;
 pub mod cell;
 pub mod confirm;
@@ -265,7 +266,9 @@ pub fn render_frame(
             render_frame(out, underneath, colors, style, strings)?;
             confirm::render_confirm(out, (17, 20), title, options, colors)?;
         }
-        Screen::Continue { .. } => {}
+        Screen::Continue { selected, saves } => {
+            continue_screen::render_continue(out, saves, *selected, colors, strings)?;
+        }
         Screen::Highscores { .. } => {}
         Screen::SaveDialog => {}
     }
