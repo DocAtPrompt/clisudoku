@@ -771,6 +771,7 @@ impl App {
                     };
                     state.apply(event);
                 }
+                self.try_auto_save();
                 if !self.note_mode {
                     self.check_completion(row, col);
                 }
@@ -781,6 +782,7 @@ impl App {
                     use crate::puzzle::GameEvent;
                     state.apply(GameEvent::ClearCell { row, col });
                 }
+                self.try_auto_save();
             }
             AppAction::Undo => {
                 if let Some(state) = &mut self.game_state {
@@ -1728,6 +1730,46 @@ impl App {
         Ok(())
     }
 
+    fn try_auto_save(&mut self) {
+        if self.game_state.is_none() || self.db.is_none() {
+            return;
+        }
+        let elapsed = self.elapsed_ms();
+        let now = chrono::Utc::now().to_rfc3339();
+        // Clone everything we need before taking mutable references
+        let puzzle_type = self.stats.category.to_db_str().to_string();
+        let initial_puzzle = self.initial_puzzle.clone();
+        let current_difficulty = self.current_difficulty.clone();
+        let started_at = self.started_at.clone();
+        let save_id = self.save_id;
+
+        // Serialize state (avoids lifetime issues with &GameState and &Database simultaneously)
+        let state_clone = match self.game_state.clone() {
+            Some(s) => s,
+            None => return,
+        };
+
+        match save_id {
+            None => {
+                let result = self.db.as_ref().and_then(|db| {
+                    db.save_game(&initial_puzzle, &puzzle_type, None, &current_difficulty, &state_clone, elapsed, &started_at).ok()
+                });
+                if let Some(id) = result {
+                    self.save_id = Some(id);
+                } else if self.db.is_some() {
+                    eprintln!("auto-save failed");
+                }
+            }
+            Some(id) => {
+                if let Some(err) = self.db.as_ref().and_then(|db| {
+                    db.update_game(id, &state_clone, elapsed, &now).err()
+                }) {
+                    eprintln!("auto-save update failed: {}", err);
+                }
+            }
+        }
+    }
+
     #[allow(dead_code)]
     fn load_game_from_db(&mut self, entry: crate::db::SaveEntry) {
         let state: crate::puzzle::game_state::GameState =
@@ -2104,5 +2146,28 @@ mod tests {
         assert_eq!(GameCategory::Classic.to_db_str(), "Classic");
         assert_eq!(GameCategory::Design.to_db_str(), "Designer");
         assert_eq!(GameCategory::BareMinimum.to_db_str(), "Sparse");
+    }
+
+    #[test]
+    fn auto_save_creates_entry_after_first_move() {
+        use crate::db::Database;
+        use tempfile::tempdir;
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test.db");
+        let db = Database::open(&db_path).unwrap();
+
+        let mut app = make_app();
+        app.db = Some(db);
+        // Start a game
+        let grid = crate::puzzle::Grid::from_str(
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079"
+        ).unwrap();
+        app.enter_game(grid);
+        assert!(app.save_id.is_none());
+
+        // Make a move
+        app.handle_action(AppAction::Digit(4));
+        // After action, save_id should be set
+        assert!(app.save_id.is_some());
     }
 }
