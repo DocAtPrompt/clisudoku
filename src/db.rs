@@ -47,7 +47,8 @@ pub struct ScoreEntry {
 impl Database {
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).ok();
+            std::fs::create_dir_all(parent)
+                .map_err(|_e| rusqlite::Error::InvalidPath(parent.to_path_buf()))?;
         }
         let conn = Connection::open(path)?;
         conn.execute_batch(
@@ -83,7 +84,6 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     fn temp_db() -> (Database, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
