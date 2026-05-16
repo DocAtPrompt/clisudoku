@@ -28,6 +28,7 @@ use std::io::{self, Write};
 pub enum Screen<'a> {
     Start {
         selected: usize,
+        has_saves: bool,
     },
     DifficultySelect {
         selected: usize,
@@ -92,6 +93,15 @@ pub enum Screen<'a> {
         /// Second line: the available key options.
         options: String,
     },
+    Continue {
+        selected: usize,
+        saves: &'a [crate::db::SaveSummary],
+    },
+    Highscores {
+        difficulty_tab: usize,
+        scores: &'a [crate::db::ScoreEntry],
+    },
+    SaveDialog,
 }
 
 /// Render the full terminal frame for the given screen.
@@ -106,8 +116,8 @@ pub fn render_frame(
     queue!(out, MoveTo(0, 0))?;
 
     match screen {
-        Screen::Start { selected } => {
-            start_screen::render_start(out, (2, 4), *selected, strings, colors)?;
+        Screen::Start { selected, has_saves } => {
+            start_screen::render_start(out, (2, 4), *selected, *has_saves, strings, colors)?;
         }
         Screen::DifficultySelect {
             selected,
@@ -255,6 +265,9 @@ pub fn render_frame(
             render_frame(out, underneath, colors, style, strings)?;
             confirm::render_confirm(out, (17, 20), title, options, colors)?;
         }
+        Screen::Continue { .. } => {}
+        Screen::Highscores { .. } => {}
+        Screen::SaveDialog => {}
     }
 
     queue!(out, ResetColor)

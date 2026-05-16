@@ -41,7 +41,7 @@ use std::io::{self, BufWriter, Write};
 use std::time::Duration;
 
 pub enum AppScreen {
-    Start { selected: usize },
+    Start { selected: usize, has_saves: bool },
     DifficultySelect { selected: usize, sym_focused: bool },
     LanguageSelect { selected: usize },
     ThemeSelect { selected: usize },
@@ -49,6 +49,9 @@ pub enum AppScreen {
     PatternSelect { selected: usize },
     Generating(crate::tui::generating::GeneratingState),
     Help { section: usize },
+    Continue { selected: usize, saves: Vec<crate::db::SaveSummary> },
+    Highscores { difficulty_tab: usize, scores: Vec<crate::db::ScoreEntry> },
+    SaveDialog,
 }
 
 /// Pending confirmation action.
@@ -182,7 +185,7 @@ pub struct App {
 impl App {
     pub fn new(clock: Box<dyn Clock>) -> Self {
         Self {
-            screen: AppScreen::Start { selected: 0 },
+            screen: AppScreen::Start { selected: 0, has_saves: false },
             language: Language::detect(),
             theme: Theme::Dark,
             symmetry: true,
@@ -276,7 +279,8 @@ impl App {
                 AppAction::ConfirmYes => {
                     match self.confirm_pending.take() {
                         Some(ConfirmAction::QuitGame) => {
-                            self.screen = AppScreen::Start { selected: 0 };
+                            let has_saves = self.compute_has_saves();
+                            self.screen = AppScreen::Start { selected: 0, has_saves };
                         }
                         None => {}
                     }
@@ -292,7 +296,7 @@ impl App {
         }
 
         match &self.screen {
-            AppScreen::Start { selected } => self.handle_start_action(action, *selected),
+            AppScreen::Start { selected, .. } => self.handle_start_action(action, *selected),
             AppScreen::DifficultySelect {
                 selected,
                 sym_focused,
@@ -311,20 +315,40 @@ impl App {
                 let s = *section;
                 self.handle_help_action(action, s);
             }
+            AppScreen::Continue { selected, saves } => {
+                let s = *selected;
+                let sv = saves.clone();
+                self.handle_continue_action(action, s, sv);
+            }
+            AppScreen::Highscores { .. } => self.handle_highscores_action(action),
+            AppScreen::SaveDialog => self.handle_save_dialog_action(action),
         }
     }
 
+    fn compute_has_saves(&self) -> bool {
+        self.db.as_ref()
+            .and_then(|db| db.list_saves().ok())
+            .map_or(false, |s| !s.is_empty())
+    }
+
     fn handle_start_action(&mut self, action: AppAction, selected: usize) {
+        let has_saves = self.compute_has_saves();
         match action {
             AppAction::MoveUp => {
-                self.screen = AppScreen::Start {
-                    selected: selected.saturating_sub(1),
-                };
+                let mut prev = selected.saturating_sub(1);
+                // Skip Continue (index 1) if no saves
+                if prev == 1 && !has_saves {
+                    prev = prev.saturating_sub(1);
+                }
+                self.screen = AppScreen::Start { selected: prev, has_saves };
             }
             AppAction::MoveDown => {
-                self.screen = AppScreen::Start {
-                    selected: (selected + 1).min(START_ITEM_COUNT - 1),
-                };
+                let mut next = (selected + 1).min(START_ITEM_COUNT - 1);
+                // Skip Continue (index 1) if no saves
+                if next == 1 && !has_saves {
+                    next = 2_usize.min(START_ITEM_COUNT - 1);
+                }
+                self.screen = AppScreen::Start { selected: next, has_saves };
             }
             AppAction::Enter => match selected {
                 0 => {
@@ -335,12 +359,29 @@ impl App {
                     self.needs_clear = true;
                 }
                 1 => {
+                    // Continue — only navigate if saves exist
+                    if has_saves {
+                        let saves = self.db.as_ref()
+                            .and_then(|db| db.list_saves().ok())
+                            .unwrap_or_default();
+                        self.screen = AppScreen::Continue { selected: 0, saves };
+                        self.needs_clear = true;
+                    }
+                }
+                2 => {
+                    let scores = self.db.as_ref()
+                        .and_then(|db| db.list_scores(None, 100).ok())
+                        .unwrap_or_default();
+                    self.screen = AppScreen::Highscores { difficulty_tab: 0, scores };
+                    self.needs_clear = true;
+                }
+                3 => {
                     self.screen = AppScreen::LanguageSelect {
                         selected: self.language.as_index(),
                     };
                     self.needs_clear = true;
                 }
-                2 => {
+                4 => {
                     self.screen = AppScreen::ThemeSelect {
                         selected: self.theme.as_index(),
                     };
@@ -351,6 +392,28 @@ impl App {
             AppAction::Back => self.should_quit = true,
             _ => {}
         }
+    }
+
+    fn handle_continue_action(&mut self, _action: AppAction, _selected: usize, _saves: Vec<crate::db::SaveSummary>) {
+        // stub — implemented in Task 10
+        if matches!(_action, AppAction::Back) {
+            let has_saves = self.compute_has_saves();
+            self.screen = AppScreen::Start { selected: 0, has_saves };
+            self.needs_clear = true;
+        }
+    }
+
+    fn handle_highscores_action(&mut self, _action: AppAction) {
+        // stub — implemented in Task 11
+        if matches!(_action, AppAction::Back) {
+            let has_saves = self.compute_has_saves();
+            self.screen = AppScreen::Start { selected: 0, has_saves };
+            self.needs_clear = true;
+        }
+    }
+
+    fn handle_save_dialog_action(&mut self, _action: AppAction) {
+        // stub — implemented in Task 12
     }
 
     fn handle_difficulty_action(&mut self, action: AppAction, selected: usize, sym_focused: bool) {
@@ -435,7 +498,8 @@ impl App {
 
             // ── Back always goes to Start ────────────────────────────────────
             AppAction::Back => {
-                self.screen = AppScreen::Start { selected: 0 };
+                let has_saves = self.compute_has_saves();
+                self.screen = AppScreen::Start { selected: 0, has_saves };
                 self.needs_clear = true;
             }
             _ => {}
@@ -457,11 +521,13 @@ impl App {
             }
             AppAction::Enter => {
                 self.language = Language::from_index(selected);
-                self.screen = AppScreen::Start { selected: 0 };
+                let has_saves = self.compute_has_saves();
+                self.screen = AppScreen::Start { selected: 0, has_saves };
                 self.needs_clear = true;
             }
             AppAction::Back => {
-                self.screen = AppScreen::Start { selected: 0 };
+                let has_saves = self.compute_has_saves();
+                self.screen = AppScreen::Start { selected: 0, has_saves };
                 self.needs_clear = true;
             }
             _ => {}
@@ -487,13 +553,15 @@ impl App {
             // Enter confirms and saves.
             AppAction::Enter => {
                 self.theme = Theme::from_index(selected);
-                self.screen = AppScreen::Start { selected: 0 };
+                let has_saves = self.compute_has_saves();
+                self.screen = AppScreen::Start { selected: 0, has_saves };
                 self.needs_clear = true;
             }
             // Back restores the previously saved theme.
             AppAction::Back => {
                 self.colors = ColorScheme::for_theme(self.theme);
-                self.screen = AppScreen::Start { selected: 0 };
+                let has_saves = self.compute_has_saves();
+                self.screen = AppScreen::Start { selected: 0, has_saves };
                 self.needs_clear = true;
             }
             _ => {}
@@ -1012,7 +1080,8 @@ impl App {
             self.screen = if self.game_state.is_some() {
                 AppScreen::Game
             } else {
-                AppScreen::Start { selected: 0 }
+                let has_saves = self.compute_has_saves();
+                AppScreen::Start { selected: 0, has_saves }
             };
         } else if matches!(self.screen, AppScreen::Start { .. } | AppScreen::Game) {
             self.screen = AppScreen::Help { section: 0 };
@@ -1582,10 +1651,11 @@ impl App {
         let strings = self.language.strings();
 
         match &self.screen {
-            AppScreen::Start { selected } => render_frame(
+            AppScreen::Start { selected, has_saves } => render_frame(
                 out,
                 &Screen::Start {
                     selected: *selected,
+                    has_saves: *has_saves,
                 },
                 &self.colors,
                 self.style.as_ref(),
@@ -1707,6 +1777,9 @@ impl App {
                     Ok(())
                 }
             }
+            AppScreen::Continue { .. } => Ok(()),
+            AppScreen::Highscores { .. } => Ok(()),
+            AppScreen::SaveDialog => Ok(()),
         }?;
 
         // Matrix rain overlay — drawn over the grid area when active.
