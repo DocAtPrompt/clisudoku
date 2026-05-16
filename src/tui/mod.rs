@@ -1101,6 +1101,7 @@ impl App {
         if let Some(state) = &mut self.game_state {
             state.apply(GameEvent::SetDigit { row, col, digit });
         }
+        self.try_auto_save();
         self.check_completion(row, col);
     }
 
@@ -2019,6 +2020,11 @@ impl App {
         self.current_puzzle_type = entry.puzzle_type;
         // Restore full game state (overwrites the fresh one enter_game set).
         self.game_state = Some(state);
+        // Restore elapsed timer so the clock continues from where the player left off.
+        // enter_game() resets game_start_ms and paused_elapsed_ms — we fix that here.
+        let elapsed_ms = entry.elapsed_ms as u64;
+        self.paused_elapsed_ms = elapsed_ms;
+        self.game_start_ms = self.clock.now_ms().saturating_sub(elapsed_ms);
     }
 }
 
