@@ -36,6 +36,7 @@ use crossterm::{
 /// Panel bottom border at row 37 + 2 margin rows → 39 rows.
 const MIN_COLS: u16 = 117;
 const MIN_ROWS: u16 = 39;
+use chrono::Utc;
 use std::io::{self, BufWriter, Write};
 use std::time::Duration;
 
@@ -160,6 +161,22 @@ pub struct App {
     pub key_map: KeyMap,
     /// SQLite database connection (None if DB could not be opened).
     pub db: Option<crate::db::Database>,
+    /// ID of the currently loaded save entry, if resumed from DB.
+    pub save_id: Option<i64>,
+    /// RFC-3339 timestamp of when the current game was started.
+    pub started_at: String,
+    /// Difficulty string as stored in the DB (e.g. "Easy", "Hard").
+    pub current_difficulty: String,
+    /// Puzzle type string as stored in the DB (e.g. "Classic", "Designer").
+    pub current_puzzle_type: String,
+    /// 81-char string of the original givens for the current puzzle.
+    pub initial_puzzle: String,
+    /// Rating the player gave this game (1-5), if any.
+    pub pending_rating: Option<u8>,
+    /// Whether the save dialog is being shown for a solved game.
+    pub save_dialog_is_solved: bool,
+    /// Rank of this game's result in the leaderboard, if known.
+    pub result_rank: Option<(usize, usize)>,
 }
 
 impl App {
@@ -202,6 +219,14 @@ impl App {
             hover_panel: None,
             key_map: KeyMap::default(),
             db: None,
+            save_id: None,
+            started_at: String::new(),
+            current_difficulty: String::new(),
+            current_puzzle_type: String::new(),
+            initial_puzzle: String::new(),
+            pending_rating: None,
+            save_dialog_is_solved: false,
+            result_rank: None,
         }
     }
 
@@ -372,26 +397,32 @@ impl App {
             // ── Confirm: start game ──────────────────────────────────────────
             AppAction::Enter if !sym_focused => match selected {
                 0 => {
+                    self.current_difficulty = Difficulty::Easy.to_db_str().to_string();
                     self.start_game(Difficulty::Easy);
                     self.needs_clear = true;
                 }
                 1 => {
+                    self.current_difficulty = Difficulty::Medium.to_db_str().to_string();
                     self.start_game(Difficulty::Medium);
                     self.needs_clear = true;
                 }
                 2 => {
+                    self.current_difficulty = Difficulty::Hard.to_db_str().to_string();
                     self.start_game(Difficulty::Hard);
                     self.needs_clear = true;
                 }
                 3 => {
+                    self.current_difficulty = Difficulty::Extreme.to_db_str().to_string();
                     self.start_game(Difficulty::Extreme);
                     self.needs_clear = true;
                 }
                 4 => {
+                    self.current_difficulty = Difficulty::Expert.to_db_str().to_string();
                     self.start_game(Difficulty::Expert);
                     self.needs_clear = true;
                 }
                 5 => {
+                    self.current_difficulty = Difficulty::BareMinimum.to_db_str().to_string();
                     self.start_game(Difficulty::BareMinimum);
                     self.needs_clear = true;
                 }
@@ -561,6 +592,13 @@ impl App {
     }
 
     fn enter_game(&mut self, puzzle: Grid) {
+        self.initial_puzzle = puzzle.to_str();
+        self.started_at = Utc::now().to_rfc3339();
+        self.save_id = None;
+        self.pending_rating = None;
+        self.save_dialog_is_solved = false;
+        self.result_rank = None;
+        self.current_puzzle_type = self.stats.category.to_db_str().to_string();
         self.solution = solve_backtracking(puzzle.clone());
         self.game_state = Some(GameState::new(puzzle));
         self.stats = GameStats::default();
@@ -1330,6 +1368,7 @@ impl App {
                         } else {
                             (false, false, String::new())
                         };
+                    self.current_difficulty = difficulty.to_db_str().to_string();
                     self.enter_game(grid);
                     if is_bare_minimum || difficulty == Difficulty::BareMinimum {
                         self.stats.category = GameCategory::BareMinimum;
@@ -1687,6 +1726,28 @@ impl App {
             render_info_overlay(out, (15, 10), &msg, sub, strings.dismiss, &self.colors)?;
         }
         Ok(())
+    }
+
+    #[allow(dead_code)]
+    fn load_game_from_db(&mut self, entry: crate::db::SaveEntry) {
+        let state: crate::puzzle::game_state::GameState =
+            match serde_json::from_str(&entry.state_json) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("Warning: could not deserialize save: {}", e);
+                    return;
+                }
+            };
+        let grid = state.grid().clone();
+        self.enter_game(grid);
+        // Restore DB-tracked fields (enter_game resets them).
+        self.save_id = Some(entry.id);
+        self.started_at = entry.started_at;
+        self.initial_puzzle = entry.puzzle;
+        self.current_difficulty = entry.difficulty;
+        self.current_puzzle_type = entry.puzzle_type;
+        // Restore full game state (overwrites the fresh one enter_game set).
+        self.game_state = Some(state);
     }
 }
 
