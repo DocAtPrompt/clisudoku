@@ -10,6 +10,7 @@ pub mod generating;
 pub mod grid;
 pub mod matrix_rain;
 pub mod pattern_select;
+pub mod save_dialog;
 pub mod start_screen;
 pub mod status_bar;
 
@@ -273,7 +274,10 @@ pub fn render_frame(
         Screen::Highscores { difficulty_tab, scores } => {
             highscores::render_highscores(out, scores, *difficulty_tab, colors, strings)?;
         }
-        Screen::SaveDialog => {}
+        Screen::SaveDialog => {
+            // render_save_dialog is called directly from render_current with full data;
+            // this arm is intentionally empty.
+        }
     }
 
     queue!(out, ResetColor)

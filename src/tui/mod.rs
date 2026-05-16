@@ -54,12 +54,6 @@ pub enum AppScreen {
     SaveDialog,
 }
 
-/// Pending confirmation action.
-#[derive(Debug, Clone)]
-pub enum ConfirmAction {
-    QuitGame,
-}
-
 /// Category of a completed game, for future database integration.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum GameCategory {
@@ -127,7 +121,6 @@ pub struct App {
     pub boss_mode: bool,
     /// Matrix Mode active — all digits rendered in Matrix green.
     pub matrix_mode: bool,
-    pub confirm_pending: Option<ConfirmAction>,
     pub should_quit: bool,
     /// Set whenever the screen variant changes so the next render clears first.
     pub needs_clear: bool,
@@ -202,7 +195,6 @@ impl App {
             paused: false,
             boss_mode: false,
             matrix_mode: false,
-            confirm_pending: None,
             should_quit: false,
             needs_clear: false,
             game_start_ms: 0,
@@ -271,28 +263,6 @@ impl App {
         if self.hint_warning.is_some() {
             self.hint_warning = None;
             self.needs_clear = true;
-        }
-
-        // Confirm dialog takes priority
-        if self.confirm_pending.is_some() {
-            match action {
-                AppAction::ConfirmYes => {
-                    match self.confirm_pending.take() {
-                        Some(ConfirmAction::QuitGame) => {
-                            let has_saves = self.compute_has_saves();
-                            self.screen = AppScreen::Start { selected: 0, has_saves };
-                        }
-                        None => {}
-                    }
-                    self.needs_clear = true;
-                }
-                AppAction::ConfirmNo | AppAction::Back => {
-                    self.confirm_pending = None;
-                    self.needs_clear = true;
-                }
-                _ => {}
-            }
-            return;
         }
 
         match &self.screen {
@@ -471,11 +441,25 @@ impl App {
     }
 
     fn handle_save_dialog_action(&mut self, action: AppAction) {
-        // stub — implemented in Task 12
-        if matches!(action, AppAction::Back) {
-            let has_saves = self.compute_has_saves();
-            self.screen = AppScreen::Start { selected: 0, has_saves };
-            self.needs_clear = true;
+        match action {
+            AppAction::Digit(d) => {
+                self.pending_rating = Some(d);
+            }
+            AppAction::Enter | AppAction::ConfirmYes => {
+                self.do_save_and_exit(true);
+            }
+            AppAction::ConfirmNo => {
+                self.do_save_and_exit(false);
+            }
+            AppAction::Back => {
+                if !self.save_dialog_is_solved {
+                    // Resume game (unsolved — user can go back)
+                    self.screen = AppScreen::Game;
+                    self.needs_clear = true;
+                }
+                // For solved game, Esc is ignored (can't go back)
+            }
+            _ => {}
         }
     }
 
@@ -747,7 +731,6 @@ impl App {
         self.anim.hint_blink_tick = 0;
         self.game_start_ms = self.clock.now_ms();
         self.drain_input = true;
-        self.confirm_pending = None;
         self.boss_mode = false;
         // Always disable mouse capture when starting a new game.
         if self.mouse_mode {
@@ -788,7 +771,9 @@ impl App {
                 }
                 AppAction::Back => {
                     self.paused = false;
-                    self.confirm_pending = Some(ConfirmAction::QuitGame);
+                    self.screen = AppScreen::SaveDialog;
+                    self.save_dialog_is_solved = false;
+                    self.pending_rating = None;
                     self.needs_clear = true;
                 }
                 _ => {}
@@ -798,7 +783,9 @@ impl App {
 
         match action {
             AppAction::Back => {
-                self.confirm_pending = Some(ConfirmAction::QuitGame);
+                self.screen = AppScreen::SaveDialog;
+                self.save_dialog_is_solved = false;
+                self.pending_rating = None;
                 self.needs_clear = true;
             }
             AppAction::Pause => {
@@ -1665,12 +1652,31 @@ impl App {
             // Matrix rain advances twice per frame so it completes in roughly half the time
             // without touching any visual parameters (trail length, colours, density).
             let anim_was_active = self.anim.is_active();
+            let firework_was_active = self.anim.firework.is_some();
             self.anim.advance();
             if self.anim.matrix_rain.is_some() {
                 self.anim.advance();
             }
             if anim_was_active || self.anim.is_active() {
                 needs_render = true;
+            }
+
+            // Firework finished → transition to SaveDialog (solved game).
+            if firework_was_active && self.anim.firework.is_none()
+                && matches!(self.screen, AppScreen::Game)
+            {
+                let elapsed = self.elapsed_ms();
+                let rank_info = self.db.as_ref()
+                    .and_then(|db| db.list_scores(Some(&self.current_difficulty), 100).ok())
+                    .map(|scores| {
+                        let rank = scores.iter().filter(|s| s.time_ms < elapsed).count() + 1;
+                        (rank, scores.len() + 1)
+                    });
+                self.result_rank = rank_info;
+                self.screen = AppScreen::SaveDialog;
+                self.save_dialog_is_solved = true;
+                self.pending_rating = None;
+                self.needs_clear = true;
             }
 
             // Matrix rain finished → show the Neo message (matrix_mode already active).
@@ -1826,15 +1832,7 @@ impl App {
                         hover_cell: self.hover_cell,
                         hover_panel: self.hover_panel.clone(),
                     };
-                    let screen = match &self.confirm_pending {
-                        Some(ConfirmAction::QuitGame) => Screen::Confirm {
-                            underneath: Box::new(game_screen()),
-                            title: strings.confirm_quit_title.into(),
-                            options: strings.confirm_quit_options.into(),
-                        },
-                        None => game_screen(),
-                    };
-                    render_frame(out, &screen, &self.colors, self.style.as_ref(), strings)?;
+                    render_frame(out, &game_screen(), &self.colors, self.style.as_ref(), strings)?;
                     Ok(())
                 } else {
                     Ok(())
@@ -1854,13 +1852,21 @@ impl App {
                 self.style.as_ref(),
                 strings,
             ),
-            AppScreen::SaveDialog => render_frame(
-                out,
-                &Screen::SaveDialog,
-                &self.colors,
-                self.style.as_ref(),
-                strings,
-            ),
+            AppScreen::SaveDialog => {
+                use crate::tui::render::save_dialog::{render_save_dialog, SaveDialogData};
+                let data = SaveDialogData {
+                    is_solved: self.save_dialog_is_solved,
+                    pending_rating: self.pending_rating,
+                    time_ms: self.save_dialog_is_solved.then(|| self.elapsed_ms()),
+                    rank: self.result_rank.map(|(r, _)| r),
+                    total: self.result_rank.map(|(_, t)| t),
+                    hint_count: self.save_dialog_is_solved.then(|| self.stats.hint_count),
+                    error_count: self.save_dialog_is_solved.then(|| self.stats.errors_shown),
+                    scan_used: self.save_dialog_is_solved.then(|| self.stats.scan_used),
+                };
+                render_save_dialog(out, &data, &self.colors, strings)?;
+                return Ok(());
+            }
         }?;
 
         // Matrix rain overlay — drawn over the grid area when active.
@@ -1922,6 +1928,76 @@ impl App {
                 }
             }
         }
+    }
+
+    fn do_save_and_exit(&mut self, save_progress: bool) {
+        let elapsed = self.elapsed_ms();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        if self.save_dialog_is_solved {
+            // Game completed: delete save slot (auto-save entry), insert score
+            if let Some(id) = self.save_id {
+                if let Some(db) = self.db.as_ref() {
+                    if let Err(e) = db.delete_save(id) {
+                        eprintln!("Failed to delete save after solve: {}", e);
+                    }
+                }
+            }
+            self.save_id = None;
+            if let Some(db) = self.db.as_ref() {
+                let score = crate::db::ScoreEntry {
+                    id: None,
+                    puzzle: self.initial_puzzle.clone(),
+                    puzzle_type: self.stats.category.to_db_str().to_string(),
+                    difficulty: self.current_difficulty.clone(),
+                    time_ms: elapsed,
+                    hint_count: self.stats.hint_count,
+                    error_count: self.stats.errors_shown,
+                    scan_used: self.stats.scan_used,
+                    rating: self.pending_rating,
+                    started_at: self.started_at.clone(),
+                    finished_at: now,
+                };
+                if let Err(e) = db.insert_score(&score) {
+                    eprintln!("Failed to insert score: {}", e);
+                }
+            }
+        } else {
+            // Unsolved: flush save if requested
+            if save_progress {
+                let state_clone = self.game_state.clone();
+                if let Some(state) = state_clone {
+                    let initial = self.initial_puzzle.clone();
+                    let puzzle_type = self.stats.category.to_db_str().to_string();
+                    let diff = self.current_difficulty.clone();
+                    let started = self.started_at.clone();
+                    let now2 = chrono::Utc::now().to_rfc3339();
+                    match self.save_id {
+                        Some(id) => {
+                            if let Some(db) = self.db.as_ref() {
+                                if let Err(e) = db.update_game(id, &state, elapsed, &now2) {
+                                    eprintln!("Final save update failed: {}", e);
+                                }
+                            }
+                        }
+                        None => {
+                            if let Some(db) = self.db.as_ref() {
+                                match db.save_game(&initial, &puzzle_type, None, &diff, &state, elapsed, &started) {
+                                    Ok(id) => { self.save_id = Some(id); }
+                                    Err(e) => eprintln!("Final save failed: {}", e),
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        self.save_id = None;
+        self.game_state = None;
+        let has_saves = self.compute_has_saves();
+        self.screen = AppScreen::Start { selected: 0, has_saves };
+        self.needs_clear = true;
     }
 
     fn load_game_from_db(&mut self, entry: crate::db::SaveEntry) {
@@ -2001,37 +2077,35 @@ mod tests {
     }
 
     #[test]
-    fn escape_from_game_shows_quit_confirm() {
+    fn escape_from_game_shows_save_dialog() {
         let mut app = make_app();
         app.handle_action(AppAction::Enter);
         app.handle_action(AppAction::Enter);
         assert!(matches!(app.screen, AppScreen::Game));
-        // Esc opens confirm dialog, does not immediately leave
+        // Esc opens SaveDialog (unsolved), does not immediately leave
         app.handle_action(AppAction::Back);
-        assert!(matches!(app.screen, AppScreen::Game));
-        assert!(matches!(app.confirm_pending, Some(ConfirmAction::QuitGame)));
+        assert!(matches!(app.screen, AppScreen::SaveDialog));
+        assert!(!app.save_dialog_is_solved);
     }
 
     #[test]
-    fn confirm_yes_quits_to_start() {
+    fn save_dialog_enter_from_game_goes_to_start() {
         let mut app = make_app();
         app.handle_action(AppAction::Enter);
         app.handle_action(AppAction::Enter);
-        app.handle_action(AppAction::Back); // open confirm
-        app.handle_action(AppAction::ConfirmYes); // confirm → Start
+        app.handle_action(AppAction::Back); // open SaveDialog
+        app.handle_action(AppAction::Enter); // save + exit → Start
         assert!(matches!(app.screen, AppScreen::Start { .. }));
-        assert!(app.confirm_pending.is_none());
     }
 
     #[test]
-    fn confirm_no_returns_to_game() {
+    fn save_dialog_esc_returns_to_game_when_unsolved() {
         let mut app = make_app();
         app.handle_action(AppAction::Enter);
         app.handle_action(AppAction::Enter);
-        app.handle_action(AppAction::Back); // open confirm
-        app.handle_action(AppAction::ConfirmNo); // dismiss → stay in game
+        app.handle_action(AppAction::Back); // open SaveDialog
+        app.handle_action(AppAction::Back); // Esc → resume game
         assert!(matches!(app.screen, AppScreen::Game));
-        assert!(app.confirm_pending.is_none());
     }
 
     #[test]
@@ -2068,8 +2142,7 @@ mod tests {
         // Set digit first so there's something to clear
         app.handle_action(AppAction::Digit(5));
         app.handle_action(AppAction::ClearCell);
-        // No confirm dialog — cleared immediately
-        assert!(app.confirm_pending.is_none());
+        // No dialog opened — still in game
         assert!(matches!(app.screen, AppScreen::Game));
     }
 
@@ -2322,5 +2395,51 @@ mod tests {
         app.handle_action(AppAction::Digit(4));
         // After action, save_id should be set
         assert!(app.save_id.is_some());
+    }
+
+    fn test_app_in_game() -> App {
+        use crate::puzzle::Grid;
+        const EASY: &str =
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+        let mut app = App::new(Box::new(FakeClock { ms: 0 }));
+        let grid = Grid::from_str(EASY).unwrap();
+        app.enter_game(grid);
+        app
+    }
+
+    #[test]
+    fn save_dialog_enter_goes_to_start() {
+        let mut app = test_app_in_game();
+        app.screen = AppScreen::SaveDialog;
+        app.save_dialog_is_solved = false;
+        app.handle_action(AppAction::Enter);
+        assert!(matches!(app.screen, AppScreen::Start { .. }));
+    }
+
+    #[test]
+    fn save_dialog_esc_resumes_unsolved_game() {
+        let mut app = test_app_in_game();
+        app.screen = AppScreen::SaveDialog;
+        app.save_dialog_is_solved = false;
+        app.handle_action(AppAction::Back);
+        assert!(matches!(app.screen, AppScreen::Game));
+    }
+
+    #[test]
+    fn save_dialog_digit_sets_pending_rating() {
+        let mut app = test_app_in_game();
+        app.screen = AppScreen::SaveDialog;
+        app.handle_action(AppAction::Digit(7));
+        assert_eq!(app.pending_rating, Some(7));
+    }
+
+    #[test]
+    fn save_dialog_esc_ignored_when_solved() {
+        let mut app = test_app_in_game();
+        app.screen = AppScreen::SaveDialog;
+        app.save_dialog_is_solved = true;
+        app.handle_action(AppAction::Back);
+        // Solved game: Esc is a no-op, stays on SaveDialog
+        assert!(matches!(app.screen, AppScreen::SaveDialog));
     }
 }
