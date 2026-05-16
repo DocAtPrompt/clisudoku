@@ -2,6 +2,7 @@
 pub mod boss;
 pub mod continue_screen;
 pub mod help;
+pub mod highscores;
 pub mod cell;
 pub mod confirm;
 pub mod firework;
@@ -269,7 +270,9 @@ pub fn render_frame(
         Screen::Continue { selected, saves } => {
             continue_screen::render_continue(out, saves, *selected, colors, strings)?;
         }
-        Screen::Highscores { .. } => {}
+        Screen::Highscores { difficulty_tab, scores } => {
+            highscores::render_highscores(out, scores, *difficulty_tab, colors, strings)?;
+        }
         Screen::SaveDialog => {}
     }
 

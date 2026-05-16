@@ -320,7 +320,10 @@ impl App {
                 let sv = saves.clone();
                 self.handle_continue_action(action, s, sv);
             }
-            AppScreen::Highscores { .. } => self.handle_highscores_action(action),
+            AppScreen::Highscores { difficulty_tab, scores } => {
+                let (tab, sc) = (*difficulty_tab, scores.clone());
+                self.handle_highscores_action(action, tab, sc);
+            }
             AppScreen::SaveDialog => self.handle_save_dialog_action(action),
         }
     }
@@ -447,12 +450,23 @@ impl App {
         }
     }
 
-    fn handle_highscores_action(&mut self, _action: AppAction) {
-        // stub — implemented in Task 11
-        if matches!(_action, AppAction::Back) {
-            let has_saves = self.compute_has_saves();
-            self.screen = AppScreen::Start { selected: 0, has_saves };
-            self.needs_clear = true;
+    fn handle_highscores_action(&mut self, action: AppAction, difficulty_tab: usize, scores: Vec<crate::db::ScoreEntry>) {
+        match action {
+            AppAction::MoveLeft | AppAction::MoveUp => {
+                let tab = difficulty_tab.saturating_sub(1);
+                self.screen = AppScreen::Highscores { difficulty_tab: tab, scores };
+            }
+            AppAction::MoveRight | AppAction::MoveDown => {
+                use crate::tui::render::highscores::DIFFICULTY_TABS;
+                let tab = (difficulty_tab + 1).min(DIFFICULTY_TABS.len() - 1);
+                self.screen = AppScreen::Highscores { difficulty_tab: tab, scores };
+            }
+            AppAction::Back => {
+                let has_saves = self.compute_has_saves();
+                self.screen = AppScreen::Start { selected: 2, has_saves };
+                self.needs_clear = true;
+            }
+            _ => {}
         }
     }
 
