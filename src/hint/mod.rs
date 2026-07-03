@@ -52,6 +52,7 @@ pub fn find_hint(state: &GameState, solution: &Grid) -> Option<Hint> {
         &HiddenSingle,
         &NotesHint,
         &NotesValidator, // must come before note-dependent strategies
+        &NoteSingle,     // notes narrowed to one digit by prior eliminations
         &NakedPairs,
         &HiddenPairs,
         &PointingPairs,

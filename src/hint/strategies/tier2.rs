@@ -1634,7 +1634,11 @@ impl Strategy for BugPlusOne {
                 })
                 .count();
 
-            if row_count % 2 == 1 && col_count % 2 == 1 && box_count % 2 == 1 {
+            // The digit to place is the EXTRA candidate: it appears three times
+            // (cell included) in the cell's row, column, and box, i.e. exactly
+            // 2 peer occurrences each. The other two candidates appear twice
+            // per unit (1 peer occurrence) — placing one of those would be wrong.
+            if row_count == 2 && col_count == 2 && box_count == 2 {
                 return Some(Hint {
                     cause_cells:    vec![],
                     elim_cells:     vec![],
@@ -1927,8 +1931,12 @@ impl Strategy for SimpleColoring {
                                 if elim.is_empty() {
                                     break 'outer;
                                 }
+                                // Cause = the two same-color cells that see each
+                                // other (they prove the color false). Keeping the
+                                // whole color class out of cause_cells lets the
+                                // other cells render as elimination targets.
                                 return Some(Hint {
-                                    cause_cells:    same_color.clone(),
+                                    cause_cells:    vec![(r1, c1), (r2, c2)],
                                     elim_cells:     elim.clone(),
                                     target_cell:    elim[0],
                                     elim_digit:     Some(digit),
@@ -2025,25 +2033,29 @@ impl Strategy for XYChain {
 
         // Try each bivalue cell as chain start
         for &(sr, sc, sm) in &bivalue {
-            // Extract the two digits: elim_d (first) and x (second link digit)
-            let elim_d = sm.trailing_zeros() as u8;
-            let x = (sm >> (elim_d as u32 + 1)).trailing_zeros() as u8 + elim_d + 1;
+            // Extract the two digits of the start cell.
+            let d_lo = sm.trailing_zeros() as u8;
+            let d_hi = (sm >> (d_lo as u32 + 1)).trailing_zeros() as u8 + d_lo + 1;
 
-            // DFS: chain = list of cells, incoming = digit the next cell must contain
-            // We start chain with (sr, sc), need next cell to contain `x`
-            let mut chain: Vec<(usize, usize)> = vec![(sr, sc)];
-            if let Some(h) = xy_chain_dfs(
-                &mut chain,
-                x,
-                elim_d,
-                &bivalue,
-                grid,
-                state,
-                MAX_DEPTH,
-                self.name_en(),
-                self.name_de(),
-            ) {
-                return Some(h);
+            // Either digit can be the elimination digit; the other one links
+            // to the next chain cell. Try both roles.
+            for &(elim_d, x) in &[(d_lo, d_hi), (d_hi, d_lo)] {
+                // DFS: chain = list of cells, incoming = digit the next cell must contain
+                // We start chain with (sr, sc), need next cell to contain `x`
+                let mut chain: Vec<(usize, usize)> = vec![(sr, sc)];
+                if let Some(h) = xy_chain_dfs(
+                    &mut chain,
+                    x,
+                    elim_d,
+                    &bivalue,
+                    grid,
+                    state,
+                    MAX_DEPTH,
+                    self.name_en(),
+                    self.name_de(),
+                ) {
+                    return Some(h);
+                }
             }
         }
         None
@@ -2812,22 +2824,24 @@ mod tests {
 
     #[test]
     fn bug_plus_one_finds_and_places() {
-        // Board: 4 empty cells, all others given (digit 5 as filler).
-        // (0,4): {1,3}   (0,8): {1,2,3}  ← the BUG+1 trivalue cell
-        // (2,6): {1,5}   (5,8): {1,4}
+        // Genuine BUG+1 shape: removing the extra digit from the trivalue cell
+        // would leave every candidate appearing exactly TWICE in every unit
+        // (the deadly BUG pattern). The extra digit therefore appears THREE
+        // times (cell included) in the cell's row, column, and box — and it is
+        // the digit that must be placed.
         //
-        // Digit 1 at (0,8):
-        //   row 0 peers with note 1: (0,4)           → count = 1 (odd) ✓
-        //   col 8 peers with note 1: (5,8)            → count = 1 (odd) ✓
-        //   box 2 peers with note 1: (2,6)            → count = 1 (odd) ✓
-        // → BUG+1 places digit 1 at (0,8).
+        // Trivalue cell (0,8): {1,2,3}, extra digit = 1.
+        //   row 0 : (0,2) {1,2}, (0,4) {1,3} → digit 1 appears 3× incl. cell
+        //   col 8 : (3,8) {1,2}, (5,8) {1,3} → digit 1 appears 3× incl. cell
+        //   box 2 : (1,6) {1,2}, (2,7) {1,3} → digit 1 appears 3× incl. cell
+        // Digits 2 and 3 each appear exactly twice per unit → BUG remainder.
         use crate::puzzle::event::GameEvent;
         let grid = Grid::from_str(
-            // (0,4)=0, (0,8)=0, (2,6)=0, (5,8)=0; all others = 5 (given)
-            "555505550\
-             555555555\
+            // Empty: (0,2),(0,4),(0,8),(1,6),(2,7),(3,8),(5,8); others given 5
+            "550505550\
              555555055\
-             555555555\
+             555555505\
+             555555550\
              555555555\
              555555550\
              555555555\
@@ -2838,22 +2852,28 @@ mod tests {
         let mut state = GameState::new(grid);
         let sol = Grid::from_str(SOL).unwrap();
 
-        state.apply(GameEvent::ToggleNote { row: 0, col: 4, digit: 1 });
-        state.apply(GameEvent::ToggleNote { row: 0, col: 4, digit: 3 });
-        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 1 });
-        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 2 });
-        state.apply(GameEvent::ToggleNote { row: 0, col: 8, digit: 3 });
-        state.apply(GameEvent::ToggleNote { row: 2, col: 6, digit: 1 });
-        state.apply(GameEvent::ToggleNote { row: 2, col: 6, digit: 5 });
-        state.apply(GameEvent::ToggleNote { row: 5, col: 8, digit: 1 });
-        state.apply(GameEvent::ToggleNote { row: 5, col: 8, digit: 4 });
+        for &(r, c, d) in &[
+            (0usize, 2usize, 1u8), (0, 2, 2),
+            (0, 4, 1), (0, 4, 3),
+            (0, 8, 1), (0, 8, 2), (0, 8, 3),
+            (1, 6, 1), (1, 6, 2),
+            (2, 7, 1), (2, 7, 3),
+            (3, 8, 1), (3, 8, 2),
+            (5, 8, 1), (5, 8, 3),
+        ] {
+            state.apply(GameEvent::ToggleNote { row: r, col: c, digit: d });
+        }
 
         let hint = BugPlusOne
             .find(&state, &sol)
             .expect("BugPlusOne should detect the trivalue BUG+1 cell");
         assert_eq!(hint.name_en, "BUG+1");
         assert_eq!(hint.target_cell, (0, 8), "target_cell should be the trivalue cell");
-        assert_eq!(hint.target_digit, Some(1), "digit 1 restores balance in all three units");
+        assert_eq!(
+            hint.target_digit,
+            Some(1),
+            "the extra digit (appearing 3× in row, col, and box) must be placed"
+        );
     }
 
     #[test]

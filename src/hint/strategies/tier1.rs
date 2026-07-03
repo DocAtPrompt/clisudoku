@@ -60,6 +60,7 @@ pub struct NakedSingle;
 pub struct HiddenSingle;
 pub struct NotesHint;
 pub struct NotesValidator;
+pub struct NoteSingle;
 pub struct NakedPairs;
 pub struct HiddenPairs;
 pub struct PointingPairs;
@@ -303,13 +304,16 @@ impl Strategy for NotesHint {
 //
 // Fires when any empty cell with at least one note contains:
 //   Pass 1 — a WRONG note   (digit noted but cannot go in this cell)
-//   Pass 2 — a MISSING note (valid candidate absent from the notes)
+//   Pass 2 — a MISSING note (the cell's SOLUTION digit absent from the notes)
 //
-// Both checks use actual grid candidates so they are independent of whether the
-// player has filled in all their notes correctly elsewhere.
+// Pass 2 deliberately checks only the solution digit, not every grid candidate:
+// elimination strategies (Pointing Pairs, X-Wing, …) and skilled players
+// legitimately remove non-solution candidates from notes, and the validator
+// must not ask to re-add them. Note-based strategies stay solution-correct as
+// long as every cell's notes contain its solution digit.
 //
 // Placed between NotesHint and NakedPairs so that note-dependent strategies
-// always operate on verified, complete candidate sets.
+// always operate on verified candidate sets.
 
 impl Strategy for NotesValidator {
     fn name_en(&self) -> &'static str {
@@ -319,7 +323,7 @@ impl Strategy for NotesValidator {
         "Notizen korrigieren"
     }
 
-    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+    fn find(&self, state: &GameState, solution: &Grid) -> Option<Hint> {
         let grid = state.grid();
 
         // Pass 1: wrong notes — digit is noted but doesn't fit (already in row/col/box).
@@ -382,7 +386,10 @@ impl Strategy for NotesValidator {
             }
         }
 
-        // Pass 2: missing notes — valid candidate absent from an already-started cell.
+        // Pass 2: missing notes — the cell's solution digit is absent from its
+        // notes. Only the solution digit is checked so that legitimate
+        // eliminations (by strategies or the player) are never undone. The
+        // digit itself is not named in the hint — that would reveal the answer.
         for r in 0..9 {
             for c in 0..9 {
                 if !matches!(grid.get(r, c), CellKind::Empty) {
@@ -392,33 +399,89 @@ impl Strategy for NotesValidator {
                 if notes == 0 {
                     continue;
                 } // NotesHint handles zero-note cells
+                let sol_d = match solution.get(r, c).value() {
+                    Some(d) => d,
+                    None => continue,
+                };
+                if (notes & (1 << sol_d)) != 0 {
+                    continue;
+                }
+                // Only ask to recheck if the digit is actually placeable here —
+                // otherwise Pass 1 semantics (conflict) would apply instead.
                 let actual = candidates(grid, r, c);
-                let missing = actual & !notes;
-                if missing == 0 {
+                if (actual & (1 << sol_d)) == 0 {
                     continue;
                 }
 
-                let d = missing.trailing_zeros() as u8;
+                return Some(Hint {
+                    cause_cells: vec![],
+                    elim_cells: vec![],
+                    target_cell: (r, c),
+                    elim_digit: None,
+                    target_digit: None,
+                    name_en: "Missing Note",
+                    name_de: "Fehlende Notiz",
+                    explanation_en:
+                        "A possible candidate is missing from this cell's notes — recheck them."
+                            .to_string(),
+                    explanation_de:
+                        "In den Notizen dieser Zelle fehlt ein m\u{f6}glicher Kandidat — Notizen pr\u{fc}fen."
+                            .to_string(),
+                });
+            }
+        }
+
+        None
+    }
+}
+
+// ── Note Single ───────────────────────────────────────────────────────────────
+//
+// Fires when a cell's notes have been narrowed down to exactly one digit but
+// more than one grid candidate remains (otherwise NakedSingle fires first).
+// This happens after elimination strategies removed the other candidates.
+// Runs AFTER NotesValidator, which guarantees every cell's notes contain its
+// solution digit — so a single remaining note IS the solution digit.
+
+impl Strategy for NoteSingle {
+    fn name_en(&self) -> &'static str {
+        "Naked Single"
+    }
+    fn name_de(&self) -> &'static str {
+        "Naked Single"
+    }
+
+    fn find(&self, state: &GameState, _solution: &Grid) -> Option<Hint> {
+        let grid = state.grid();
+        for r in 0..9 {
+            for c in 0..9 {
+                if !matches!(grid.get(r, c), CellKind::Empty) {
+                    continue;
+                }
+                let notes = state.notes_mask(r, c);
+                if notes.count_ones() != 1 {
+                    continue;
+                }
+                let d = notes.trailing_zeros() as u8;
                 return Some(Hint {
                     cause_cells: vec![],
                     elim_cells: vec![],
                     target_cell: (r, c),
                     elim_digit: None,
                     target_digit: Some(d),
-                    name_en: "Missing Note",
-                    name_de: "Fehlende Notiz",
+                    name_en: self.name_en(),
+                    name_de: self.name_de(),
                     explanation_en: format!(
-                        "{} is a valid candidate here — add it to the notes in this cell.",
+                        "Your notes leave only {} for this cell — place it.",
                         d
                     ),
                     explanation_de: format!(
-                        "{} ist hier m\u{f6}glich — zur Notiz hinzuf\u{fc}gen.",
-                        d
+                        "Deine Notizen lassen hier nur {} zu — {} eintragen.",
+                        d, d
                     ),
                 });
             }
         }
-
         None
     }
 }
@@ -1097,10 +1160,11 @@ mod tests {
         );
     }
 
-    // Cell (0,2) in the medium puzzle can hold {1,2,4}.
-    // Noting only digit 1 leaves 2 and 4 missing.
+    // Cell (0,2) in the medium puzzle can hold {1,2,4}; its solution digit is 4.
+    // Noting only digit 1 means the solution digit is missing from the notes —
+    // downstream note-based strategies would draw wrong conclusions.
     #[test]
-    fn notes_validator_detects_missing_note() {
+    fn notes_validator_detects_missing_solution_digit() {
         use crate::puzzle::GameEvent;
         const MEDIUM: &str =
             "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
@@ -1108,7 +1172,7 @@ mod tests {
             "534678912672195348198342567859761423426853791713924856961537284287419635345286179";
         let mut state = state_from(MEDIUM);
         let sol = Grid::from_str(MEDIUM_SOL).unwrap();
-        // Note only digit 1 in cell (0,2) — valid candidates are {1,2,4}, so 2 and 4 are missing
+        // Note only digit 1 in cell (0,2) — the solution digit 4 is missing
         state.apply(GameEvent::ToggleNote {
             row: 0,
             col: 2,
@@ -1119,7 +1183,73 @@ mod tests {
         let h = hint.unwrap();
         assert_eq!(h.target_cell, (0, 2));
         assert_eq!(h.name_en, "Missing Note");
-        assert!(h.target_digit.is_some());
+        // The hint must NOT reveal the solution digit outright.
+        assert_eq!(h.target_digit, None);
+    }
+
+    // A player (or an elimination hint like Pointing Pairs / X-Wing) may
+    // legitimately remove a NON-solution candidate from the notes. The
+    // validator must NOT ask to re-add it — otherwise every elimination hint
+    // would immediately be contradicted by a "Missing Note" hint.
+    #[test]
+    fn notes_validator_accepts_eliminated_non_solution_candidate() {
+        use crate::puzzle::GameEvent;
+        const MEDIUM: &str =
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+        const MEDIUM_SOL: &str =
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179";
+        let mut state = state_from(MEDIUM);
+        let sol = Grid::from_str(MEDIUM_SOL).unwrap();
+        // Cell (0,2): grid candidates {1,2,4}, solution digit 4.
+        // Notes {2,4}: candidate 1 was eliminated — a valid, solution-preserving state.
+        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 4 });
+        assert!(
+            NotesValidator.find(&state, &sol).is_none(),
+            "validator must not undo a legitimate elimination"
+        );
+    }
+
+    // ── NoteSingle tests ──────────────────────────────────────────────────────
+
+    // Cell (0,2) in the medium puzzle has grid candidates {1,2,4} (so NakedSingle
+    // does not fire), but eliminations narrowed the notes to just {4} — the
+    // solution digit. NoteSingle must point this out.
+    #[test]
+    fn note_single_fires_when_notes_narrowed_to_one() {
+        use crate::puzzle::GameEvent;
+        const MEDIUM: &str =
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+        const MEDIUM_SOL: &str =
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179";
+        let mut state = state_from(MEDIUM);
+        let sol = Grid::from_str(MEDIUM_SOL).unwrap();
+        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 4 });
+
+        // Sanity: more than one grid candidate remains in (0,2), so NakedSingle
+        // (candidate-based) cannot justify this cell — only the notes can.
+        assert!(candidates(state.grid(), 0, 2).count_ones() > 1);
+
+        let hint = NoteSingle
+            .find(&state, &sol)
+            .expect("NoteSingle should fire on a single-note cell");
+        assert_eq!(hint.target_cell, (0, 2));
+        assert_eq!(hint.target_digit, Some(4));
+    }
+
+    #[test]
+    fn note_single_silent_with_multiple_notes() {
+        use crate::puzzle::GameEvent;
+        const MEDIUM: &str =
+            "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+        let mut state = state_from(MEDIUM);
+        let sol = Grid::from_str(
+            "534678912672195348198342567859761423426853791713924856961537284287419635345286179",
+        )
+        .unwrap();
+        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 2 });
+        state.apply(GameEvent::ToggleNote { row: 0, col: 2, digit: 4 });
+        assert!(NoteSingle.find(&state, &sol).is_none());
     }
 
     // Without any notes, NotesValidator must not fire (NotesHint handles that case).
