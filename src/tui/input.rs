@@ -141,6 +141,11 @@ pub fn map_key_to_action(key: KeyEvent, nav: &NavState, km: &KeyMap) -> AppActio
                 'b' | 'B' => AppAction::BossKey,
                 'y' | 'Y' => AppAction::ConfirmYes,
                 'n' | 'N' => AppAction::ConfirmNo,
+                // Numpad quick shortcuts — fixed (not remappable). Undo/redo are
+                // reversible, so an accidental press is harmless; hint stays on
+                // `h` on purpose (it counts toward the score statistics).
+                '/' => AppAction::Undo,
+                '*' => AppAction::Redo,
                 c if c.is_ascii_digit() && c != '0' => {
                     let idx = (c as u8 - b'1') as usize;
                     match nav.mode {
@@ -394,6 +399,19 @@ mod tests {
         assert_eq!(
             map_key_to_action(key(KeyCode::Char('H')), &nav, &KeyMap::default()),
             AppAction::RequestHint
+        );
+    }
+
+    #[test]
+    fn numpad_slash_star_map_to_undo_redo() {
+        let nav = NavState::default();
+        assert_eq!(
+            map_key_to_action(key(KeyCode::Char('/')), &nav, &KeyMap::default()),
+            AppAction::Undo
+        );
+        assert_eq!(
+            map_key_to_action(key(KeyCode::Char('*')), &nav, &KeyMap::default()),
+            AppAction::Redo
         );
     }
 

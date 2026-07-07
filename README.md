@@ -93,6 +93,7 @@ clisudoku --config ~/dotfiles/clisudoku.toml
 | `0` | Toggle notes / digit mode |
 | `-` | Clear cell |
 | `U` / `R` | Undo / Redo |
+| `/` `*` | Undo / Redo (numpad) |
 | `H` | Request hint |
 | `S` | Toggle passive scan |
 | `E` | Toggle error highlighting |
