@@ -121,10 +121,6 @@ pub fn map_key_to_action(key: KeyEvent, nav: &NavState, km: &KeyMap) -> AppActio
         KeyCode::Esc => AppAction::Back,
         KeyCode::Delete => AppAction::Delete,
 
-        // Ctrl combos — not remappable
-        KeyCode::Char('z') if ctrl => AppAction::Undo,
-        KeyCode::Char('y') if ctrl => AppAction::Redo,
-
         KeyCode::Char(c) if !ctrl => {
             let lc = c.to_ascii_lowercase();
             if lc == km.hint.to_ascii_lowercase()         { return AppAction::RequestHint; }
@@ -336,16 +332,21 @@ mod tests {
             AppAction::Undo
         );
         assert_eq!(
-            map_key_to_action(ctrl(KeyCode::Char('z')), &NavState::default(), &KeyMap::default()),
-            AppAction::Undo
-        );
-        assert_eq!(
             map_key_to_action(key(KeyCode::Char('r')), &NavState::default(), &KeyMap::default()),
             AppAction::Redo
         );
+    }
+
+    #[test]
+    fn ctrl_z_y_no_longer_mapped() {
+        // Removed in favour of the `u`/`r` and `/`/`*` aliases.
+        assert_eq!(
+            map_key_to_action(ctrl(KeyCode::Char('z')), &NavState::default(), &KeyMap::default()),
+            AppAction::None
+        );
         assert_eq!(
             map_key_to_action(ctrl(KeyCode::Char('y')), &NavState::default(), &KeyMap::default()),
-            AppAction::Redo
+            AppAction::None
         );
     }
 
