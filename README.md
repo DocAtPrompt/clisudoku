@@ -14,6 +14,8 @@ Some programs just feel right when they run in a terminal — no mouse required,
 - **Hint system** — step-by-step hints with cause / elimination / target highlighting (20+ strategies)
 - **Notes mode** — pencil marks per cell, auto-cleared on digit entry
 - **Undo / redo** — full move history
+- **Auto-save & resume** — every move is written to a local SQLite database; resume any game from the **Continue** menu
+- **Highscores** — solve times ranked per difficulty, plus your own 0–9 puzzle rating
 - **Passive scan** — highlights all cells with the same digit as the cursor
 - **Mouse support** — click to select, hover highlights the cell
 - **3 colour themes** — Dark (default) · Light · High Contrast (colourblind-safe)
@@ -60,6 +62,7 @@ Options:
                       (Sparse is only selectable from the in-game menu)
   --digit-style <S>   Digit style: retro (default) | awkward-retro
   --config <PATH>     Config file (default: ~/.config/clisudoku/config.toml)
+  --db <PATH>         SQLite database file (default: ~/.config/clisudoku/clisudoku.db)
 ```
 
 ### Examples
@@ -112,6 +115,24 @@ clisudoku --config ~/dotfiles/clisudoku.toml
 | Expert | XY-Wing, XYZ-Wing, chains, unique rectangles, … |
 | Sparse | As few clues as possible — near the theoretical minimum of 17 |
 
+## Saving & scores
+
+clisudoku keeps your games in a local **SQLite** database — by default
+`~/.config/clisudoku/clisudoku.db`. Nothing leaves your machine.
+
+- **Auto-save** — the game is saved after every move, so you can quit any time and lose nothing.
+- **Continue** — the start menu lists every saved game (newest first) with its difficulty and elapsed time; `Enter` resumes it, `Del` deletes it. The timer picks up exactly where you left off.
+- **Save & rate on quit** — solving a puzzle (or leaving it) opens a dialog to store the result and rate the puzzle `0`–`9`; `Enter` saves, `N` skips.
+- **Highscores** — a start-menu screen with per-difficulty tabs (Easy · Medium · Hard · Extreme · Expert · Sparse · All), showing the top 10 solve times.
+
+Point `--db <PATH>` (or `[storage] db_path` in the config file) at a different
+file to keep separate score sets or share one across machines.
+
+```bash
+# Keep a separate database for a second player
+clisudoku --db ~/sudoku/alice.db
+```
+
 ## Configuration
 
 `~/.config/clisudoku/config.toml`:
@@ -121,6 +142,11 @@ clisudoku --config ~/dotfiles/clisudoku.toml
 theme = "dark"          # dark | light | high-contrast
 language = "en"         # en de es it fr sl eo tp leet sw af py id
 digit_style = "retro"   # retro | awkward-retro
+
+[storage]
+# Override the SQLite database location (default: ~/.config/clisudoku/clisudoku.db).
+# Use an absolute path — "~" is not expanded here.
+db_path = "/home/you/sudoku/clisudoku.db"
 
 [keys]
 hint = "h"
@@ -150,7 +176,6 @@ hint_target_bg = "Yellow"     # hint: target cell background
 
 Features planned for future releases:
 
-- **Statistics & history** — persistent game database with solve times, difficulty breakdown, and streaks
 - **Network challenge** — play head-to-head against others on the same puzzle in real time
 - **X-Sudoku** — diagonal constraint variant (both main diagonals must also contain 1–9)
 - **Killer Sudoku** — cage constraints with sum targets instead of given digits
