@@ -8,8 +8,24 @@ use crossterm::{
 };
 use std::io::{self, Write};
 
+/// Difficulty-tab keys. These MUST stay in English: they double as the DB
+/// filter key (`ScoreEntry::difficulty`, written by `Difficulty::to_db_str`).
+/// Display labels are localized separately via `tab_label`.
 pub const DIFFICULTY_TABS: &[&str] =
     &["Easy", "Medium", "Hard", "Extreme", "Expert", "Sparse", "All"];
+
+/// Localized display label for a difficulty-tab key.
+fn tab_label<'a>(key: &str, strings: &'a Strings) -> &'a str {
+    match key {
+        "Easy" => strings.difficulty_easy,
+        "Medium" => strings.difficulty_medium,
+        "Hard" => strings.difficulty_hard,
+        "Extreme" => strings.difficulty_extreme,
+        "Expert" => strings.difficulty_expert,
+        "Sparse" => strings.difficulty_bare_minimum,
+        _ => strings.highscores_all, // "All"
+    }
+}
 
 pub fn render_highscores(
     out: &mut impl Write,
@@ -36,10 +52,10 @@ pub fn render_highscores(
         };
         queue!(
             out,
-            MoveTo(2 + i as u16 * 10, 3),
+            MoveTo(2 + i as u16 * 12, 3),
             SetForegroundColor(fg),
             SetBackgroundColor(bg),
-            Print(format!(" {} ", tab))
+            Print(format!(" {} ", tab_label(tab, strings)))
         )?;
     }
 
@@ -98,7 +114,7 @@ pub fn render_highscores(
         MoveTo(2, 18),
         SetForegroundColor(colors.ui_text),
         SetBackgroundColor(colors.ui_background),
-        Print("[←/→] Tab  [Esc] Back")
+        Print(strings.highscores_footer)
     )?;
 
     queue!(out, ResetColor)
