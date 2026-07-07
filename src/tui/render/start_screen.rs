@@ -55,7 +55,7 @@ fn render_menu_items_with_disabled(
     for (i, item) in items.iter().enumerate() {
         let is_disabled = disabled.contains(&i);
         let (fg, bg) = if is_disabled {
-            (colors.ui_text, colors.ui_background)
+            (colors.ui_text_dim, colors.ui_background)
         } else if i == selected {
             (colors.ui_cursor_fg, colors.ui_cursor_bg)
         } else {
